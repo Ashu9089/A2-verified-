@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Miss Punch Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+body{background:#f1f5f9;padding:1.5rem 1rem;color:#0f172a}
+.dashboard-container{max-width:1500px;margin:0 auto}
+.header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:1.5rem;gap:1rem}
+.title-section h1{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,#1e293b,#2c3e66);background-clip:text;-webkit-background-clip:text;color:transparent}
+.title-section p{color:#475569;font-size:.8rem;margin-top:.2rem;display:flex;flex-wrap:wrap;gap:6px}
+.header-actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.viewer-pill{background:white;border:1px solid #dbeafe;color:#0f172a;padding:.55rem .9rem;border-radius:999px;font-size:.78rem;font-weight:700;box-shadow:0 3px 10px rgba(15,23,42,.05)}
+.viewer-pill small{color:#64748b;font-weight:600}
+.back-btn{border:0;background:#0f172a;color:#fff;border-radius:999px;padding:.62rem 1rem;font-size:.78rem;font-weight:800;cursor:pointer;display:inline-flex;gap:.45rem;align-items:center}
+.badge-admin{background:#eef2ff;color:#1e40af;padding:.2rem .7rem;border-radius:40px;font-size:.7rem;font-weight:600}
+.stats-row{display:flex;gap:.8rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.stat-card{background:white;border-radius:24px;padding:.7rem 1.2rem;box-shadow:0 2px 6px rgba(0,0,0,.03);flex:1;min-width:110px;display:flex;align-items:center;gap:.8rem;border:1px solid #e2e8f0}
+.stat-icon{width:42px;height:42px;background:#f8fafc;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.stat-info h3{font-size:1.5rem;font-weight:700}.stat-info p{font-size:.7rem;color:#475569}
+.filters-bar{background:white;border-radius:24px;padding:1rem 1.2rem;margin-bottom:1.5rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;border:1px solid #e2e8f0}
+.filter-group{display:flex;flex-direction:column;gap:.3rem;min-width:140px}.filter-group label{font-size:.7rem;font-weight:600;color:#334155}
+.filter-group input,.filter-group select{background:#f8fafc;border:1px solid #e2e8f0;border-radius:30px;padding:.5rem 1rem;font-size:.8rem;outline:none}.search-box{flex:2;min-width:200px}.search-box input{width:100%}
+.action-buttons{display:flex;gap:.5rem;align-items:center}.btn-filter{background:#3b82f6;color:white;border:none;border-radius:30px;padding:.5rem 1.2rem;font-size:.75rem;font-weight:600;cursor:pointer}.btn-reset{background:#e2e8f0;color:#1e293b}
+.requests-card{background:white;border-radius:28px;box-shadow:0 12px 30px rgba(0,0,0,.05);border:1px solid #e9eef3;overflow-x:auto}.table-header{padding:1rem 1.2rem;border-bottom:1px solid #edf2f7;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem}
+table{width:100%;border-collapse:collapse;min-width:1080px}th{text-align:left;padding:.9rem 1rem;background:#fafcff;font-weight:600;font-size:.75rem;color:#334155;border-bottom:1px solid #e2e8f0}td{padding:.9rem 1rem;border-bottom:1px solid #f0f4f9;font-size:.8rem;vertical-align:middle}
+.shift-badge{background:#eef2ff;color:#1e3a8a;padding:.2rem .6rem;border-radius:20px;font-size:.7rem;font-weight:600;display:inline-block}.shift-time{font-size:.65rem;color:#475569;margin-top:3px}.reason-text{max-width:240px;font-size:.75rem;font-weight:500;word-break:break-word}
+.reporting-info{display:flex;flex-direction:column;gap:2px}.reporting-name{font-weight:600;font-size:.75rem}.reporting-desig{font-size:.65rem;color:#5b6e8c}
+.status-pending{background:#fef9e3;color:#b45309}.status-approved{background:#e0f2e7;color:#166534}.status-rejected{background:#ffe6e5;color:#b91c1c}.status-badge{display:inline-flex;align-items:center;gap:5px;padding:.2rem .7rem;border-radius:40px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.action-group{display:flex;gap:6px;flex-wrap:wrap}.btn-approve,.btn-reject{border:none;padding:.3rem .7rem;border-radius:40px;font-size:.65rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}.btn-approve{background:#3b82f6;color:white}.btn-reject{background:#ef4444;color:white}.btn-disabled{background:#cbd5e1!important;color:#475569!important;cursor:default}
+.pagination{display:flex;justify-content:flex-end;align-items:center;gap:.5rem;margin-top:1rem;padding:1rem;flex-wrap:wrap}.pagination button,.pagination span{background:white;border:1px solid #e2e8f0;padding:.4rem .8rem;border-radius:30px;font-size:.7rem;cursor:pointer}.pagination button:disabled{opacity:.4;cursor:not-allowed}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:white;padding:8px 18px;border-radius:40px;font-size:.75rem;z-index:9999}.toast.err{background:#b91c1c}
+footer{margin-top:2rem;text-align:center;font-size:.7rem;color:#64748b;border-top:1px solid #e2e8f0;padding-top:1rem}@media(max-width:760px){.filters-bar{flex-direction:column;align-items:stretch}.filter-group{width:100%}.header-actions{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="dashboard-container">
+  <div class="header">
+    <div class="title-section">
+      <h1><i class="fas fa-fingerprint"></i> Miss Punch Admin</h1>
+      <p><i class="fas fa-database"></i> Supabase RPC Data <span class="badge-admin">RLS ON Safe</span><span class="badge-admin">Role Visibility</span><span class="badge-admin">Approver Name Save</span></p>
+    </div>
+    <div class="header-actions">
+      <div class="viewer-pill" id="viewerInfo">Opening user: Loading...</div>
+      <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+    </div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-icon" style="color:#eab308;"><i class="fas fa-hourglass-half"></i></div><div class="stat-info"><h3 id="pendingCount">0</h3><p>Pending</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#10b981;"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="approvedCount">0</h3><p>Approved</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#ef4444;"><i class="fas fa-times-circle"></i></div><div class="stat-info"><h3 id="rejectedCount">0</h3><p>Rejected</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#3b82f6;"><i class="fas fa-users"></i></div><div class="stat-info"><h3 id="totalCount">0</h3><p>Total</p></div></div>
+  </div>
+  <div class="filters-bar">
+    <div class="filter-group search-box"><label><i class="fas fa-search"></i> Search Emp Code / Name / Date</label><input type="text" id="globalSearch" placeholder="EMP001, Rohit, 2026-05-30"></div>
+    <div class="filter-group"><label><i class="fas fa-calendar-alt"></i> From Date</label><input type="date" id="dateFrom"></div>
+    <div class="filter-group"><label><i class="fas fa-calendar-alt"></i> To Date</label><input type="date" id="dateTo"></div>
+    <div class="filter-group"><label><i class="fas fa-flag-checkered"></i> Status</label><select id="statusFilter"><option value="all">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
+    <div class="action-buttons"><button id="applyFiltersBtn" class="btn-filter"><i class="fas fa-filter"></i> Apply</button><button id="resetFiltersBtn" class="btn-filter btn-reset"><i class="fas fa-undo-alt"></i> Reset</button></div>
+    <div class="filter-group"><label><i class="fas fa-table"></i> Rows</label><select id="pageSizeSelect"><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option></select></div>
+  </div>
+  <div class="requests-card"><div class="table-header"><h2><i class="fas fa-clipboard-list"></i> Miss Punch Requests</h2><span id="recordRange">Showing 0-0 of 0</span></div><div style="overflow-x:auto;"><table><thead><tr><th>Emp Code</th><th>Employee</th><th>Miss Date</th><th>Shift</th><th>Correction Time</th><th>Reason</th><th>Reporting</th><th>Status</th><th>Approved/Rejected By</th><th>Actions</th></tr></thead><tbody id="tableBody"><tr><td colspan="10">Loading...</td></tr></tbody></table></div><div class="pagination" id="paginationControls"></div></div>
+  <footer>Approve updates attendance table from miss_punch_requests.</footer>
+</div>
+<script>
+const SUPABASE_URL="https://tovpcbzztvkiwamimrxt.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+function createSb(){if(!window.supabase||!window.supabase.createClient){throw new Error("Supabase library load nahi hui.");}if(window.__ADMIN_MISS_PUNCH_SB__)return window.__ADMIN_MISS_PUNCH_SB__;window.__ADMIN_MISS_PUNCH_SB__=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{"x-client-info":"admin-miss-punch-viewer"}}});return window.__ADMIN_MISS_PUNCH_SB__;}
+const sb=createSb();
+const $=id=>document.getElementById(id);
+const tbody=$("tableBody"),pendingSpan=$("pendingCount"),approvedSpan=$("approvedCount"),rejectedSpan=$("rejectedCount"),totalSpan=$("totalCount"),globalSearch=$("globalSearch"),dateFromInput=$("dateFrom"),dateToInput=$("dateTo"),statusSelect=$("statusFilter"),applyBtn=$("applyFiltersBtn"),resetBtn=$("resetFiltersBtn"),pageSizeSelect=$("pageSizeSelect"),paginationDiv=$("paginationControls"),recordRangeSpan=$("recordRange"),viewerInfo=$("viewerInfo");
+let state={orgId:"",orgCode:"",viewerEmpId:"",viewerEmpCode:"",viewerUserId:"",viewerRole:"",viewerEmail:"",viewerMobile:"",viewerName:"",viewerType:"",viewerSource:"",viewerDisplayMode:"",returnPage:"emp.html",rows:[],total:0,currentPage:1,pageSize:50,search:"",from:"",to:"",status:"all",loading:false};
+function uuidLike(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||""))}
+function getJson(key){try{return JSON.parse(localStorage.getItem(key)||sessionStorage.getItem(key)||"{}")||{}}catch{return{}}}
+function readSession(){
+  const p=new URLSearchParams(location.search);
+  const cs=getJson("currentSession"), ce=getJson("currentEmployee"), el=getJson("inlist_employee_login_v2");
+  const mix={...cs,...ce,...el};
+
+  const urlRole=(p.get("role")||p.get("account_type")||p.get("type")||"").toLowerCase().trim();
+  const urlMode=(p.get("mode")||"").toLowerCase().trim();
+  const adminMode=["owner","admin","admin_user","company","developer","dev","hr","operation","operation_manager","manager","incharge"].includes(urlRole) || ["company","admin","owner","developer","dev"].includes(urlMode);
+
+  // VERY IMPORTANT:
+  // Admin/company mode me URL ke emp_id/emp_code ko "screen opener" mat mano.
+  // Aise links me emp_id aksar selected employee (EMP001) ka hota hai, admin ka nahi.
+  // Sirf viewer_emp_id/viewer_emp_code explicitly mile to admin viewer employee maana jayega.
+  const explicitViewerEmpId=(p.get("viewer_emp_id")||"").trim();
+  const explicitViewerEmpCode=(p.get("viewer_emp_code")||"").toUpperCase().trim();
+  const normalEmpId=(p.get("emp_id")||p.get("employee_id")||"").trim();
+  const normalEmpCode=(p.get("emp_code")||p.get("employee_code")||p.get("emp")||"").toUpperCase().trim();
+
+  let viewerEmpId="", viewerEmpCode="";
+  let source="url";
+  let displayMode="employee_or_staff";
+
+  if(adminMode){
+    viewerEmpId=explicitViewerEmpId;       // only explicit viewer_* allowed
+    viewerEmpCode=explicitViewerEmpCode;
+    source=explicitViewerEmpId || explicitViewerEmpCode
+      ? "url-explicit-viewer-admin"
+      : "admin-mode-emp-param-ignored";
+    displayMode="admin_mode_no_emp_display";
+  }else if(explicitViewerEmpId || explicitViewerEmpCode){
+    viewerEmpId=explicitViewerEmpId;
+    viewerEmpCode=explicitViewerEmpCode;
+    source="url-explicit-viewer-employee";
+  }else if(normalEmpId || normalEmpCode){
+    viewerEmpId=normalEmpId;
+    viewerEmpCode=normalEmpCode;
+    source="url-employee-opener";
+  }else{
+    // Employee/staff open me hi localStorage employee fallback use hoga.
+    viewerEmpId=(mix.emp_id||mix.empId||mix.employee_id||mix.employeeId||localStorage.getItem("emp_id")||localStorage.getItem("employee_id")||"").trim();
+    viewerEmpCode=(mix.emp_code||mix.empCode||localStorage.getItem("emp_code")||localStorage.getItem("empCode")||localStorage.getItem("current_emp_code")||"").toUpperCase().trim();
+    source="employee-localstorage-fallback";
+  }
+
+  return{
+    orgId:(p.get("org_id")||mix.org_id||mix.orgId||localStorage.getItem("org_id")||localStorage.getItem("orgId")||"").trim(),
+    orgCode:(p.get("org_code")||p.get("company_code")||mix.org_code||mix.orgCode||mix.companyCode||localStorage.getItem("org_code")||localStorage.getItem("orgCode")||localStorage.getItem("current_org_code")||"").toUpperCase().trim(),
+    viewerEmpId,
+    viewerEmpCode,
+    viewerUserId:(p.get("viewer_user_id")||p.get("user_id")||mix.user_id||mix.userId||mix.id||localStorage.getItem("user_id")||localStorage.getItem("userId")||"").trim(),
+    viewerRole:urlRole || (mix.role||mix.employee_type||mix.accountType||"").toLowerCase().trim(),
+    viewerEmail:(p.get("email")||mix.email||"").trim(),
+    viewerMobile:(p.get("mobile")||mix.mobile||mix.phone||"").trim(),
+    viewerName:(p.get("name")||mix.full_name||mix.name||mix.employee_name||"").trim(),
+    viewerSource:source,
+    viewerDisplayMode:displayMode,
+    returnPage:p.get("return_page")||mix.return_page||"emp.html"
+  };
+}
+
+function escapeHtml(str){return String(str??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[s]))}
+function time5(v){if(!v)return"";const s=String(v);return s.includes("T")?s.slice(11,16):s.slice(0,5)}
+function formatDate(d){return d?String(d).slice(0,10):"-"}
+function normalizeStatus(s){s=String(s||"pending").toLowerCase();if(s.includes("approve"))return"approved";if(s.includes("reject"))return"rejected";return"pending"}
+function showToast(msg,isErr=false){let old=document.querySelector(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast"+(isErr?" err":"");t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
+function niceDesignation(v){
+  let x = String(v || "").trim();
+  if(!x) return "Unknown";
+  const map = {
+    owner: "Owner",
+    admin: "Admin",
+    admin_user: "Admin",
+    company: "Admin",
+    developer: "Developer",
+    dev: "Developer",
+    hr: "HR",
+    operation: "Operation",
+    opretion: "Operation",
+    operations: "Operation",
+    operation_manager: "Operation Manager",
+    opretion_manager: "Operation Manager",
+    manager: "Manager",
+    incharge: "Incharge",
+    employee: "Employee",
+    staff: "Staff"
+  };
+  const key = x.toLowerCase().replace(/[\s-]+/g,"_");
+  if(map[key]) return map[key];
+  return x.replace(/_/g," ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function renderViewer(){
+  // Back button ke side sirf screen open karne wale user ka designation dikhana hai.
+  // Naam / EMP code / user id / source kuch bhi show nahi hoga.
+  let designation = "";
+
+  if(state.viewerDisplayMode === "admin_mode_no_emp_display"){
+    // Admin/company mode me URL ka emp_id aksar selected employee hota hai, opener nahi.
+    // Isliye yahan role ko hi display designation maana gaya hai.
+    designation = state.viewerRole || state.viewerType || "Admin";
+  }else{
+    designation = state.viewerType || state.viewerRole || "Unknown";
+  }
+
+  viewerInfo.innerHTML = `<b>${escapeHtml(niceDesignation(designation))}</b>`;
+}
+function renderStatusBadge(status){const st=normalizeStatus(status);if(st==="approved")return`<span class="status-badge status-approved"><i class="fas fa-check-circle"></i> Approved</span>`;if(st==="rejected")return`<span class="status-badge status-rejected"><i class="fas fa-times-circle"></i> Rejected</span>`;return`<span class="status-badge status-pending"><i class="fas fa-hourglass-start"></i> Pending</span>`;}
+async function loadPage(){if(state.loading)return;state.loading=true;tbody.innerHTML=`<tr><td colspan="10">Loading...</td></tr>`;try{const {data,error}=await sb.rpc("app_admin_miss_punch_page_data_v3",{p_org_id:uuidLike(state.orgId)?state.orgId:null,p_org_code:state.orgCode||null,p_viewer_emp_id:uuidLike(state.viewerEmpId)?state.viewerEmpId:null,p_viewer_emp_code:state.viewerEmpCode||null,p_viewer_user_id:uuidLike(state.viewerUserId)?state.viewerUserId:null,p_viewer_role:state.viewerRole||null,p_viewer_email:state.viewerEmail||null,p_viewer_mobile:state.viewerMobile||null,p_status:state.status||"all",p_search:state.search||null,p_from_date:state.from||null,p_to_date:state.to||null,p_page:state.currentPage,p_page_size:state.pageSize});if(error)throw error;const out=Array.isArray(data)?(data[0]||{}):(data||{});if(out.error)throw new Error(out.error);state.orgId=out.org_id||state.orgId;state.orgCode=out.org_code||state.orgCode;const v=out.viewer||{};
+    if(state.viewerDisplayMode !== "admin_mode_no_emp_display"){
+      state.viewerEmpId=v.id||state.viewerEmpId;
+      state.viewerEmpCode=v.emp_code||state.viewerEmpCode;
+      state.viewerName=v.full_name||v.name||state.viewerName;
+      state.viewerType=v.designation||v.employee_type||state.viewerType;
+      state.viewerSource=v.source||state.viewerSource;
+    }else{
+      // Admin/company open me SQL viewer se EMP001 aaya to bhi top label me nahi lagayenge.
+      state.viewerType=state.viewerRole||state.viewerType||"admin";
+    }
+    renderViewer();state.rows=out.rows||[];state.total=Number(out.total||0);const c=out.counts||{};pendingSpan.textContent=c.pending||0;approvedSpan.textContent=c.approved||0;rejectedSpan.textContent=c.rejected||0;totalSpan.textContent=c.total||0;renderTable();renderPagination();}catch(e){console.error("admin miss punch load error:",e);tbody.innerHTML=`<tr><td colspan="10">${escapeHtml(e.message||e)}</td></tr>`;showToast(e.message||"Data load failed",true);}finally{state.loading=false;}}
+function renderTable(){if(!state.rows.length){tbody.innerHTML=`<tr><td colspan="10">No records found</td></tr>`;recordRangeSpan.textContent=`Showing 0 - 0 of 0`;return;}tbody.innerHTML=state.rows.map(rec=>{const st=normalizeStatus(rec.status);const actions=st==="pending"?`<div class="action-group"><button class="btn-approve" data-id="${escapeHtml(rec.id)}"><i class="fas fa-thumbs-up"></i> Approve</button><button class="btn-reject" data-id="${escapeHtml(rec.id)}"><i class="fas fa-ban"></i> Reject</button></div>`:`<div class="action-group"><button class="btn-approve btn-disabled" disabled><i class="fas fa-lock"></i> Done</button></div>`;return`<tr><td><span style="font-family:monospace;font-weight:600;">${escapeHtml(rec.emp_code||"-")}</span></td><td><strong>${escapeHtml(rec.employee_name||rec.emp_name||rec.name||"-")}</strong><div class="shift-time">${escapeHtml(rec.employee_type||"")}</div></td><td><span style="background:#f1f5f9;padding:4px 8px;border-radius:20px;">${escapeHtml(formatDate(rec.request_date))}</span></td><td><span class="shift-badge">${escapeHtml(rec.shift_name||"Shift")}</span><div class="shift-time">${time5(rec.shift_start_time)} - ${time5(rec.shift_end_time)}</div></td><td>${rec.missed_in_time?`IN: ${time5(rec.missed_in_time)}`:""}${rec.missed_in_time&&rec.missed_out_time?" | ":""}${rec.missed_out_time?`OUT: ${time5(rec.missed_out_time)}`:""}</td><td><div class="reason-text">${escapeHtml(rec.reason||"-")}</div></td><td><div class="reporting-info"><span class="reporting-name">${escapeHtml(rec.reporting_person_name||"—")}</span><span class="reporting-desig">${escapeHtml(rec.reporting_person_code||"")}</span></div></td><td>${renderStatusBadge(rec.status)}</td><td><div class="reporting-info"><span class="reporting-name">${escapeHtml(rec.action_by_name||rec.approved_by_name||rec.rejected_by_name||"—")}</span><span class="reporting-desig">${escapeHtml(rec.action_by_code||rec.approved_by_code||rec.rejected_by_code||"")}</span></div></td><td>${actions}</td></tr>`;}).join("");document.querySelectorAll(".btn-approve[data-id]").forEach(btn=>btn.onclick=()=>updateStatus(btn.dataset.id,"approved"));document.querySelectorAll(".btn-reject[data-id]").forEach(btn=>btn.onclick=()=>updateStatus(btn.dataset.id,"rejected"));const start=(state.currentPage-1)*state.pageSize+1;const end=Math.min(state.currentPage*state.pageSize,state.total);recordRangeSpan.textContent=`Showing ${start} - ${end} of ${state.total}`;}
+function renderPagination(){const totalPages=Math.max(1,Math.ceil(state.total/state.pageSize));if(state.currentPage>totalPages)state.currentPage=totalPages;paginationDiv.innerHTML=`<button id="firstPage" ${state.currentPage===1?"disabled":""}><i class="fas fa-angle-double-left"></i></button><button id="prevPage" ${state.currentPage===1?"disabled":""}><i class="fas fa-angle-left"></i></button><span>Page ${state.currentPage} of ${totalPages}</span><button id="nextPage" ${state.currentPage>=totalPages?"disabled":""}><i class="fas fa-angle-right"></i></button><button id="lastPage" ${state.currentPage>=totalPages?"disabled":""}><i class="fas fa-angle-double-right"></i></button>`;$("firstPage").onclick=()=>{state.currentPage=1;loadPage()};$("prevPage").onclick=()=>{if(state.currentPage>1){state.currentPage--;loadPage()}};$("nextPage").onclick=()=>{if(state.currentPage<totalPages){state.currentPage++;loadPage()}};$("lastPage").onclick=()=>{state.currentPage=totalPages;loadPage()};}
+async function updateStatus(id,status){const remark=status==="rejected"?(prompt("Reject reason likho:")||"Rejected by admin"):"Approved by admin";try{const {data,error}=await sb.rpc("app_admin_miss_punch_action_v4",{p_request_id:id,p_action:status,p_admin_remark:remark,p_approver_emp_id:uuidLike(state.viewerEmpId)?state.viewerEmpId:null,p_approver_emp_code:state.viewerEmpCode||null,p_approver_user_id:uuidLike(state.viewerUserId)?state.viewerUserId:null,p_approver_role:state.viewerRole||state.viewerType||null,p_approver_name:state.viewerName||null});if(error)throw error;const out=Array.isArray(data)?(data[0]||{}):(data||{});if(out.error)throw new Error(out.error);showToast(status==="approved"?"Approved + attendance updated":"Rejected successfully");await loadPage();}catch(e){console.error("action error:",e);showToast(e.message||"Action failed",true);}}
+function applyFilters(){state.search=globalSearch.value.trim();state.from=dateFromInput.value;state.to=dateToInput.value;state.status=statusSelect.value;state.currentPage=1;loadPage();}
+function resetFilters(){globalSearch.value="";dateFromInput.value="";dateToInput.value="";statusSelect.value="all";state.search="";state.from="";state.to="";state.status="all";state.currentPage=1;loadPage();}
+applyBtn.onclick=applyFilters;resetBtn.onclick=resetFilters;globalSearch.onkeypress=e=>{if(e.key==="Enter")applyFilters()};pageSizeSelect.onchange=e=>{state.pageSize=Number(e.target.value);state.currentPage=1;loadPage();};$("backBtn").onclick=()=>{if(history.length>1)history.back();else window.location.href=state.returnPage||"emp.html";};
+async function init(){try{const s=readSession();state.orgId=s.orgId;state.orgCode=s.orgCode;state.viewerEmpId=s.viewerEmpId;state.viewerEmpCode=s.viewerEmpCode;state.viewerUserId=s.viewerUserId;state.viewerRole=s.viewerRole;state.viewerEmail=s.viewerEmail;state.viewerMobile=s.viewerMobile;state.viewerName=s.viewerName;state.viewerSource=s.viewerSource;state.viewerDisplayMode=s.viewerDisplayMode;state.returnPage=s.returnPage;renderViewer();if(!state.orgId&&!state.orgCode)throw new Error("URL me org_id/org_code bhejo.");if(!state.viewerEmpId&&!state.viewerEmpCode&&!state.viewerUserId&&!state.viewerRole)throw new Error("URL me screen open karne wale user_id/role ya emp_id/emp_code bhejo.");await loadPage();}catch(e){tbody.innerHTML=`<tr><td colspan="10">${escapeHtml(e.message)}</td></tr>`;showToast(e.message,true);}}
+init();
+</script>
+</body>
+</html>

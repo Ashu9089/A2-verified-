@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Inlist | Employee Overtime Request</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+    body{min-height:100vh;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);padding:24px 18px;display:flex;justify-content:center;align-items:flex-start;color:#123}
+    .ot-card{max-width:1280px;width:100%;background:#fff;border-radius:2rem;box-shadow:0 25px 45px -12px rgba(0,0,0,.4);overflow:hidden}
+    .header-bar{background:#0a2c2f;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .back-btn{background:rgba(255,255,255,.12);padding:9px 20px;border-radius:40px;color:#fff;font-weight:800;display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:0}
+    .back-btn:hover{background:rgba(255,255,255,.22);transform:translateX(-2px)}
+    .emp-details{background:#174d47;padding:9px 24px;border-radius:40px;color:#e0f2f5;font-size:.9rem;font-weight:700}
+    .emp-details strong{color:#ffd966}
+    .form-container{padding:28px 32px 24px}
+    .section-title{font-size:1.2rem;font-weight:900;color:#1e4a4f;margin:20px 0 12px;border-left:5px solid #2c7a5e;padding-left:14px}
+    .first-title{margin-top:0}
+    .hint{background:#f4f9fc;border:1px solid #e2edf2;color:#476777;padding:12px 16px;border-radius:18px;margin-bottom:14px;font-size:.88rem;line-height:1.55}
+    .ot-table-wrapper{overflow-x:auto;margin:15px 0 10px;border-radius:1rem;border:1px solid #e2e8f0}
+    .ot-table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:920px}
+    .ot-table th,.ot-table td{padding:12px 10px;border-bottom:1px solid #e9edf2;text-align:left;vertical-align:middle}
+    .ot-table th{background:#f1f8fc;font-weight:800;color:#1c5a4c}
+    .ot-table td input{width:100%;padding:8px 10px;border-radius:12px;border:1px solid #cbd5e1;background:white;font-size:.82rem}
+    .auto-field{background:#f3f4f6!important;color:#1f3a3f;font-weight:700}
+    .extra-hours-cell{font-weight:900;background:#fef9e3;color:#b45309;border-radius:12px}
+    .delete-row,.fetch-row{border:0;border-radius:999px;cursor:pointer;font-weight:900;padding:7px 10px}
+    .delete-row{background:#fee2e2;color:#991b1b}
+    .fetch-row{background:#e0f2fe;color:#075985;margin-right:6px}
+    .add-row-btn{background:#1e5a4c;color:white;border:0;border-radius:2rem;padding:9px 22px;font-weight:800;margin:15px 0 10px;cursor:pointer}
+    .total-ot-box{background:#eafaf1;padding:12px 20px;border-radius:28px;font-weight:900;font-size:1rem;margin:12px 0 20px;display:inline-block;color:#14532d}
+    .field-group{margin-bottom:18px;display:flex;flex-direction:column;gap:8px}
+    label{font-weight:800;color:#1e3a3f;font-size:.85rem}
+    textarea,select,input[type=file]{border:1px solid #cbdbe2;border-radius:1.25rem;padding:12px 18px;font-size:.9rem;background:#fefefe;outline:none;width:100%}
+    textarea{resize:vertical}
+    .upload-area{border:1px dashed #94b7c5;background:#fafdfe;border-radius:1.2rem;padding:10px 16px}
+    .submit-ot{background:#1e5a4c;color:white;border:0;border-radius:3rem;padding:14px;font-weight:900;font-size:1rem;width:100%;cursor:pointer;transition:.2s;margin-top:12px}
+    .submit-ot:disabled{opacity:.55;cursor:not-allowed}
+    .history-panel{background:#f4f9fd;border-radius:1.5rem;margin:0 32px 32px;padding:1.2rem 1.5rem}
+    .history-title{font-weight:900;font-size:1.15rem;color:#1e4a4f;display:flex;align-items:center;gap:8px;margin-bottom:14px}
+    .ot-history-list{display:flex;flex-direction:column;gap:12px;max-height:420px;overflow:auto}
+    .history-item{background:white;border-radius:1.2rem;padding:14px 18px;border-left:6px solid #f1a23d;box-shadow:0 1px 4px rgba(0,0,0,.05);line-height:1.55}
+    .badge{background:#eef2fa;padding:3px 12px;border-radius:30px;font-weight:900;font-size:.76rem;text-transform:capitalize}
+    .badge.approved{background:#dcfce7;color:#166534}.badge.rejected{background:#fee2e2;color:#991b1b}.badge.pending{background:#fef3c7;color:#92400e}.badge.cancelled{background:#e5e7eb;color:#374151}
+    .toast-msg{position:fixed;bottom:20px;left:20px;background:#1f5e3a;color:#fff;padding:12px 20px;border-radius:40px;font-weight:800;z-index:1200;box-shadow:0 10px 25px rgba(0,0,0,.18)}
+    .toast-msg.err{background:#b91c1c}
+    .no-data{background:#fff7ed;border:1px dashed #fdba74;border-radius:16px;padding:14px;font-weight:800;color:#9a3412}
+    @media(max-width:780px){body{padding:12px}.form-container{padding:20px}.header-bar{padding:1rem}.emp-details,.back-btn{width:100%;justify-content:center;text-align:center}.history-panel{margin:0 20px 24px}.ot-table th,.ot-table td{font-size:.75rem;padding:8px 5px}}
+  </style>
+</head>
+<body>
+<div class="ot-card">
+  <div class="header-bar">
+    <button class="back-btn" id="backOtBtn">← Back</button>
+    <div class="emp-details" id="empHeaderOT">Loading employee...</div>
+  </div>
+
+  <div class="form-container">
+    <div class="section-title first-title">⏱️ Employee Overtime Request</div>
+    <div class="hint">
+      Date select karo. System Supabase se us din ka roster + attendance punch-out fetch karega. Shift end ke baad jitna extra kaam hua wahi overtime request me submit hoga.
+    </div>
+
+    <div class="ot-table-wrapper">
+      <table class="ot-table" id="otEntriesTable">
+        <thead>
+          <tr>
+            <th>Select Date</th>
+            <th>Shift Name</th>
+            <th>Shift Start</th>
+            <th>Shift End</th>
+            <th>Actual Punch Out</th>
+            <th>Extra Hours</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="otEntriesBody"></tbody>
+      </table>
+    </div>
+
+    <button type="button" class="add-row-btn" id="addRowBtn">+ Add Another Date</button>
+    <div class="total-ot-box" id="totalExtraHoursDisplay">🧾 Total Extra Hours: 0.00 hrs</div>
+
+    <div class="field-group">
+      <label>📝 Reason / Description *</label>
+      <textarea rows="3" id="otReason" placeholder="Example: emergency duty, patient load, client delivery, extra closing work"></textarea>
+    </div>
+
+    <div class="field-group upload-area">
+      <label>📎 Supporting Document Name optional</label>
+      <input type="file" id="otDoc" accept=".pdf,.jpg,.jpeg,.png,.docx" />
+    </div>
+
+    <button class="submit-ot" id="submitOtBtn">✅ Submit Overtime Request</button>
+  </div>
+
+  <div class="history-panel">
+    <div class="history-title">📋 Previous Overtime Requests</div>
+    <div id="otHistoryList" class="ot-history-list"><div class="no-data">Loading...</div></div>
+  </div>
+</div>
+
+<script>
+// ==================================================
+// SUPABASE CONFIG
+// ==================================================
+const SUPABASE_URL = "https://tovpcbzztvkiwamimrxt.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+
+// Mini Supabase REST client - CDN ki zarurat nahi.
+function createMiniSupabaseClient(url, key){
+  const base = url.replace(/\/$/, '');
+  const headers = { apikey:key, Authorization:`Bearer ${key}`, "Content-Type":"application/json" };
+
+  class QueryBuilder{
+    constructor(table){
+      this.table=table; this.method="GET"; this.body=null; this.params=new URLSearchParams();
+      this.expectSingle=false; this.expectMaybeSingle=false; this.returnRepresentation=false;
+    }
+    select(cols="*"){ this.params.set("select", cols); this.returnRepresentation=true; return this; }
+    eq(col,val){ this.params.set(col, `eq.${encodeURIComponent(String(val))}`); return this; }
+    gte(col,val){ this.params.set(col, `gte.${encodeURIComponent(String(val))}`); return this; }
+    lte(col,val){ this.params.set(col, `lte.${encodeURIComponent(String(val))}`); return this; }
+    order(col,opt={}){ this.params.set("order", `${col}.${opt.ascending===false?"desc":"asc"}`); return this; }
+    limit(n){ this.params.set("limit", String(n)); return this; }
+    insert(data){ this.method="POST"; this.body=data; this.returnRepresentation=true; return this; }
+    update(data){ this.method="PATCH"; this.body=data; return this; }
+    single(){ this.expectSingle=true; return this.execute(); }
+    maybeSingle(){ this.expectMaybeSingle=true; return this.execute(); }
+    then(res,rej){ return this.execute().then(res,rej); }
+    async execute(){
+      const qs=this.params.toString();
+      const endpoint=`${base}/rest/v1/${this.table}${qs ? "?" + qs : ""}`;
+      const reqHeaders={...headers};
+      if(this.returnRepresentation || this.method==="POST") reqHeaders.Prefer="return=representation";
+      const res=await fetch(endpoint,{method:this.method,headers:reqHeaders,body:this.body?JSON.stringify(this.body):undefined});
+      const raw=await res.text();
+      let data=null; try{ data=raw?JSON.parse(raw):null; }catch{ data=raw; }
+      if(!res.ok) return {data:null,error:{message:(data&&(data.message||data.details||data.hint))||raw||res.statusText, raw:data}};
+      if(this.expectSingle || this.expectMaybeSingle){
+        if(Array.isArray(data)){
+          if(data.length===0 && this.expectMaybeSingle) return {data:null,error:null};
+          if(data.length===1) return {data:data[0],error:null};
+          return {data:null,error:{message:"Record nahi mila ya duplicate data hai"}};
+        }
+      }
+      return {data,error:null};
+    }
+  }
+
+  return {
+    from(table){ return new QueryBuilder(table); },
+    async rpc(fn,args){
+      const res=await fetch(`${base}/rest/v1/rpc/${fn}`,{method:"POST",headers,body:JSON.stringify(args||{})});
+      const raw=await res.text(); let data=null; try{data=raw?JSON.parse(raw):null;}catch{data=raw;}
+      if(!res.ok) return {data:null,error:{message:(data&&(data.message||data.details||data.hint))||raw||res.statusText, raw:data}};
+      return {data,error:null};
+    }
+  };
+}
+const sb = createMiniSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ==================================================
+// STATE + LOGIN
+// ==================================================
+const DEFAULT_LOGIN = { org_code:"HOSP001", emp_code:"EMP001", email:"", mobile:"" };
+const STORAGE_KEY = "inlist_employee_login_v2";
+let state = { org:null, emp:null, rows:[] };
+
+function $(id){ return document.getElementById(id); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function safe(v){ return String(v ?? "").replace(/[&<>"]/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
+function readJson(key){ try{return JSON.parse(localStorage.getItem(key)||"{}");}catch{return {};} }
+function firstStored(keys){ for(const k of keys){ const v=localStorage.getItem(k); if(v && String(v).trim()) return String(v).trim(); } return ""; }
+
+function normalizeLogin(raw){
+  const obj = raw && typeof raw === "object" ? raw : {};
+  let orgCode = String(obj.org_code || obj.orgCode || firstStored(["org_code","orgCode","current_org_code"]) || DEFAULT_LOGIN.org_code).trim().toUpperCase();
+  let empCode = String(obj.emp_code || obj.empCode || firstStored(["emp_code","empCode","current_emp_code"]) || DEFAULT_LOGIN.emp_code).trim().toUpperCase();
+  if(/^EMP\d+/i.test(orgCode)){ orgCode = DEFAULT_LOGIN.org_code; }
+  return {
+    org_code: orgCode || DEFAULT_LOGIN.org_code,
+    emp_code: empCode || DEFAULT_LOGIN.emp_code,
+    email: String(obj.email || firstStored(["email","current_email"]) || "").trim(),
+    mobile: String(obj.mobile || firstStored(["mobile","phone","current_mobile"]) || "").trim()
+  };
+}
+
+function loadLogin(){
+  const raw = readJson(STORAGE_KEY);
+  const fixed = normalizeLogin(Object.keys(raw).length ? raw : readJson("currentEmployee"));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(fixed));
+  localStorage.setItem("org_code", fixed.org_code);
+  localStorage.setItem("emp_code", fixed.emp_code);
+  localStorage.setItem("orgCode", fixed.org_code);
+  localStorage.setItem("empCode", fixed.emp_code);
+  return fixed;
+}
+const login = loadLogin();
+
+// ==================================================
+// HELPERS
+// ==================================================
+function toast(msg, err=false){
+  const old=document.querySelector(".toast-msg"); if(old) old.remove();
+  const div=document.createElement("div"); div.className="toast-msg"+(err?" err":""); div.textContent=msg;
+  document.body.appendChild(div); setTimeout(()=>div.remove(),3300);
+}
+function fmtDate(v){ if(!v) return "-"; const d=new Date(String(v).slice(0,10)+"T00:00:00"); return Number.isNaN(d.getTime())?safe(v):d.toLocaleDateString("en-IN"); }
+function fmtDT(v){ if(!v) return "-"; const d=new Date(v); return Number.isNaN(d.getTime())?safe(v):d.toLocaleString("en-IN"); }
+function fmtTime(v){
+  if(!v) return "";
+  if(String(v).includes("T")) return new Date(v).toTimeString().slice(0,5);
+  return String(v).slice(0,5);
+}
+function timeToMinutes(t){
+  if(!t) return 0;
+  const [h,m]=String(t).slice(0,5).split(":").map(Number);
+  return (h||0)*60+(m||0);
+}
+function calculateExtraMinutes(shiftEnd, actualOut){
+  if(!shiftEnd || !actualOut) return 0;
+  const endM=timeToMinutes(shiftEnd);
+  let outM=timeToMinutes(actualOut);
+  // Agar shift end late night 20:00+ hai aur actual out 00:xx/01:xx hai to next day maana.
+  if(outM < endM && endM >= 20*60) outM += 24*60;
+  return Math.max(0, outM - endM);
+}
+function minutesToHours(mins){ return (Number(mins || 0) / 60).toFixed(2); }
+function statusBadge(status){
+  const s=String(status||"pending").toLowerCase();
+  return `<span class="badge ${safe(s)}">${safe(s.replaceAll("_"," "))}</span>`;
+}
+
+// ==================================================
+// LOAD EMPLOYEE
+// ==================================================
+async function loadEmployee(){
+  const orgRes = await sb.from("organizations").select("*").eq("org_code", login.org_code).eq("active", true).maybeSingle();
+  if(orgRes.error || !orgRes.data) throw new Error(orgRes.error?.message || "ORG_NOT_FOUND");
+
+  const empRes = await sb.from("employees").select("*").eq("org_id", orgRes.data.id).eq("emp_code", login.emp_code).eq("active", true).maybeSingle();
+  if(empRes.error || !empRes.data) throw new Error(empRes.error?.message || "EMPLOYEE_NOT_FOUND");
+
+  state.org = orgRes.data;
+  state.emp = empRes.data;
+
+  $("empHeaderOT").innerHTML = `<strong>${safe(state.emp.full_name)}</strong> | ID: ${safe(state.emp.emp_code)} | Dept: ${safe(state.emp.department || "-")}`;
+}
+
+// ==================================================
+// ROWS: FETCH ROSTER + ATTENDANCE
+// ==================================================
+function createRow(initialDate=""){
+  const tr=document.createElement("tr");
+  tr.dataset.extraMinutes="0";
+  tr.dataset.attendanceId="";
+  tr.dataset.rosterId="";
+
+  tr.innerHTML = `
+    <td><input type="date" class="ot-date" value="${safe(initialDate)}"></td>
+    <td><input type="text" class="shift-name auto-field" readonly placeholder="Auto"></td>
+    <td><input type="time" class="shift-start auto-field" readonly></td>
+    <td><input type="time" class="shift-end auto-field" readonly></td>
+    <td><input type="time" class="actual-out auto-field" readonly></td>
+    <td class="extra-hours-cell"><span class="extra-hours-value">0.00</span> hrs</td>
+    <td>
+      <button type="button" class="fetch-row">Fetch</button>
+      <button type="button" class="delete-row">✖</button>
+    </td>
+  `;
+
+  tr.querySelector(".ot-date").addEventListener("change", ()=>fetchRowData(tr));
+  tr.querySelector(".fetch-row").addEventListener("click", ()=>fetchRowData(tr));
+  tr.querySelector(".delete-row").addEventListener("click", ()=>{ tr.remove(); updateTotalExtra(); });
+
+  if(initialDate) setTimeout(()=>fetchRowData(tr), 60);
+  return tr;
+}
+function addNewRow(dateVal=""){
+  $("otEntriesBody").appendChild(createRow(dateVal));
+  updateTotalExtra();
+}
+
+async function fetchRowData(row){
+  const date = row.querySelector(".ot-date").value;
+  if(!date){ toast("Date select karo.", true); return; }
+  if(!state.emp) { toast("Employee load nahi hua.", true); return; }
+
+  row.querySelector(".shift-name").value = "Loading...";
+  row.querySelector(".shift-start").value = "";
+  row.querySelector(".shift-end").value = "";
+  row.querySelector(".actual-out").value = "";
+  row.querySelector(".extra-hours-value").textContent = "0.00";
+  row.dataset.extraMinutes="0";
+
+  const rosterRes = await sb.from("rosters")
+    .select("*")
+    .eq("employee_id", state.emp.id)
+    .eq("roster_date", date)
+    .eq("active", true)
+    .maybeSingle();
+
+  if(rosterRes.error){ toast(rosterRes.error.message, true); row.querySelector(".shift-name").value = "Roster Error"; return; }
+  if(!rosterRes.data){ toast(`Is date ka roster nahi mila: ${date}`, true); row.querySelector(".shift-name").value = "No roster"; return; }
+
+  const roster = rosterRes.data;
+  row.dataset.rosterId = roster.id || "";
+  row.querySelector(".shift-name").value = roster.shift_name || "Shift";
+  row.querySelector(".shift-start").value = fmtTime(roster.shift_start);
+  row.querySelector(".shift-end").value = fmtTime(roster.shift_end);
+
+  const attRes = await sb.from("attendance")
+    .select("*")
+    .eq("employee_id", state.emp.id)
+    .eq("attendance_date", date)
+    .maybeSingle();
+
+  if(attRes.error){ toast(attRes.error.message, true); return; }
+  if(!attRes.data){ toast(`Is date ka attendance/punch nahi mila: ${date}`, true); return; }
+  if(!attRes.data.punch_out){ toast(`Is date par punch-out nahi mila. Overtime calculate nahi hoga.`, true); return; }
+
+  const att = attRes.data;
+  row.dataset.attendanceId = att.id || "";
+  row.querySelector(".actual-out").value = fmtTime(att.punch_out);
+
+  const extraMinutes = calculateExtraMinutes(fmtTime(roster.shift_end), fmtTime(att.punch_out));
+  row.dataset.extraMinutes = String(extraMinutes);
+  row.querySelector(".extra-hours-value").textContent = minutesToHours(extraMinutes);
+
+  if(extraMinutes <= 0) toast("Is date par shift end ke baad extra time nahi mila.", true);
+  updateTotalExtra();
+}
+
+function updateTotalExtra(){
+  let total=0;
+  document.querySelectorAll("#otEntriesBody tr").forEach(row => total += Number(row.dataset.extraMinutes || 0));
+  $("totalExtraHoursDisplay").textContent = `🧾 Total Extra Hours: ${minutesToHours(total)} hrs`;
+  return total;
+}
+
+function collectEntries(){
+  const entries=[];
+  document.querySelectorAll("#otEntriesBody tr").forEach((row, i) => {
+    const date=row.querySelector(".ot-date").value;
+    const extraMinutes=Number(row.dataset.extraMinutes || 0);
+    if(date){
+      entries.push({
+        rowNo:i+1,
+        date,
+        attendanceId: row.dataset.attendanceId || null,
+        rosterId: row.dataset.rosterId || null,
+        shiftName: row.querySelector(".shift-name").value,
+        shiftStart: row.querySelector(".shift-start").value,
+        shiftEnd: row.querySelector(".shift-end").value,
+        actualOut: row.querySelector(".actual-out").value,
+        extraMinutes
+      });
+    }
+  });
+  return entries;
+}
+
+// ==================================================
+// SUBMIT
+// ==================================================
+async function insertOvertime(entry, reason, attachmentName){
+  const fullPayload = {
+    org_id: state.org.id,
+    branch_id: state.emp.branch_id || null,
+    employee_id: state.emp.id,
+    attendance_id: entry.attendanceId,
+    org_code: state.org.org_code,
+    emp_code: state.emp.emp_code,
+    employee_name: state.emp.full_name,
+    department: state.emp.department || null,
+    overtime_date: entry.date,
+    roster_id: entry.rosterId,
+    shift_name: entry.shiftName,
+    shift_start: entry.shiftStart || null,
+    shift_end: entry.shiftEnd || null,
+    punch_out: entry.actualOut || null,
+    overtime_minutes: entry.extraMinutes,
+    reason,
+    attachment_name: attachmentName || null,
+    status: "pending"
+  };
+
+  let res = await sb.from("overtime_requests").insert(fullPayload).select("*").single();
+
+  // Agar SQL update nahi chalaya aur columns missing hain, core schema fallback.
+  if(res.error){
+    const msg = String(res.error.message || "").toLowerCase();
+    if(msg.includes("column") || msg.includes("schema cache") || msg.includes("branch_id") || msg.includes("overtime_date")){
+      const minimalPayload = {
+        org_id: state.org.id,
+        employee_id: state.emp.id,
+        attendance_id: entry.attendanceId,
+        overtime_minutes: entry.extraMinutes,
+        reason: `${reason}\n\nDate: ${entry.date}\nShift: ${entry.shiftName} ${entry.shiftStart}-${entry.shiftEnd}\nPunch out: ${entry.actualOut}\nOT: ${minutesToHours(entry.extraMinutes)} hrs${attachmentName ? "\nAttachment: " + attachmentName : ""}`,
+        status: "pending"
+      };
+      res = await sb.from("overtime_requests").insert(minimalPayload).select("*").single();
+    }
+  }
+
+  if(res.error) throw new Error(res.error.message);
+  return res.data;
+}
+
+async function submitOvertime(){
+  if(!state.emp || !state.org){ toast("Employee context load nahi hua.", true); return; }
+  const reason = $("otReason").value.trim();
+  if(!reason){ toast("Reason required hai.", true); return; }
+
+  const entries = collectEntries();
+  if(!entries.length){ toast("Kam se kam ek date add karo.", true); return; }
+
+  const valid = entries.filter(e => e.extraMinutes > 0 && e.attendanceId);
+  if(!valid.length){ toast("Kisi bhi row me valid overtime nahi mila. Pehle Fetch karo.", true); return; }
+
+  const file = $("otDoc").files && $("otDoc").files[0] ? $("otDoc").files[0].name : null;
+  const btn=$("submitOtBtn");
+  btn.disabled=true; btn.textContent="Submitting...";
+
+  try{
+    for(const entry of valid){
+      await insertOvertime(entry, reason, file);
+    }
+    toast(`✅ ${valid.length} overtime request submit ho gaya.`);
+    $("otReason").value="";
+    $("otDoc").value="";
+    $("otEntriesBody").innerHTML="";
+    addNewRow(todayISO());
+    await loadHistory();
+  }catch(e){
+    console.error(e);
+    toast(e.message || "Submit failed", true);
+  }finally{
+    btn.disabled=false; btn.textContent="✅ Submit Overtime Request";
+  }
+}
+
+// ==================================================
+// HISTORY
+// ==================================================
+async function loadHistory(){
+  if(!state.emp){ return; }
+  const container=$("otHistoryList");
+  container.innerHTML='<div class="no-data">Loading...</div>';
+
+  const res = await sb.from("overtime_requests")
+    .select("*")
+    .eq("employee_id", state.emp.id)
+    .order("created_at", { ascending:false })
+    .limit(20);
+
+  if(res.error){
+    container.innerHTML = `<div class="no-data">${safe(res.error.message)}</div>`;
+    return;
+  }
+  const rows=res.data || [];
+  if(!rows.length){
+    container.innerHTML = '<div class="no-data">✨ No previous overtime requests found.</div>';
+    return;
+  }
+
+  container.innerHTML = rows.map(r => {
+    const minutes = Number(r.overtime_minutes || 0);
+    const date = r.overtime_date || (r.created_at ? String(r.created_at).slice(0,10) : "");
+    const shift = r.shift_name ? `${safe(r.shift_name)} ${safe(r.shift_start || "")}-${safe(r.shift_end || "")}` : "";
+    return `
+      <div class="history-item">
+        <div><strong>📅 ${fmtDate(date)}</strong> &nbsp; 🕒 OT: ${minutesToHours(minutes)} hrs &nbsp; ${statusBadge(r.status)}</div>
+        ${shift ? `<div>🧭 Shift: ${shift} | Punch out: ${safe(r.punch_out || "-")}</div>` : ""}
+        <div>📝 ${safe(String(r.reason || "-").slice(0,160))}</div>
+        <div style="font-size:.76rem;color:#64748b;">Applied: ${fmtDT(r.created_at)} ${r.approved_at ? "| Approved: " + fmtDT(r.approved_at) : ""}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ==================================================
+// INIT
+// ==================================================
+async function init(){
+  try{
+    $("backOtBtn").onclick = () => {
+      if(history.length > 1) history.back();
+      else window.location.href = "emp.html";
+    };
+    $("addRowBtn").onclick = () => addNewRow("");
+    $("submitOtBtn").onclick = submitOvertime;
+
+    await loadEmployee();
+    addNewRow(todayISO());
+    await loadHistory();
+  }catch(e){
+    console.error(e);
+    $("empHeaderOT").innerHTML = `<strong>Error:</strong> ${safe(e.message)}`;
+    $("otHistoryList").innerHTML = `<div class="no-data">${safe(e.message)}</div>`;
+    toast(e.message || "Load failed", true);
+  }
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>

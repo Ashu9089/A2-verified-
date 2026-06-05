@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Holiday List | Company Calendar</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      min-height: 100vh;
+      padding: 32px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .holiday-card {
+      max-width: 1100px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 2rem;
+      box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .header-bar {
+      background: #0a2c2f;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .back-btn {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(4px);
+      padding: 8px 20px;
+      border-radius: 40px;
+      color: white;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 0.9rem;
+      border: none;
+    }
+
+    .back-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateX(-3px);
+    }
+
+    .emp-details {
+      background: #174d47;
+      padding: 8px 24px;
+      border-radius: 40px;
+      color: #e0f2f5;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .emp-details strong {
+      color: #ffd966;
+      margin: 0 4px;
+    }
+
+    .content-container {
+      padding: 28px 32px 32px;
+    }
+
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1e4a4f;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .subtitle {
+      color: #4b6f7c;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      border-left: 3px solid #2c7a5e;
+      padding-left: 12px;
+    }
+
+    .holiday-table-wrapper {
+      overflow-x: auto;
+      border-radius: 1.2rem;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 24px;
+    }
+
+    .holiday-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .holiday-table th {
+      background: #f1f8fc;
+      padding: 14px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #1c5a4c;
+      border-bottom: 2px solid #dce5ef;
+    }
+
+    .holiday-table td {
+      padding: 12px;
+      border-bottom: 1px solid #edf2f7;
+      vertical-align: middle;
+    }
+
+    .holiday-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .holiday-name {
+      font-weight: 600;
+      color: #1f3a4b;
+    }
+
+    .holiday-date {
+      font-family: monospace;
+      font-weight: 500;
+      background: #f1f5f9;
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+    }
+
+    .holiday-day {
+      color: #5b6e8c;
+      font-size: 0.8rem;
+    }
+
+    .badge {
+      background: #e6f4ea;
+      color: #1f5e3a;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .footer-note {
+      background: #fef9e6;
+      padding: 14px 20px;
+      border-radius: 1rem;
+      font-size: 0.8rem;
+      color: #b45309;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: #1f5e3a;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 40px;
+      font-weight: 500;
+      z-index: 1200;
+      animation: fadeOut 3s forwards;
+    }
+
+    @keyframes fadeOut {
+      0% { opacity: 1; transform: translateY(0); }
+      70% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    @media (max-width: 680px) {
+      .content-container {
+        padding: 20px;
+      }
+      .header-bar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .holiday-table th, .holiday-table td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="holiday-card">
+  <div class="header-bar">
+    <div class="back-btn" id="backHolidayBtn">← Back</div>
+    <div class="emp-details" id="empHeaderHoliday"></div>
+  </div>
+
+  <div class="content-container">
+    <div class="section-title">
+      📅 2026 Holiday Calendar
+    </div>
+    <div class="subtitle">
+      Official holidays approved by management — No overtime / leave restrictions on these days.
+    </div>
+
+    <div class="holiday-table-wrapper">
+      <table class="holiday-table">
+        <thead>
+          <tr><th>Date</th><th>Day</th><th>Holiday Name</th><th>Type</th></tr>
+        </thead>
+        <tbody id="holidayTableBody">
+          <!-- dynamic holiday rows -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-note">
+      🎉 <strong>Note:</strong> If a holiday falls on a weekly off, compensatory leave may be granted. Contact HR for clarification.
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/* =====================================================
+   EMPLOYEE / ADMIN HOLIDAY LIST - SUPABASE CONNECTED
+   Jo bhi screen open karega uski ID show hogi
+   Holiday same org_id ke hisab se show hoga
+===================================================== */
+
+const SUPABASE_URL = "https://tovpcbzztvkiwamimrxt.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+let holidays = [];
+let CURRENT_ORG_ID = null;
+let CURRENT_ORG_CODE = null;
+let CURRENT_USER_ID = null;
+let CURRENT_EMP_CODE = null;
+let CURRENT_ROLE = null;
+let CURRENT_NAME = null;
+let CURRENT_DEPARTMENT = null;
+
+function qs(id) {
+  return document.getElementById(id);
+}
+
+function getParam(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+function safeJson(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "{}");
+  } catch (e) {
+    return {};
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str).replace(/[&<>"]/g, function(m) {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;"
+    }[m];
+  });
+}
+
+function showToast(msg, err) {
+  let old = document.querySelector(".toast-msg");
+  if (old) old.remove();
+
+  const toast = document.createElement("div");
+  toast.className = "toast-msg";
+  toast.style.background = err ? "#b91c1c" : "#1f5e3a";
+  toast.innerText = msg;
+  document.body.appendChild(toast);
+
+  setTimeout(function() {
+    toast.remove();
+  }, 3000);
+}
+
+/* =========================
+   USER / SESSION RESOLVE
+========================= */
+
+async function resolveCurrentUser() {
+  const session = safeJson("currentSession");
+
+  CURRENT_ORG_ID =
+    getParam("org_id") ||
+    session.orgId ||
+    session.org_id ||
+    session.organization_id ||
+    null;
+
+  CURRENT_ORG_CODE =
+    getParam("org_code") ||
+    session.orgCode ||
+    session.org_code ||
+    session.companyCode ||
+    session.company_code ||
+    null;
+
+  CURRENT_USER_ID =
+    getParam("user_id") ||
+    session.userId ||
+    session.user_id ||
+    session.id ||
+    null;
+
+  CURRENT_EMP_CODE =
+    getParam("emp_code") ||
+    session.empCode ||
+    session.emp_code ||
+    session.employeeCode ||
+    session.employee_code ||
+    null;
+
+  CURRENT_ROLE =
+    getParam("role") ||
+    session.role ||
+    session.userRole ||
+    session.user_role ||
+    "employee";
+
+  CURRENT_NAME =
+    getParam("name") ||
+    session.fullName ||
+    session.full_name ||
+    session.name ||
+    null;
+
+  CURRENT_DEPARTMENT =
+    getParam("department") ||
+    session.department ||
+    "-";
+
+  if (!CURRENT_ORG_ID && CURRENT_ORG_CODE) {
+    const orgRes = await supabaseClient
+      .from("organizations")
+      .select("id, org_name, org_code")
+      .eq("org_code", CURRENT_ORG_CODE)
+      .maybeSingle();
+
+    if (!orgRes.error && orgRes.data) {
+      CURRENT_ORG_ID = orgRes.data.id;
+      CURRENT_ORG_CODE = orgRes.data.org_code;
+    }
+  }
+
+  if (CURRENT_ORG_ID && CURRENT_EMP_CODE && !CURRENT_NAME) {
+    const empRes = await supabaseClient
+      .from("employees")
+      .select("full_name, department, emp_code")
+      .eq("org_id", CURRENT_ORG_ID)
+      .eq("emp_code", CURRENT_EMP_CODE)
+      .maybeSingle();
+
+    if (!empRes.error && empRes.data) {
+      CURRENT_NAME = empRes.data.full_name || CURRENT_NAME;
+      CURRENT_DEPARTMENT = empRes.data.department || CURRENT_DEPARTMENT;
+      CURRENT_EMP_CODE = empRes.data.emp_code || CURRENT_EMP_CODE;
+    }
+  }
+
+  if (!CURRENT_NAME) {
+    CURRENT_NAME =
+      CURRENT_EMP_CODE ||
+      CURRENT_USER_ID ||
+      CURRENT_ROLE ||
+      "User";
+  }
+
+  setUserHeader();
+
+  if (!CURRENT_ORG_ID) {
+    showToast("ORG_NOT_FOUND: URL/session me org_id nahi mila", true);
+    return false;
+  }
+
+  return true;
+}
+
+/* =========================
+   HEADER SET
+========================= */
+
+function setUserHeader() {
+  const headerSpan = qs("empHeaderHoliday");
+  if (!headerSpan) return;
+
+  const idToShow =
+    CURRENT_EMP_CODE ||
+    CURRENT_USER_ID ||
+    "-";
+
+  headerSpan.innerHTML =
+    "<strong>" + escapeHtml(CURRENT_NAME || "User") + "</strong>" +
+    " | ID: " + escapeHtml(idToShow) +
+    " | Role: " + escapeHtml(String(CURRENT_ROLE || "employee").toUpperCase()) +
+    " | Org: " + escapeHtml(CURRENT_ORG_CODE || "-");
+}
+
+/* =========================
+   HOLIDAY LOAD FROM SUPABASE
+========================= */
+
+async function loadHolidays() {
+  if (!CURRENT_ORG_ID) return;
+
+  const res = await supabaseClient
+    .from("org_holidays")
+    .select("id, holiday_date, holiday_name, holiday_type, description, active")
+    .eq("org_id", CURRENT_ORG_ID)
+    .eq("active", true)
+    .order("holiday_date", { ascending: true });
+
+  if (res.error) {
+    console.error("loadHolidays error:", res.error);
+    showToast("Holiday load error: " + res.error.message, true);
+    renderEmptyHoliday("Holiday load nahi ho paya.");
+    return;
+  }
+
+  holidays = res.data || [];
+  renderHolidayList();
+}
+
+/* =========================
+   RENDER HOLIDAY TABLE
+========================= */
+
+function renderHolidayList() {
+  const tbody = qs("holidayTableBody");
+  if (!tbody) return;
+
+  if (!holidays.length) {
+    renderEmptyHoliday("Abhi is company me koi holiday add nahi hai.");
+    return;
+  }
+
+  let html = "";
+
+  holidays.forEach(function(hol) {
+    html += "<tr>";
+    html += '<td><span class="holiday-date">' + formatDate(hol.holiday_date) + "</span></td>";
+    html += '<td class="holiday-day">' + getDayName(hol.holiday_date) + "</td>";
+    html += '<td class="holiday-name">' + escapeHtml(hol.holiday_name || "-") + "</td>";
+    html += '<td><span class="badge">' + escapeHtml(hol.holiday_type || "Holiday") + "</span></td>";
+    html += "</tr>";
+  });
+
+  tbody.innerHTML = html;
+}
+
+function renderEmptyHoliday(msg) {
+  const tbody = qs("holidayTableBody");
+  if (!tbody) return;
+
+  tbody.innerHTML =
+    '<tr>' +
+      '<td colspan="4" style="text-align:center; padding:22px; color:#64748b;">' +
+        escapeHtml(msg) +
+      '</td>' +
+    '</tr>';
+}
+
+/* =========================
+   DATE HELPERS
+========================= */
+
+function formatDate(dateStr) {
+  if (!dateStr) return "-";
+
+  const d = new Date(dateStr + "T00:00:00");
+
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
+function getDayName(dateStr) {
+  if (!dateStr) return "-";
+
+  const d = new Date(dateStr + "T00:00:00");
+
+  return d.toLocaleDateString("en-IN", {
+    weekday: "long"
+  });
+}
+
+/* =========================
+   BACK BUTTON
+========================= */
+
+function goBackByRole() {
+  const role = String(CURRENT_ROLE || "").toLowerCase();
+
+  if (role === "owner" || role === "admin" || role === "hr") {
+    location.href = "admin.html" + window.location.search;
+  } else if (role === "dev" || role === "developer") {
+    location.href = "dev.html" + window.location.search;
+  } else {
+    location.href = "emp.html" + window.location.search;
+  }
+}
+
+const backBtn = qs("backHolidayBtn");
+if (backBtn) {
+  backBtn.addEventListener("click", goBackByRole);
+}
+
+/* =========================
+   INIT
+========================= */
+
+(async function initHolidayEmployeePage() {
+  const ok = await resolveCurrentUser();
+
+  if (ok) {
+    await loadHolidays();
+  }
+})();
+</script>
+
+</body>
+</html>

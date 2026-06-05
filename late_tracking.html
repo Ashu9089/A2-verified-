@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Late Entry Report | Supabase RLS Safe</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+    body{background:radial-gradient(ellipse at 20% 30%,#0f2f2c,#051c1a);min-height:100vh;padding:1rem}
+    .report-container{max-width:1400px;margin:0 auto;background:rgba(255,255,255,.96);border-radius:2rem;box-shadow:0 30px 50px rgba(0,0,0,.25);overflow:hidden}
+    .top-bar{background:#0a2c2f;padding:.7rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem;color:#fff}
+    .org-info{background:#174d47;padding:4px 14px;border-radius:40px;font-size:.8rem}.header{background:linear-gradient(135deg,#1a5c54,#0e3d38);padding:.8rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem;color:#fff}
+    .header h1{font-size:1.3rem;display:flex;align-items:center;gap:8px}.back-btn{background:rgba(255,255,255,.15);border:0;padding:6px 15px;border-radius:40px;cursor:pointer;color:#fff}
+    .filters{padding:1.2rem 1.5rem;background:#f4faf8;border-bottom:1px solid #e0efeb;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end}
+    .filter-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:130px}.filter-group label{font-size:.7rem;font-weight:800;color:#1e6b63;text-transform:uppercase}
+    input,select{padding:8px 14px;border-radius:2rem;border:1px solid #cfe0db;background:#fff;font-size:.8rem;outline:none}.btn-sm{background:#1f6e68;color:white;border:0;padding:8px 18px;border-radius:2rem;font-weight:700;cursor:pointer}.btn-secondary{background:#e2e8f0;color:#2c655e;border:0;padding:8px 18px;border-radius:2rem;cursor:pointer;font-weight:700}
+    .stats-row{display:flex;flex-wrap:wrap;gap:1rem;padding:1rem 1.5rem;background:#fff;border-bottom:1px solid #eef4f2}.stat-card{background:#fefcf7;border-radius:1rem;padding:.6rem 1rem;text-align:center;flex:1;min-width:120px;border:1px solid #e0efeb}.stat-number{font-size:1.6rem;font-weight:900;color:#1e5a4c}.stat-label{font-size:.7rem;color:#5b8a82;font-weight:800}
+    .tools-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:1rem 1.5rem;background:#fff}.muted{font-size:.75rem;color:#64748b;font-weight:800}
+    .table-wrapper{overflow-x:auto;padding:0 1.5rem 1.5rem}.late-table{width:100%;border-collapse:collapse;background:#fff;border-radius:1.2rem;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.02)}.late-table th,.late-table td{padding:12px 10px;text-align:left;border-bottom:1px solid #eef4f2;vertical-align:middle}.late-table th{background:#eef6f4;color:#1e5a4c;font-weight:800;font-size:.8rem;position:sticky;top:0}
+    .badge-late{background:#ffe6e5;color:#b91c1c;padding:4px 11px;border-radius:2rem;font-size:.7rem;font-weight:800}.no-data{text-align:center;padding:2rem;color:#6b8c9c;font-weight:800}
+    .pagination{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:0 1.5rem 1.5rem}.page-btn{background:#e2e8f0;border:0;border-radius:999px;padding:7px 14px;font-weight:900;cursor:pointer}.page-btn.active{background:#1f6e68;color:white}.page-btn:disabled{opacity:.45;cursor:not-allowed}
+    .toast{position:fixed;bottom:20px;left:20px;background:#1a5e58;color:#fff;padding:10px 16px;border-radius:40px;font-size:.8rem;z-index:3000}.toast.err{background:#b91c1c}
+    @media(max-width:720px){.filters{flex-direction:column;align-items:stretch}.filter-group{width:100%}.late-table th,.late-table td{font-size:.75rem;padding:9px 7px}}
+  </style>
+</head>
+<body>
+<div class="report-container">
+  <div class="top-bar">
+    <div><i class="fas fa-user-shield"></i> Admin: <strong id="adminName">--</strong> | ID: <strong id="adminId">--</strong></div>
+    <div class="org-info"><i class="fas fa-building"></i> <span id="orgName">--</span> | <span id="orgCode">--</span></div>
+  </div>
+  <div class="header">
+    <h1><i class="fas fa-hourglass-start"></i> Late Entry Report</h1>
+    <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group"><label>From Date</label><input type="date" id="fromDate"></div>
+    <div class="filter-group"><label>To Date</label><input type="date" id="toDate"></div>
+    <div class="filter-group"><label>Department</label><select id="deptFilter"><option value="all">All Departments</option></select></div>
+    <div class="filter-group"><label>Search Name/ID</label><input type="text" id="searchInput" placeholder="Employee"></div>
+    <div class="filter-group"><label>Page Size</label><select id="pageSize"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div>
+    <button id="applyFilterBtn" class="btn-sm"><i class="fas fa-search"></i> Apply</button>
+    <button id="resetBtn" class="btn-secondary">Reset</button>
+    <button id="exportExcelBtn" class="btn-secondary"><i class="fas fa-file-excel"></i> Excel</button>
+    <button id="exportPdfBtn" class="btn-secondary"><i class="fas fa-file-pdf"></i> PDF</button>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+  <div class="tools-row">
+    <div class="muted" id="pageMeta">Loading...</div>
+    <div class="muted">RLS safe: table direct select nahi, sirf SECURITY DEFINER RPC call hota hai. Export max 5000 rows.</div>
+  </div>
+
+  <div class="table-wrapper">
+    <table class="late-table">
+      <thead><tr><th>Date</th><th>Employee ID</th><th>Name</th><th>Department</th><th>Scheduled Shift</th><th>Actual Check-In</th><th>Late Duration</th><th>Remarks</th></tr></thead>
+      <tbody id="lateTableBody"></tbody>
+    </table>
+  </div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true,autoRefreshToken:true}});
+const $=id=>document.getElementById(id);
+let state={org:null,admin:null,rows:[],total:0,summary:{},page:1,limit:50,from:'',to:'',dept:'all',search:''};
+
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3500)}
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function monthStartISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`}
+function fmtDate(v){return v?String(v).slice(0,10):'--'}
+function fmtTime(v){if(!v)return'--'; if(String(v).includes('T')) return new Date(v).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); return String(v).slice(0,5)}
+function readSession(){
+  let s={};
+  for(const k of ['inlistSession','currentSession','session','adminSession','employeeSession']){try{const raw=sessionStorage.getItem(k)||localStorage.getItem(k); if(raw){s={...s,...JSON.parse(raw)}}}catch(e){}}
+  const qp=new URLSearchParams(location.search);
+  return {
+    orgId: qp.get('org_id') || s.orgId || s.org_id || localStorage.getItem('org_id') || '',
+    orgCode: qp.get('org_code') || s.orgCode || s.org_code || localStorage.getItem('orgCode') || localStorage.getItem('org_code') || '',
+    userId: qp.get('user_id') || s.userId || s.user_id || s.adminId || s.id || localStorage.getItem('admin_user_id') || '',
+    email: qp.get('email') || s.email || localStorage.getItem('email') || '',
+    mobile: qp.get('mobile') || s.mobile || s.phone || localStorage.getItem('mobile') || '',
+    adminName: s.fullName || s.full_name || s.name || s.adminName || 'Admin'
+  };
+}
+async function rpc(fn,args){
+  const {data,error}=await sb.rpc(fn,args||{});
+  if(error) throw new Error(error.message || error.details || JSON.stringify(error));
+  return data;
+}
+
+async function resolveContext(){
+  const s=readSession();
+  if(!s.orgId && !s.orgCode) throw new Error('ORG_NOT_FOUND: URL/session me org_id ya org_code nahi mila.');
+  const data=await rpc('late_report_screen_context',{
+    p_org_id:s.orgId || null,
+    p_org_code:s.orgCode || null,
+    p_viewer_user_id:s.userId || null,
+    p_viewer_email:s.email || null,
+    p_viewer_mobile:s.mobile || null
+  });
+  if(!data?.ok) throw new Error(data?.message || 'ACCESS_DENIED');
+  state.org=data.org;
+  state.admin=data.viewer || {id:s.userId,name:s.adminName};
+  $('adminName').textContent=state.admin.name || s.adminName || '--';
+  $('adminId').textContent=state.admin.emp_code || state.admin.id || s.userId || '--';
+  $('orgName').textContent=state.org.org_name || '--';
+  $('orgCode').textContent=state.org.org_code || '--';
+  const deps=data.departments || [];
+  $('deptFilter').innerHTML='<option value="all">All Departments</option>'+deps.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
+}
+
+function readFilters(){
+  state.from=$('fromDate').value||null;
+  state.to=$('toDate').value||null;
+  state.dept=$('deptFilter').value||'all';
+  state.search=$('searchInput').value.trim()||null;
+  state.limit=Number($('pageSize').value||50);
+}
+
+async function loadLateReport(page=state.page){
+  if(!state.org) return;
+  state.page=Math.max(1,Number(page||1));
+  readFilters();
+  $('lateTableBody').innerHTML='<tr><td colspan="8" class="no-data">Loading...</td></tr>';
+  const offset=(state.page-1)*state.limit;
+  const data=await rpc('admin_get_late_report',{
+    p_org_id:state.org.id,
+    p_viewer_user_id:state.admin.id || null,
+    p_from_date:state.from,
+    p_to_date:state.to,
+    p_department:state.dept,
+    p_search:state.search,
+    p_limit:state.limit,
+    p_offset:offset
+  });
+  if(!data?.ok) throw new Error(data?.message || 'REPORT_LOAD_FAILED');
+  state.rows=data.items||[];
+  state.total=Number(data.total||0);
+  state.summary=data.summary||{};
+  renderStats(); renderTable(); renderPagination();
+}
+
+function renderStats(){
+  const s=state.summary||{};
+  $('statsRow').innerHTML=`
+    <div class="stat-card"><div class="stat-number">${Number(s.total_late||0)}</div><div class="stat-label">Total Late Entries</div></div>
+    <div class="stat-card"><div class="stat-number">${Number(s.unique_employees||0)}</div><div class="stat-label">Unique Employees</div></div>
+    <div class="stat-card"><div class="stat-number">${Number(s.avg_late_minutes||0)}</div><div class="stat-label">Avg Late Min</div></div>
+    <div class="stat-card"><div class="stat-number">${Number(s.max_late_minutes||0)}</div><div class="stat-label">Max Late Min</div></div>`;
+}
+function renderTable(){
+  const body=$('lateTableBody');
+  if(!state.rows.length){body.innerHTML='<tr><td colspan="8" class="no-data">No late entries found</td></tr>';return}
+  body.innerHTML=state.rows.map(r=>`
+    <tr><td>${esc(fmtDate(r.roster_date))}</td><td>${esc(r.emp_code)}</td><td>${esc(r.employee_name)}</td><td>${esc(r.department||'-')}</td>
+    <td>${esc(fmtTime(r.roster_start))} – ${esc(fmtTime(r.roster_end))}</td><td>${esc(fmtTime(r.actual_punch_in))}</td>
+    <td><span class="badge-late">${Number(r.late_minutes||0)} min</span></td><td>${esc(r.remarks || (Number(r.late_minutes||0)>60?'Unauthorized late':'Minor delay'))}</td></tr>`).join('');
+}
+function renderPagination(){
+  const totalPages=Math.max(1,Math.ceil(state.total/state.limit));
+  const start=state.total?((state.page-1)*state.limit+1):0, end=Math.min(state.page*state.limit,state.total);
+  $('pageMeta').textContent=`Showing ${start}-${end} of ${state.total}`;
+  if(totalPages<=1){$('pagination').innerHTML='';return}
+  let html=`<button class="page-btn" ${state.page<=1?'disabled':''} data-page="prev">‹ Prev</button>`;
+  const s=Math.max(1,state.page-2), e=Math.min(totalPages,state.page+2);
+  if(s>1) html+=`<button class="page-btn" data-page="1">1</button><span class="muted">...</span>`;
+  for(let i=s;i<=e;i++) html+=`<button class="page-btn ${i===state.page?'active':''}" data-page="${i}">${i}</button>`;
+  if(e<totalPages) html+=`<span class="muted">...</span><button class="page-btn" data-page="${totalPages}">${totalPages}</button>`;
+  html+=`<button class="page-btn" ${state.page>=totalPages?'disabled':''} data-page="next">Next ›</button>`;
+  $('pagination').innerHTML=html;
+  document.querySelectorAll('.page-btn[data-page]').forEach(b=>b.onclick=()=>{const p=b.dataset.page==='prev'?state.page-1:b.dataset.page==='next'?state.page+1:Number(b.dataset.page);loadLateReport(p).catch(e=>toast(e.message,true));});
+}
+async function fetchExportRows(){
+  readFilters(); const maxRows=5000;
+  const data=await rpc('admin_get_late_report',{p_org_id:state.org.id,p_viewer_user_id:state.admin.id||null,p_from_date:state.from,p_to_date:state.to,p_department:state.dept,p_search:state.search,p_limit:maxRows+1,p_offset:0});
+  if(!data?.ok) throw new Error(data?.message || 'EXPORT_FAILED');
+  const rows=data.items||[]; if(rows.length>maxRows) throw new Error(`Export ${maxRows}+ rows hai. Date range chhota karo.`); return rows;
+}
+async function exportToExcel(){try{toast('Excel preparing...');const rows=await fetchExportRows();if(!rows.length)return toast('No data to export',true);const sheet=[['Date','Employee ID','Employee Name','Department','Scheduled Shift','Actual Check-In','Late Min','Remarks']];rows.forEach(r=>sheet.push([fmtDate(r.roster_date),r.emp_code,r.employee_name,r.department||'',`${fmtTime(r.roster_start)} - ${fmtTime(r.roster_end)}`,fmtTime(r.actual_punch_in),Number(r.late_minutes||0),r.remarks || (Number(r.late_minutes||0)>60?'Unauthorized late':'Minor delay')]));const ws=XLSX.utils.aoa_to_sheet(sheet);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Late_Report');XLSX.writeFile(wb,`Late_Report_${state.from||'all'}_${state.to||todayISO()}.xlsx`);toast('Excel exported')}catch(e){toast(e.message,true)}}
+async function exportToPDF(){try{const rows=await fetchExportRows();if(!rows.length)return toast('No data to export',true);if(rows.length>1000)return toast('PDF max 1000 rows allowed. Date range chhota karo.',true);const el=document.createElement('div');el.innerHTML=`<div style="font-family:Arial;padding:18px"><h2 style="text-align:center">Late Entry Report</h2><p style="text-align:center">${state.from||'All'} to ${state.to||'All'} | Dept: ${state.dept==='all'?'All':esc(state.dept)}</p><table style="width:100%;border-collapse:collapse;font-size:11px" border="1"><thead><tr><th>Date</th><th>Emp ID</th><th>Name</th><th>Dept</th><th>Shift</th><th>Actual</th><th>Late</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${fmtDate(r.roster_date)}</td><td>${esc(r.emp_code)}</td><td>${esc(r.employee_name)}</td><td>${esc(r.department||'')}</td><td>${fmtTime(r.roster_start)}-${fmtTime(r.roster_end)}</td><td>${fmtTime(r.actual_punch_in)}</td><td>${Number(r.late_minutes||0)}</td></tr>`).join('')}</tbody></table></div>`;html2pdf().from(el).set({margin:.35,filename:`Late_Report_${todayISO()}.pdf`,html2canvas:{scale:1},jsPDF:{unit:'in',format:'a4',orientation:'landscape'}}).save()}catch(e){toast(e.message,true)}}
+function resetFilters(){$('fromDate').value=monthStartISO();$('toDate').value=todayISO();$('deptFilter').value='all';$('searchInput').value='';$('pageSize').value='50';state.page=1;loadLateReport(1).catch(e=>toast(e.message,true));}
+$('applyFilterBtn').onclick=()=>loadLateReport(1).catch(e=>toast(e.message,true));
+$('resetBtn').onclick=resetFilters;$('exportExcelBtn').onclick=exportToExcel;$('exportPdfBtn').onclick=exportToPDF;$('backBtn').onclick=()=>history.back();
+$('fromDate').value=monthStartISO();$('toDate').value=todayISO();
+(async function init(){try{await resolveContext();await loadLateReport(1)}catch(e){toast(e.message,true);$('lateTableBody').innerHTML=`<tr><td colspan="8" class="no-data">${esc(e.message)}</td></tr>`}})();
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Admin | Overtime Review & Approval</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:radial-gradient(ellipse at 20% 30%,#eef2f9,#d9e2ec);min-height:100vh;padding:1rem}
+    .glass-header{background:linear-gradient(135deg,rgba(30,58,65,.95),rgba(20,45,50,.95));backdrop-filter:blur(12px);border-radius:2rem;margin-bottom:1.5rem;padding:.8rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;box-shadow:0 8px 20px rgba(0,0,0,.1);color:white}
+    .back-btn{background:rgba(255,255,255,.15);border:0;padding:8px 18px;border-radius:40px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;color:white}
+    .admin-title{font-weight:700;background:rgba(255,255,255,.2);padding:6px 20px;border-radius:40px;font-size:.9rem}.org-pill{background:rgba(255,255,255,.12);padding:6px 18px;border-radius:40px;font-size:.8rem}
+    .container{max-width:1300px;margin:0 auto}.filters{background:white;border-radius:1.5rem;padding:1rem 1.5rem;margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;box-shadow:0 4px 12px rgba(0,0,0,.05)}
+    .filter-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px}.filter-group label{font-size:.7rem;font-weight:800;color:#1e6b63;text-transform:uppercase}
+    select,input{padding:8px 14px;border-radius:2rem;border:1.5px solid #dcebe7;background:white;font-size:.8rem;outline:none}.btn-sm{background:#1f6e68;color:white;border:0;padding:8px 18px;border-radius:2rem;font-weight:700;cursor:pointer}.btn-secondary{background:#e2e8f0;color:#2c655e;border:0;padding:8px 18px;border-radius:2rem;cursor:pointer;font-weight:700}
+    .stats-row{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem}.stat-card{background:#fff;border-radius:1rem;padding:.8rem 1rem;flex:1;min-width:110px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)}.stat-number{font-size:1.5rem;font-weight:900;color:#1e5a4c}.stat-label{font-size:.7rem;font-weight:700;color:#64748b}
+    .requests-list{display:flex;flex-direction:column;gap:1rem}.request-card{background:white;border-radius:1.5rem;border:1px solid #e0efeb;overflow:hidden;transition:.2s}.request-card:hover{box-shadow:0 8px 20px rgba(0,0,0,.08)}
+    .card-header{background:#fefcf7;padding:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;border-bottom:1px solid #eef4f2}.emp-info h3{font-size:1rem;font-weight:800;color:#1e5a4c}.emp-details{font-size:.72rem;color:#6b8c9c}
+    .status-badge{padding:4px 12px;border-radius:2rem;font-size:.7rem;font-weight:800}.status-pending{background:#fff3e0;color:#c47a2e}.status-approved{background:#e0f2e9;color:#1e6f3f}.status-rejected{background:#ffe6e5;color:#b91c1c}.status-cancelled{background:#e5e7eb;color:#374151}
+    .card-body{padding:1rem;display:flex;flex-wrap:wrap;gap:1rem}.info-section{flex:1;min-width:190px;background:#f8fafc;border-radius:1rem;padding:.8rem}.info-section h4{font-size:.75rem;font-weight:800;color:#1e6b63;margin-bottom:.5rem;text-transform:uppercase}.info-row{display:flex;justify-content:space-between;gap:10px;font-size:.82rem;margin-bottom:6px;line-height:1.4}.info-row span:last-child{text-align:right;font-weight:700}
+    .shift-type{font-weight:800;padding:2px 8px;border-radius:20px;font-size:.7rem}.shift-morning{background:#e0f2e9;color:#1e6f3f}.shift-evening{background:#fff3e0;color:#c47a2e}.shift-night{background:#eef2fa;color:#0f62fe}.ot-hours{font-size:1.1rem;font-weight:900;color:#e67e22}
+    .card-actions{padding:1rem;border-top:1px solid #eef4f2;display:flex;justify-content:flex-end;gap:1rem;flex-wrap:wrap}.approve-btn{background:#e0f2e9;color:#1e6f3f;border:0;padding:7px 20px;border-radius:2rem;font-weight:800;cursor:pointer}.reject-btn{background:#ffe6e5;color:#b91c1c;border:0;padding:7px 20px;border-radius:2rem;font-weight:800;cursor:pointer}.disabled-btn{background:#eef2f5;color:#8aa5a0;border:0;padding:7px 20px;border-radius:2rem;font-weight:800}
+    .reject-note{width:100%;margin-top:8px}.reject-note input{width:100%}.pagination{display:flex;justify-content:center;gap:8px;margin-top:1.5rem;flex-wrap:wrap}.page-btn{background:#eef2f5;border:0;padding:6px 12px;border-radius:2rem;cursor:pointer}.page-btn.active{background:#1f6e68;color:white}
+    .toast{position:fixed;bottom:20px;left:20px;background:#1a5e58;color:white;padding:8px 16px;border-radius:40px;font-size:.8rem;z-index:1000}.toast.err{background:#b91c1c}
+  </style>
+</head>
+<body>
+<div class="glass-header">
+  <button class="back-btn" id="backBtn"><span class="material-icons" style="font-size:1.2rem">arrow_back</span> Back</button>
+  <div class="admin-title">👑 Admin | Overtime Review</div>
+  <div class="org-pill"><span id="orgName">--</span> | <span id="orgCode">--</span></div>
+</div>
+
+<div class="container">
+  <div class="filters">
+    <div class="filter-group"><label>Status</label><select id="statusFilter"><option value="all">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
+    <div class="filter-group"><label>Department</label><select id="deptFilter"><option value="all">All Departments</option></select></div>
+    <div class="filter-group"><label>Search</label><input type="text" id="searchInput" placeholder="Emp Name/ID"></div>
+    <div class="filter-group"><label>From Date</label><input type="date" id="fromDate"></div>
+    <div class="filter-group"><label>To Date</label><input type="date" id="toDate"></div>
+    <button id="applyFilter" class="btn-sm">Apply</button>
+    <button id="resetFilter" class="btn-secondary">Reset</button>
+    <button id="exportExcel" class="btn-secondary">Export Excel</button>
+  </div>
+
+  <div id="statsRow" class="stats-row"></div>
+  <div id="requestsList" class="requests-list"></div>
+  <div id="pagination" class="pagination"></div>
+</div>
+
+<script>
+const SUPABASE_URL="https://tovpcbzztvkiwamimrxt.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+
+function sbFetch(path,opts={}){
+  return fetch(SUPABASE_URL+path,{...opts,headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json',Prefer:'return=representation',...(opts.headers||{})}})
+  .then(async r=>{const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.details||t||r.statusText);return d;});
+}
+function sbRpc(fn,args){return sbFetch('/rest/v1/rpc/'+fn,{method:'POST',body:JSON.stringify(args||{})});}
+const $=id=>document.getElementById(id);
+let state={org:null,admin:null,rows:[],total:0,counts:{},page:1,limit:10,dept:'all',status:'all',search:'',from:null,to:null};
+
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function toast(msg,err=false){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
+function fmtDate(v){if(!v)return'--';return new Date(String(v).includes('T')?v:v+'T00:00:00').toLocaleDateString('en-IN')}
+function fmtTime(v){if(!v)return'--';if(String(v).includes('T'))return new Date(v).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});return String(v).slice(0,5)}
+function fmtNum(v){return Number(v||0).toFixed(2)}
+function getShiftType(start){if(!start)return"Unknown";const h=parseInt(String(start).slice(0,2),10);if(h>=6&&h<12)return"Morning";if(h>=12&&h<18)return"Evening";return"Night"}
+function getSession(){let s={},p={};try{s=JSON.parse(localStorage.getItem('currentSession')||'{}')}catch(e){}try{p=JSON.parse(localStorage.getItem('personalData')||'{}')}catch(e){}return{orgId:s.orgId||s.org_id||localStorage.getItem('org_id')||'',orgCode:s.orgCode||s.org_code||localStorage.getItem('orgCode')||localStorage.getItem('org_code')||'HOSP001',adminId:s.adminId||s.userId||s.id||'',email:s.email||p.email||'',adminName:p.fullName||s.fullName||s.name||'Admin'}}
+async function resolveOrg(){
+  const s=getSession();let org=null;
+  if(s.orgId){const rows=await sbFetch(`/rest/v1/organizations?id=eq.${encodeURIComponent(s.orgId)}&active=eq.true&select=*`);org=rows[0]||null}
+  if(!org){const rows=await sbFetch(`/rest/v1/organizations?org_code=eq.${encodeURIComponent(s.orgCode)}&active=eq.true&select=*`);org=rows[0]||null}
+  if(!org){const rows=await sbFetch(`/rest/v1/organizations?active=eq.true&select=*&order=created_at.asc&limit=1`);org=rows[0]||null}
+  if(!org)throw new Error('ORG_NOT_FOUND');
+  state.org=org;$('orgName').textContent=org.org_name||'--';$('orgCode').textContent=org.org_code||'--';
+
+  let admin=null;
+  if(s.adminId){const rows=await sbFetch(`/rest/v1/org_users?id=eq.${encodeURIComponent(s.adminId)}&org_id=eq.${org.id}&active=eq.true&select=*`);admin=rows[0]||null}
+  if(!admin&&s.email){const rows=await sbFetch(`/rest/v1/org_users?email=eq.${encodeURIComponent(s.email)}&org_id=eq.${org.id}&active=eq.true&select=*`);admin=rows[0]||null}
+  if(!admin){const rows=await sbFetch(`/rest/v1/org_users?org_id=eq.${org.id}&active=eq.true&role=in.(owner,admin,hr,manager,developer)&select=*&order=created_at.asc&limit=1`);admin=rows[0]||null}
+  state.admin=admin;
+}
+async function loadDepartments(){
+  const rows=await sbFetch(`/rest/v1/employees?org_id=eq.${state.org.id}&active=eq.true&select=department&order=department.asc`);
+  const deps=[...new Set((rows||[]).map(r=>r.department).filter(Boolean))];
+  $('deptFilter').innerHTML='<option value="all">All Departments</option>'+deps.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
+}
+function readFilters(){
+  state.status=$('statusFilter').value||'all';
+  state.dept=$('deptFilter').value||'all';
+  state.search=$('searchInput').value.trim()||null;
+  state.from=$('fromDate').value||null;
+  state.to=$('toDate').value||null;
+}
+async function loadRequests(page=state.page){
+  state.page=Math.max(1,Number(page||1));readFilters();
+  $('requestsList').innerHTML='<div style="text-align:center;padding:2rem">Loading...</div>';
+  const data=await sbRpc('admin_get_overtime_requests',{
+    p_org_id:state.org.id,
+    p_status:state.status,
+    p_department:state.dept,
+    p_search:state.search,
+    p_from_date:state.from,
+    p_to_date:state.to,
+    p_limit:state.limit,
+    p_offset:(state.page-1)*state.limit
+  });
+  state.rows=data.items||[];state.total=Number(data.total||0);state.counts=data.counts||{};
+  renderStats();renderRequests();renderPagination();
+}
+function renderStats(){
+  const c=state.counts||{};
+  $('statsRow').innerHTML=`
+    <div class="stat-card"><div class="stat-number">${state.total||0}</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-number">${c.pending||0}</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card"><div class="stat-number">${c.approved||0}</div><div class="stat-label">Approved</div></div>
+    <div class="stat-card"><div class="stat-number">${c.rejected||0}</div><div class="stat-label">Rejected</div></div>
+    <div class="stat-card"><div class="stat-number">${fmtNum(c.total_hours||0)}</div><div class="stat-label">Total Hours</div></div>`;
+}
+function renderRequests(){
+  const box=$('requestsList');
+  if(!state.rows.length){box.innerHTML='<div style="text-align:center;padding:2rem">No overtime requests found</div>';return}
+  box.innerHTML=state.rows.map(req=>{
+    const status=String(req.status||'pending').toLowerCase();
+    const shiftType=getShiftType(req.shift_start);
+    const shiftTypeClass='shift-'+shiftType.toLowerCase();
+    return `<div class="request-card">
+      <div class="card-header">
+        <div class="emp-info">
+          <h3>${esc(req.employee_name)} (${esc(req.emp_code)})</h3>
+          <div class="emp-details">${esc(req.department||'-')} • ${fmtDate(req.ot_date)} • Applied: ${fmtDate(req.created_at)}</div>
+        </div>
+        <div><span class="status-badge status-${esc(status)}">${esc(status.replaceAll('_',' ').toUpperCase())}</span></div>
+      </div>
+      <div class="card-body">
+        <div class="info-section">
+          <h4>📋 Scheduled Shift</h4>
+          <div class="info-row"><span>Shift Type:</span><span class="shift-type ${shiftTypeClass}">${shiftType}</span></div>
+          <div class="info-row"><span>Start:</span><span>${fmtTime(req.shift_start)}</span></div>
+          <div class="info-row"><span>End:</span><span>${fmtTime(req.shift_end)}</span></div>
+        </div>
+        <div class="info-section">
+          <h4>⏰ Actual Attendance</h4>
+          <div class="info-row"><span>Punch In:</span><span>${fmtTime(req.punch_in)}</span></div>
+          <div class="info-row"><span>Punch Out:</span><span>${fmtTime(req.punch_out)}</span></div>
+        </div>
+        <div class="info-section">
+          <h4>🧾 Overtime</h4>
+          <div class="info-row"><span>Calculated:</span><span class="ot-hours">${fmtNum(req.calculated_hours)} hrs</span></div>
+          <div class="info-row"><span>Requested:</span><span>${fmtNum(req.requested_hours)} hrs</span></div>
+          <div class="info-row"><span>Reason:</span><span>${esc(req.reason||'-')}</span></div>
+          ${req.admin_note?`<div class="info-row"><span>Admin Note:</span><span>${esc(req.admin_note)}</span></div>`:''}
+        </div>
+      </div>
+      <div class="card-actions" id="actions-${esc(req.id)}">
+        ${status==='pending'?`
+          <button class="approve-btn" data-id="${esc(req.id)}">✅ Approve</button>
+          <button class="reject-btn" data-id="${esc(req.id)}">❌ Reject</button>
+          <div class="reject-note" id="reject-note-${esc(req.id)}" style="display:none">
+            <input type="text" placeholder="Rejection reason" id="rejectReason-${esc(req.id)}">
+            <button class="btn-sm" style="margin-top:4px" data-id="${esc(req.id)}" id="confirmReject-${esc(req.id)}">Confirm Reject</button>
+          </div>`: req.admin_note?`<div style="color:${status==='rejected'?'#b91c1c':'#1e6f3f'};font-size:.8rem">Admin note: ${esc(req.admin_note)}</div>`:'<button class="disabled-btn" disabled>No actions available</button>'}
+      </div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.approve-btn').forEach(btn=>btn.onclick=()=>updateRequestStatus(btn.dataset.id,'approved',null));
+  document.querySelectorAll('.reject-btn').forEach(btn=>btn.onclick=()=>{const id=btn.dataset.id;const note=$(`reject-note-${id}`);if(note){note.style.display='block';btn.style.display='none'}});
+  document.querySelectorAll('[id^="confirmReject-"]').forEach(btn=>btn.onclick=()=>{const id=btn.dataset.id;const input=$(`rejectReason-${id}`);updateRequestStatus(id,'rejected',input?input.value.trim():'Rejected')});
+}
+function renderPagination(){
+  const totalPages=Math.ceil(state.total/state.limit);const p=$('pagination');
+  if(totalPages<=1){p.innerHTML='';return}
+  let html='';for(let i=1;i<=totalPages;i++)html+=`<button class="page-btn ${i===state.page?'active':''}" data-page="${i}">${i}</button>`;
+  p.innerHTML=html;document.querySelectorAll('.page-btn').forEach(b=>b.onclick=()=>loadRequests(Number(b.dataset.page)).catch(e=>toast(e.message,true)));
+}
+async function updateRequestStatus(id,status,note){
+  const data=await sbRpc('admin_update_overtime_status',{p_request_id:id,p_admin_user_id:state.admin?.id||null,p_status:status,p_admin_note:note||null});
+  toast(`Overtime request ${status}`);
+  await loadRequests();
+}
+function exportExcel(){
+  if(!state.rows.length)return toast('No data to export',true);
+  const sheet=[['ID','Date','Employee','Emp Code','Department','Shift Start','Shift End','Punch In','Punch Out','Calculated Hours','Requested Hours','Reason','Status','Admin Note']];
+  state.rows.forEach(r=>sheet.push([r.id,r.ot_date,r.employee_name,r.emp_code,r.department,r.shift_start,r.shift_end,r.punch_in,r.punch_out,r.calculated_hours,r.requested_hours,r.reason,r.status,r.admin_note]));
+  const ws=XLSX.utils.aoa_to_sheet(sheet),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Overtime');XLSX.writeFile(wb,`Overtime_Requests_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+$('applyFilter').onclick=()=>loadRequests(1).catch(e=>toast(e.message,true));
+$('resetFilter').onclick=()=>{$('statusFilter').value='all';$('deptFilter').value='all';$('searchInput').value='';$('fromDate').value='';$('toDate').value='';loadRequests(1).catch(e=>toast(e.message,true))};
+$('exportExcel').onclick=exportExcel;
+$('backBtn').onclick=()=>history.length>1?history.back():location.href='admin.html';
+$('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')loadRequests(1).catch(er=>toast(er.message,true))});
+(async()=>{try{await resolveOrg();await loadDepartments();await loadRequests(1)}catch(e){toast(e.message,true);$('requestsList').innerHTML=`<div style="text-align:center;padding:2rem;color:#b91c1c">${esc(e.message)}</div>`}})();
+</script>
+</body>
+</html>

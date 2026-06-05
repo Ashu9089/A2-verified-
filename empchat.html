@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Employee Chat | Supabase</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:radial-gradient(ellipse at 20% 30%,#eef2f9,#d9e2ec);min-height:100vh;padding:1rem}
+    .glass-header{background:linear-gradient(135deg,rgba(30,58,65,.95),rgba(20,45,50,.95));border-radius:2rem;margin-bottom:1.5rem;padding:.8rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;box-shadow:0 8px 20px rgba(0,0,0,.1);color:white}
+    .back-btn{background:rgba(255,255,255,.15);border:0;padding:8px 18px;border-radius:40px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;color:white}.admin-title{font-weight:800;background:rgba(255,255,255,.2);padding:6px 20px;border-radius:40px;font-size:.9rem}
+    .chat-container{max-width:1400px;margin:0 auto;display:flex;flex-wrap:wrap;gap:1.5rem}.contacts-panel{flex:1.2;min-width:290px;background:rgba(255,255,255,.96);border-radius:1.8rem;box-shadow:0 12px 28px rgba(0,0,0,.08);overflow:hidden;border:1px solid rgba(0,0,0,.05)}
+    .panel-header{background:#f8fafc;padding:1.2rem;border-bottom:1px solid #e2e8f0}.panel-header h2{font-size:1.2rem;font-weight:900;color:#1e5a4c;display:flex;align-items:center;gap:8px}.me-box{font-size:.78rem;color:#64748b;margin-top:6px;font-weight:700}
+    .search-box{margin-top:12px;display:flex;gap:8px}.search-box input{flex:1;padding:10px 16px;border-radius:2rem;border:1px solid #e2e8f0;background:white;font-size:.85rem;outline:none}.search-box button{border:0;background:#1f6e68;color:white;border-radius:2rem;padding:0 14px;font-weight:800;cursor:pointer}
+    .contacts-list{max-height:610px;overflow-y:auto}.contact-item{padding:1rem;border-bottom:1px solid #edf2f7;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:12px}.contact-item.active{background:#eef6f4;border-left:4px solid #1f6e68}.contact-item.pending{background:#fff7ed}.contact-item.blocked{opacity:.58;background:#f1f5f9}
+    .contact-avatar{width:45px;height:45px;background:linear-gradient(135deg,#1f6e68,#155a54);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:.9rem;position:relative}.contact-dot{width:10px;height:10px;border-radius:50%;background:#94a3b8;border:2px solid #fff;position:absolute;right:0;bottom:0}.contact-dot.online{background:#22c55e}.contact-info{flex:1;min-width:0}.contact-name{font-weight:800;color:#1e5a4c}.contact-role{font-size:.7rem;color:#6b8c9c}.last-msg{font-size:.7rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.unread-badge{background:#e84c3d;color:white;font-size:.6rem;font-weight:800;padding:2px 6px;border-radius:20px}
+    .online-dot{width:10px;height:10px;background:#22c55e;border-radius:50%;display:inline-block;margin-left:6px;box-shadow:0 0 0 3px rgba(34,197,94,.15)}
+    .section-chip{background:#e2e8f0;color:#334155;font-size:.68rem;font-weight:900;padding:3px 9px;border-radius:999px;margin-left:6px}
+    .mini-btn{border:1px solid #1f6e68;background:white;color:#1f6e68;border-radius:30px;padding:5px 9px;font-size:.7rem;font-weight:900;cursor:pointer}.mini-danger{border-color:#b91c1c;color:#b91c1c}
+    .chat-panel{flex:2.2;min-width:320px;background:rgba(255,255,255,.96);border-radius:1.8rem;box-shadow:0 12px 28px rgba(0,0,0,.08);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(0,0,0,.05)}
+    .chat-header{background:#f8fafc;padding:1rem 1.2rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}.chat-contact{display:flex;align-items:center;gap:12px}.chat-avatar{width:48px;height:48px;background:linear-gradient(135deg,#1f6e68,#155a54);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:1rem}
+    .contact-actions{display:flex;gap:10px;flex-wrap:wrap}.action-icon{background:#eef2f5;border-radius:30px;padding:8px 12px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#2c655e;border:0;font-weight:900}.action-icon:hover{background:#1f6e68;color:white}.danger-action{color:#b91c1c}.danger-action:hover{background:#b91c1c;color:white}
+    .messages-area{flex:1;padding:1rem;overflow-y:auto;max-height:500px;background:#fcfdfe;display:flex;flex-direction:column}.message-wrapper{margin-bottom:1rem;display:flex;flex-direction:column;position:relative}.message-bubble{display:flex;align-items:flex-start;gap:8px}.sent-msg{justify-content:flex-end}.received-msg{justify-content:flex-start}.bubble{max-width:70%;padding:10px 14px;border-radius:1.2rem;font-size:.85rem;line-height:1.4;word-wrap:break-word;position:relative}.sent-msg .bubble{background:#1f6e68;color:white;border-bottom-right-radius:4px}.received-msg .bubble{background:#eef6f4;color:#1e5a4c;border-bottom-left-radius:4px}
+    .msg-media{max-width:220px;max-height:170px;border-radius:.8rem;margin-top:5px;cursor:pointer;display:block}.msg-time{font-size:.6rem;opacity:.75;margin-top:4px;text-align:right}.delete-msg-icon{position:absolute;right:-4px;top:-8px;opacity:0;transition:.2s;cursor:pointer;color:#64748b;background:white;border:1px solid #e2e8f0;border-radius:50%;width:25px;height:25px;display:flex;align-items:center;justify-content:center}.message-wrapper:hover .delete-msg-icon{opacity:1}
+    .reply-area{padding:1rem;background:white;border-top:1px solid #e2e8f0}.input-group{display:flex;gap:10px;align-items:center}.reply-area textarea{flex:1;padding:10px 16px;border-radius:2rem;border:1px solid #e2e8f0;resize:none;font-family:inherit;font-size:.85rem;outline:none}.attach-btn,.send-btn{background:#1f6e68;color:white;border:0;padding:9px 16px;border-radius:2rem;cursor:pointer;display:flex;align-items:center;gap:4px;font-weight:800}.attach-btn{background:#e2e8f0;color:#2c655e}.reply-disabled{padding:14px;text-align:center;color:#b91c1c;font-weight:900;background:#fff1f2;border-radius:18px}
+    .preview-area{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.preview-item{position:relative;display:inline-block}.preview-item img,.preview-item video{width:65px;height:65px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0}.remove-preview{position:absolute;top:-6px;right:-6px;background:#b91c1c;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);justify-content:center;align-items:center;z-index:2000}.modal-content{background:white;max-width:430px;width:90%;border-radius:1.5rem;padding:1.5rem;text-align:center}.modal-buttons{display:flex;gap:10px;justify-content:center;margin-top:1rem;flex-wrap:wrap}.modal button{border:0;border-radius:2rem;padding:8px 14px;font-weight:900;cursor:pointer}.toast{position:fixed;bottom:20px;left:20px;background:#1a5e58;color:white;padding:8px 16px;border-radius:40px;font-size:.8rem;z-index:1000}.toast.err{background:#b91c1c}
+  </style>
+</head>
+<body>
+<div class="glass-header">
+  <button class="back-btn" id="backBtn"><span class="material-icons" style="font-size:1.2rem">arrow_back</span> Back</button>
+  <div class="admin-title">💬 Employee Chat</div>
+  <div style="width:80px"></div>
+</div>
+
+<div class="chat-container">
+  <div class="contacts-panel">
+    <div class="panel-header">
+      <h2><span class="material-icons">people</span> Contacts</h2>
+      <div class="me-box" id="meBox">Loading...</div>
+      <div class="search-box">
+        <input type="text" id="searchContact" placeholder="Emp ID / Name search for chat request...">
+        <button id="searchBtn">Search</button>
+      </div>
+    </div>
+    <div id="contactsList" class="contacts-list">Loading...</div>
+  </div>
+
+  <div class="chat-panel">
+    <div class="chat-header" id="chatHeader">
+      <div class="chat-contact">
+        <div class="chat-avatar" id="chatAvatar">👤</div>
+        <div>
+          <div style="font-weight:800" id="chatName">Select a contact</div>
+          <div style="font-size:.72rem;color:#6b8c9c;font-weight:700" id="chatRole"></div>
+        </div>
+      </div>
+      <div class="contact-actions" id="contactActions"></div>
+    </div>
+    <div id="messagesArea" class="messages-area">
+      <div style="text-align:center;padding:2rem">Select a contact</div>
+    </div>
+    <div class="reply-area" id="replyArea">
+      <div class="input-group">
+        <textarea id="messageInput" rows="1" placeholder="Type message... (Ctrl+Enter)"></textarea>
+        <button id="attachMediaBtn" class="attach-btn"><span class="material-icons">attach_file</span></button>
+        <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none">
+        <button id="sendMessageBtn" class="send-btn">Send</button>
+      </div>
+      <div id="previewArea" class="preview-area"></div>
+    </div>
+  </div>
+</div>
+
+<div id="deleteModal" class="modal">
+  <div class="modal-content">
+    <h3>Delete Message</h3>
+    <p id="deleteMsgText" style="margin-top:10px;color:#475569"></p>
+    <div id="bothOptionDiv">
+      <button id="deleteBothBtn" style="background:#b91c1c;color:white;margin-top:10px">Delete for Both</button>
+    </div>
+    <div class="modal-buttons">
+      <button id="deleteMeBtn" style="background:#e2e8f0">Delete for Me Only</button>
+      <button id="deleteAllChatBtn" style="background:#c47a2e;color:white">Delete Entire Chat</button>
+      <button id="cancelDeleteBtn" style="background:#ccc">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const $=id=>document.getElementById(id);
+
+let state={org:null,me:null,contacts:[],current:null,messages:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:''};
+
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
+function initials(name){return String(name||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?'}
+function formatTime(iso){const d=new Date(iso);const diff=Math.floor((Date.now()-d.getTime())/60000);if(diff<1)return'Just now';if(diff<60)return`${diff} min ago`;if(diff<1440)return`${Math.floor(diff/60)} hours ago`;return d.toLocaleDateString('en-IN')}
+function getLogin(){let cur={};try{cur=JSON.parse(localStorage.getItem('inlist_employee_login_v2')||localStorage.getItem('currentEmployee')||'{}')}catch(e){}return{org_code:String(cur.org_code||cur.orgCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||'HOSP001').toUpperCase(),emp_code:String(cur.emp_code||cur.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||'EMP001').toUpperCase()}}
+async function rpc(fn,args){const {data,error}=await sb.rpc(fn,args||{});if(error)throw error;return data}
+
+async function init(){
+  const login=getLogin();
+  const ctx=await rpc('chat_get_employee_context',{p_org_code:login.org_code,p_emp_code:login.emp_code});
+  state.org=ctx.organization;state.me=ctx.employee;
+  $('meBox').innerHTML=`Me: <strong>${esc(state.me.full_name)}</strong> (${esc(state.me.emp_code)})`;
+  try{ await rpc('chat_touch_presence',{p_org_id:state.org.id,p_employee_id:state.me.id}); }catch(e){}
+  await loadContacts();
+}
+async function loadContacts(){
+  // Same employee chat tables: chat_conversations + chat_messages
+  const contacts = await rpc('chat_get_my_contacts',{
+    p_org_id: state.org.id,
+    p_employee_id: state.me.id,
+    p_search: state.searchTerm || null
+  });
+
+  let pending = [];
+  try{
+    pending = await rpc('chat_get_pending_requests',{
+      p_org_id: state.org.id,
+      p_employee_id: state.me.id
+    });
+  }catch(e){
+    console.warn('pending requests fallback skipped:', e.message);
+  }
+
+  const map = new Map();
+
+  [...(pending||[]), ...(contacts||[])].forEach(c => {
+    // Same company/admin/developer duplicate ko employee_id se merge karo.
+    // Search result without conversation stays separate only when no existing contact exists.
+    const empKey = 'emp_' + c.employee_id;
+    const convKey = c.conversation_id || empKey;
+
+    if(map.has(empKey)){
+      const old = map.get(empKey);
+      // Prefer real accepted/system/pending conversation over search result.
+      const oldScore = (old.is_system_contact?5:0) + (old.status==='accepted'?4:0) + (old.status==='pending'?3:0) + (old.conversation_id?2:0);
+      const newScore = (c.is_system_contact?5:0) + (c.status==='accepted'?4:0) + (c.status==='pending'?3:0) + (c.conversation_id?2:0);
+      if(newScore > oldScore) map.set(empKey, c);
+    }else{
+      map.set(empKey, c);
+    }
+  });
+
+  state.contacts = [...map.values()];
+  renderContacts();
+}
+function contactSortRank(c){
+  if(c.is_system_contact || ['Admin','Developer','Company'].includes(c.role_label)) return 1;
+  if(c.status==='pending' && c.request_to_employee_id===state.me.id) return 2;
+  if(c.status==='accepted') return 3;
+  if(c.status==='pending' && c.request_from_employee_id===state.me.id) return 4;
+  if(c.needs_request) return 5;
+  return 9;
+}
+function renderContacts(){
+  const box=$('contactsList');
+  const uniqueMap = new Map();
+  (state.contacts||[]).forEach(c=>{
+    const key = c.employee_id || c.conversation_id;
+    if(!uniqueMap.has(key)) uniqueMap.set(key,c);
+  });
+  const list=[...uniqueMap.values()].sort((a,b)=>contactSortRank(a)-contactSortRank(b));
+  if(!list.length){
+    box.innerHTML='<div style="padding:2rem;text-align:center">No contacts found. Emp ID/name search karo.</div>';
+    return;
+  }
+  let lastGroup='';
+  box.innerHTML=list.map(c=>{
+    let group = '';
+    if(c.is_system_contact || ['Admin','Developer','Company'].includes(c.role_label)) group='Company / Admin / Developer';
+    else if(c.status==='pending' && c.request_to_employee_id===state.me.id) group='Request Received';
+    else if(c.status==='accepted') group='Approved Chats';
+    else if(c.status==='pending' && c.request_from_employee_id===state.me.id) group='Request Sent';
+    else if(c.needs_request) group='Search Result';
+    else group='Other';
+
+    const groupHtml = group !== lastGroup ? `<div style="padding:9px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:.72rem;font-weight:900;color:#475569">${group}</div>` : '';
+    lastGroup = group;
+
+    const active=state.current?.conversation_id===c.conversation_id?'active':'';
+    const blocked=c.is_blocked?'blocked':'';
+    const pending=c.status==='pending'?'pending':'';
+    const last=c.last_message_text||'No messages';
+    const approvedDot = c.status==='accepted' ? '<span class="online-dot" title="Online/Approved"></span>' : '';
+    const requestLabel =
+      c.status==='pending' && c.request_to_employee_id===state.me.id ? 'Request Received' :
+      c.status==='pending' && c.request_from_employee_id===state.me.id ? 'Request Sent / Pending' :
+      c.needs_request ? 'Not Connected' :
+      c.is_blocked ? 'Blocked' :
+      c.status==='accepted' ? 'Approved / Online' : 'Active';
+
+    return `${groupHtml}<div class="contact-item ${active} ${blocked} ${pending}" data-conv="${esc(c.conversation_id||'')}" data-emp="${esc(c.employee_id)}">
+      <div class="contact-avatar">${esc(initials(c.full_name))}<span class="contact-dot ${c.online?'online':''}"></span></div>
+      <div class="contact-info">
+        <div class="contact-name">${esc(c.full_name)} ${approvedDot}<span class="section-chip">${esc(c.role_label||c.role||'Employee')}</span></div>
+        <div class="contact-role">${esc(c.emp_code||'')} • ${esc(c.department||'-')} • ${esc(requestLabel)}</div>
+        <div class="last-msg">${esc(last)}</div>
+      </div>
+      ${Number(c.unread_count||0)>0?`<div class="unread-badge">${Number(c.unread_count)}</div>`:''}
+      ${c.needs_request?`<button class="mini-btn" data-action="request" data-emp="${esc(c.employee_id)}">Send Request</button>`:''}
+      ${c.status==='pending'&&c.request_to_employee_id===state.me.id?`<button class="mini-btn" data-action="accept" data-conv="${esc(c.conversation_id)}">Accept</button><button class="mini-btn mini-danger" data-action="reject" data-conv="${esc(c.conversation_id)}">Reject</button>`:''}
+      ${c.status==='pending'&&c.request_from_employee_id===state.me.id?`<span class="mini-btn" style="opacity:.7">Pending</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function selectContact(c){
+  state.current=c;
+  updateChatHeader();
+
+  if(c.status === 'pending'){
+    if(c.request_to_employee_id === state.me.id){
+      $('messagesArea').innerHTML = `
+        <div style="text-align:center;padding:2rem;font-weight:800;color:#92400e">
+          📩 Chat request received from ${esc(c.full_name)}.<br><br>
+          <button class="mini-btn" id="pendingAcceptMain">✅ Accept</button>
+          <button class="mini-btn mini-danger" id="pendingRejectMain">❌ Reject</button>
+        </div>`;
+      $('pendingAcceptMain').onclick=()=>acceptRequest(c.conversation_id);
+      $('pendingRejectMain').onclick=()=>rejectRequest(c.conversation_id);
+    }else{
+      $('messagesArea').innerHTML = '<div style="text-align:center;padding:2rem;font-weight:800;color:#b45309">⏳ Request pending hai. Dusra employee accept karega tab chat open hoga.</div>';
+    }
+    updateReplyBox();
+    renderContacts();
+    return;
+  }
+
+  if(c.status === 'accepted' && (c.is_system_contact || c.request_from_employee_id || c.request_to_employee_id)){
+    await loadMessages();
+  }else if(c.needs_request){
+    $('messagesArea').innerHTML = '<div style="text-align:center;padding:2rem;font-weight:800;color:#b91c1c">Pehle Send Request karo.</div>';
+  }else{
+    $('messagesArea').innerHTML = '<div style="text-align:center;padding:2rem;font-weight:800;color:#b91c1c">Chat approval required.</div>';
+  }
+
+  updateReplyBox();
+  renderContacts();
+}
+
+function updateChatHeader(){
+  const c=state.current;if(!c)return;
+  $('chatName').innerText=c.full_name;
+  $('chatRole').innerText=`${c.role_label||c.role||'Employee'} • ${c.department||''} • ${c.status||''}`;
+  $('chatAvatar').innerText=initials(c.full_name);
+  if(c.status !== 'accepted'){
+    $('contactActions').innerHTML = c.status==='pending' && c.request_to_employee_id===state.me.id
+      ? `<button class="action-icon" id="headerAccept"><span class="material-icons">check</span> Accept</button><button class="action-icon danger-action" id="headerReject"><span class="material-icons">close</span> Reject</button>`
+      : `<span style="font-size:.78rem;font-weight:900;color:#b45309">Pending</span>`;
+    if($('headerAccept')) $('headerAccept').onclick=()=>acceptRequest(c.conversation_id);
+    if($('headerReject')) $('headerReject').onclick=()=>rejectRequest(c.conversation_id);
+  }else{
+    $('contactActions').innerHTML=`
+      <button class="action-icon" id="refreshChat"><span class="material-icons">refresh</span> Refresh</button>
+      <button class="action-icon danger-action" id="blockBtn"><span class="material-icons">block</span> ${c.is_blocked?'Unblock':'Block'}</button>
+      <button class="action-icon danger-action" id="clearChatBtn"><span class="material-icons">delete_sweep</span> Delete All</button>
+    `;
+    $('refreshChat').onclick=()=>loadMessages();
+    $('blockBtn').onclick=()=>toggleBlock();
+    $('clearChatBtn').onclick=()=>deleteEntireChat();
+  }
+  updateReplyBox();
+}
+function updateReplyBox(){
+  const c=state.current;
+  if(!c){
+    $('replyArea').innerHTML='<div class="reply-disabled">Select contact</div>';
+    return;
+  }
+  if(c.status === 'pending' && c.request_to_employee_id === state.me.id){
+    $('replyArea').innerHTML='<div class="reply-disabled">Pehle Accept ya Reject karo. Accept ke baad text box dikhega.</div>';
+    return;
+  }
+  if(c.status !== 'accepted'){
+    $('replyArea').innerHTML='<div class="reply-disabled">Chat request accept hone ke baad message kar sakte ho.</div>';
+    return;
+  }
+  if(c.is_blocked){
+    $('replyArea').innerHTML='<div class="reply-disabled">Chat blocked hai. Text box hidden.</div>';
+    return;
+  }
+  $('replyArea').innerHTML=`<div class="input-group">
+    <textarea id="messageInput" rows="1" placeholder="Type message... (Ctrl+Enter)"></textarea>
+    <button id="attachMediaBtn" class="attach-btn"><span class="material-icons">attach_file</span></button>
+    <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none">
+    <button id="sendMessageBtn" class="send-btn">Send</button>
+  </div><div id="previewArea" class="preview-area"></div>`;
+  $('sendMessageBtn').onclick=sendMessage;
+  $('messageInput').onkeydown=e=>{if(e.ctrlKey&&e.key==='Enter')sendMessage()};
+  $('attachMediaBtn').onclick=()=>$('mediaInput').click();
+  $('mediaInput').onchange=handleMediaSelect;
+}
+
+async function loadMessages(){
+  if(!state.current?.conversation_id){$('messagesArea').innerHTML='<div style="text-align:center;padding:2rem">Send/accept request first.</div>';return}
+  state.messages=await rpc('chat_get_messages',{p_conversation_id:state.current.conversation_id,p_employee_id:state.me.id,p_limit:100});
+  renderMessages();
+  await loadContacts();
+}
+function renderMessages(){
+  const box=$('messagesArea');
+  if(!state.messages.length){box.innerHTML='<div style="text-align:center;padding:2rem">No messages.</div>';return}
+  box.innerHTML=state.messages.map(m=>{
+    const sent=m.sender_employee_id===state.me.id;
+    let content='';
+    if(m.media_type==='image')content+=`<img src="${esc(m.media_url||m.media_data||'')}" class="msg-media" onclick="window.open(this.src,'_blank')">`;
+    if(m.media_type==='video')content+=`<video controls class="msg-media" src="${esc(m.media_url||m.media_data||'')}"></video>`;
+    if(m.message_text)content+=`<div>${esc(m.message_text)}</div>`;
+    return `<div class="message-wrapper" data-msg-id="${esc(m.id)}">
+      <div class="message-bubble ${sent?'sent-msg':'received-msg'}"><div class="bubble">
+        ${content || '<i>Media</i>'}
+        <div class="msg-time">${formatTime(m.created_at)} ${m.deleted_for_both?' • deleted':''}</div>
+      </div></div>
+      <div class="delete-msg-icon" data-del="${esc(m.id)}"><span class="material-icons" style="font-size:1rem">delete_outline</span></div>
+    </div>`;
+  }).join('');
+  box.scrollTop=box.scrollHeight;
+}
+function handleMediaSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  if(!file.type.startsWith('image/')&&!file.type.startsWith('video/'))return toast('Only photo/video allowed',true);
+  if(file.size>8*1024*1024)return toast('Max 8MB media allowed',true);
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    state.pendingMedia={type:file.type.startsWith('image/')?'image':'video',data:ev.target.result,name:file.name};
+    $('previewArea').innerHTML=`<div class="preview-item">${state.pendingMedia.type==='image'?`<img src="${state.pendingMedia.data}">`:`<video src="${state.pendingMedia.data}"></video>`}<div class="remove-preview" id="clearPreview">×</div></div>`;
+    $('clearPreview').onclick=()=>{state.pendingMedia=null;$('previewArea').innerHTML=''};
+  };
+  reader.readAsDataURL(file);e.target.value='';
+}
+async function sendMessage(){
+  if(!state.current||state.current.status!=='accepted'||state.current.is_blocked)return toast('Accept hone ke baad hi chat allowed hai',true);
+  const text=$('messageInput').value.trim();
+  if(!text&&!state.pendingMedia)return toast('Message/photo/video required',true);
+  await rpc('chat_send_message',{p_conversation_id:state.current.conversation_id,p_sender_employee_id:state.me.id,p_message_text:text||null,p_media_type:state.pendingMedia?.type||null,p_media_data:state.pendingMedia?.data||null});
+  state.pendingMedia=null;$('messageInput').value='';$('previewArea').innerHTML='';
+  await loadMessages();toast('Message sent');
+}
+async function sendRequest(empId){
+  await rpc('chat_send_request',{p_org_id:state.org.id,p_from_employee_id:state.me.id,p_to_employee_id:empId});
+  toast('Chat request sent');state.searchTerm='';$('searchContact').value='';await loadContacts();
+}
+async function acceptRequest(convId){
+  await rpc('chat_accept_request',{p_conversation_id:convId,p_employee_id:state.me.id});
+  toast('Request accepted / Approved');
+  await loadContacts();
+  const c=state.contacts.find(x=>x.conversation_id===convId);
+  if(c) await selectContact(c);
+}
+async function rejectRequest(convId){
+  const note = prompt('Reject reason optional:') || 'Rejected';
+  await rpc('chat_reject_request',{p_conversation_id:convId,p_employee_id:state.me.id,p_note:note});
+  toast('Request rejected');
+  state.current=null;
+  $('chatName').innerText='Select a contact';
+  $('chatRole').innerText='';
+  $('messagesArea').innerHTML='<div style="text-align:center;padding:2rem">Select a contact</div>';
+  await loadContacts();
+}
+async function toggleBlock(){
+  if(!state.current)return;
+  const blocked=!state.current.is_blocked;
+  await rpc('chat_set_block',{p_conversation_id:state.current.conversation_id,p_employee_id:state.me.id,p_blocked:blocked});
+  toast(blocked?'Chat blocked':'Chat unblocked');
+  await loadContacts();
+  const c=state.contacts.find(x=>x.conversation_id===state.current.conversation_id);if(c){state.current=c;updateChatHeader();await loadMessages();}
+}
+async function deleteEntireChat(){
+  if(!state.current?.conversation_id)return;
+  if(!confirm('Apne side se poora chat delete karna hai? Supabase audit/developer restore ke liye data rahega.'))return;
+  await rpc('chat_delete_all_for_me',{p_conversation_id:state.current.conversation_id,p_employee_id:state.me.id});
+  toast('Chat deleted from your side');await loadMessages();
+}
+function openDeleteModal(msgId){
+  const msg=state.messages.find(m=>m.id===msgId);if(!msg)return;
+  state.pendingDeleteMsgId=msgId;
+  const sent=msg.sender_employee_id===state.me.id;
+  const canBoth=sent && (Date.now()-new Date(msg.created_at).getTime()<=5*60*1000);
+  $('deleteMsgText').innerText=canBoth?'5 minute ke andar hai: dono side se delete kar sakte ho.':'5 minute ke baad: sirf apne side se delete hoga, developer restore/dekh sakta hai.';
+  $('bothOptionDiv').style.display=canBoth?'block':'none';
+  $('deleteModal').style.display='flex';
+}
+async function deleteMessage(forBoth){
+  if(!state.pendingDeleteMsgId)return;
+  await rpc('chat_delete_message',{p_message_id:state.pendingDeleteMsgId,p_employee_id:state.me.id,p_delete_for_both:forBoth});
+  $('deleteModal').style.display='none';state.pendingDeleteMsgId=null;
+  toast(forBoth?'Message deleted for both':'Message deleted from your side');
+  await loadMessages();
+}
+
+$('backBtn').onclick=()=>history.length>1?history.back():location.href='emp.html';
+$('searchContact').oninput=e=>{state.searchTerm=e.target.value.trim();loadContacts().catch(er=>toast(er.message,true))};
+$('searchBtn').onclick=()=>{state.searchTerm=$('searchContact').value.trim();loadContacts().catch(er=>toast(er.message,true))};
+$('contactsList').onclick=e=>{
+  const btn=e.target.closest('[data-action]');
+  if(btn){
+    e.stopPropagation();
+    if(btn.dataset.action==='request')return sendRequest(btn.dataset.emp).catch(er=>toast(er.message,true));
+    if(btn.dataset.action==='accept')return acceptRequest(btn.dataset.conv).catch(er=>toast(er.message,true));
+    if(btn.dataset.action==='reject')return rejectRequest(btn.dataset.conv).catch(er=>toast(er.message,true));
+  }
+  const item=e.target.closest('.contact-item');if(!item)return;
+  const c=state.contacts.find(x=>{
+    const convMatch = String(x.conversation_id || '') === String(item.dataset.conv || '');
+    const empMatch = String(x.employee_id) === String(item.dataset.emp);
+    return item.dataset.conv ? convMatch : empMatch;
+  });
+  if(c){
+    if(c.needs_request){
+      toast('Pehle Send Request karo.', true);
+      return;
+    }
+    selectContact(c).catch(er=>toast(er.message,true));
+  }
+};
+$('messagesArea').onclick=e=>{const d=e.target.closest('[data-del]');if(d)openDeleteModal(d.dataset.del)};
+$('deleteBothBtn').onclick=()=>deleteMessage(true).catch(e=>toast(e.message,true));
+$('deleteMeBtn').onclick=()=>deleteMessage(false).catch(e=>toast(e.message,true));
+$('deleteAllChatBtn').onclick=()=>{document.getElementById('deleteModal').style.display='none';deleteEntireChat()};
+$('cancelDeleteBtn').onclick=()=>$('deleteModal').style.display='none';
+
+init().catch(e=>{toast(e.message,true);$('contactsList').innerHTML='<div style="padding:2rem;color:#b91c1c">'+esc(e.message)+'</div>'});
+setInterval(()=>{ if(state.org&&state.me) rpc('chat_touch_presence',{p_org_id:state.org.id,p_employee_id:state.me.id}).catch(()=>{}); loadContacts().catch(()=>{}); },10000);
+</script>
+</body>
+</html>

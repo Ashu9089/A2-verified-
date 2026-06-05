@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Inlist | Developer Control Panel</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--dark:#062522;--dark2:#0d3d38;--brand:#178173;--brand2:#22a391;--soft:#eef8f6;--line:#dbeeea;--danger:#b91c1c;--warn:#b87516;--text:#123532;--muted:#6b817e;--white:#fff;--shadow:0 28px 60px rgba(0,0,0,.22)}
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}body{min-height:100vh;background:radial-gradient(circle at 15% 10%,#1a6961 0,#092724 40%,#031513 100%);padding:16px;color:var(--text)}
+    .dev-container{max-width:1500px;margin:auto;background:rgba(255,255,255,.97);border-radius:28px;box-shadow:var(--shadow);overflow:hidden}.top-bar,.header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#fff}.top-bar{background:#051c1a;padding:10px 20px}.header{background:linear-gradient(135deg,#1e776d,#0c3f3a);padding:18px 22px}.header h1{font-size:22px;display:flex;gap:10px;align-items:center}.pill{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);border-radius:999px;padding:7px 13px;font-size:12px}.back-btn,.btn{border:0;border-radius:999px;padding:9px 16px;font-weight:800;cursor:pointer}.back-btn{background:rgba(255,255,255,.16);color:#fff}.btn{background:var(--brand);color:#fff}.btn.secondary{background:#e9f5f2;color:#14534c}.btn.danger{background:var(--danger)}.btn.warn{background:var(--warn)}.btn:disabled{opacity:.55;cursor:not-allowed}.tabs{display:flex;gap:8px;flex-wrap:wrap;background:#fff;border-bottom:1px solid var(--line);padding:14px 18px 0}.tab{padding:10px 16px;border-radius:16px 16px 0 0;background:#f0f5f4;color:#24625c;cursor:pointer;font-weight:800;font-size:13px}.tab.active{background:var(--brand);color:white}.content{padding:20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 8px 22px rgba(9,58,54,.06)}.metric{font-size:28px;font-weight:900;color:#0e5c55}.label{font-size:11px;font-weight:900;color:#247167;text-transform:uppercase;letter-spacing:.04em}.muted{color:var(--muted);font-size:12px}.section{margin-top:18px}.section-title{font-size:16px;font-weight:900;margin:8px 0 12px;display:flex;align-items:center;gap:8px}.toolbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}.form-group{display:flex;flex-direction:column;gap:6px;min-width:210px;flex:1}.form-group label{font-size:11px;font-weight:900;color:#1e6b63;text-transform:uppercase}input,select,textarea{border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;outline:none;background:white;font-size:13px}textarea{min-height:90px;border-radius:16px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff}table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #edf5f3;font-size:13px}th{background:#edf8f5;color:#164f49;font-size:12px;text-transform:uppercase}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-weight:800;font-size:11px;background:#edf7f5;color:#17695f}.badge.off{background:#fee2e2;color:#991b1b}.badge.warn{background:#fff7ed;color:#9a5517}.feature-card{display:flex;justify-content:space-between;gap:10px;align-items:center}.toggle{width:48px;height:26px;background:#d1d5db;border-radius:99px;position:relative;cursor:pointer;flex:0 0 auto}.toggle:after{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s;box-shadow:0 2px 5px rgba(0,0,0,.25)}.toggle.active{background:var(--brand)}.toggle.active:after{left:25px}.toast{position:fixed;left:18px;bottom:18px;background:#0f5f57;color:white;padding:11px 16px;border-radius:999px;z-index:3000;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.25)}.modal{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2500}.modal-box{background:white;border-radius:24px;padding:20px;max-width:720px;width:100%;max-height:86vh;overflow:auto}.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.close{background:#eef5f3;border:0;border-radius:50%;width:36px;height:36px;font-size:22px;cursor:pointer}.empty{padding:24px;text-align:center;color:var(--muted)}.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:760px){body{padding:0}.dev-container{border-radius:0}.content{padding:14px}.split{grid-template-columns:1fr}.header h1{font-size:18px}.top-bar,.header{padding:12px}.tab{font-size:12px;padding:9px 12px}}
+  </style>
+</head>
+<body>
+<div class="dev-container">
+  <div class="top-bar">
+    <div><i class="fas fa-code"></i> Developer Console</div>
+    <div class="pill" id="connStatus">Connecting Supabase...</div>
+  </div>
+  <div class="header">
+    <div>
+      <h1><i class="fas fa-shield-halved"></i> Inlist Developer Control Panel</h1>
+      <div class="muted" style="color:#d5fffa;margin-top:5px">Live Supabase data: organizations, users, employees, features, attendance</div>
+    </div>
+    <button class="back-btn" onclick="goBack()"><i class="fas fa-arrow-left"></i> Back</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="dashboard">📊 Dashboard</div>
+    <div class="tab" data-tab="features">🌍 Global Features</div>
+    <div class="tab" data-tab="orgs">🏢 Organizations</div>
+    <div class="tab" data-tab="employees">👥 Employees</div>
+    <div class="tab" data-tab="activity">📋 Activity</div>
+    <div class="tab" data-tab="backup">💾 Backup</div>
+  </div>
+  <div class="content" id="contentArea"></div>
+</div>
+<script>
+/* ================= SUPABASE CONFIG =================
+   Apna Supabase URL aur anon key yahan paste karo. */
+const SUPABASE_URL = 'https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const DEMO_DEV_EMP_CODE = '06';
+const DEMO_DEV_ORG_CODE = 'DEV001';
+const DEMO_DEV_EMAIL = 'developer@demo.com';
+const DEMO_PASSWORD = '123456';
+
+let sb = null;
+let state = { tab:'dashboard', orgs:[], branches:[], features:[], orgAccess:[], employees:[], empAccess:[], attendance:[], late:[], leaves:[], currentOrgId:null, loading:false };
+
+function initSupabase(){
+  if(!SUPABASE_URL.includes('supabase.co') || SUPABASE_ANON_KEY.includes('PASTE_')){
+    document.getElementById('connStatus').textContent = 'Add Supabase URL/KEY';
+    document.getElementById('connStatus').style.background = '#b91c1c';
+    return false;
+  }
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+const $ = id => document.getElementById(id);
+function esc(v){return String(v ?? '').replace(/[&<>'"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
+function toast(msg, err=false){const old=document.querySelector('.toast'); if(old) old.remove(); const d=document.createElement('div'); d.className='toast'; d.style.background=err?'#b91c1c':'#0f5f57'; d.textContent=msg; document.body.appendChild(d); setTimeout(()=>d.remove(),3200)}
+async function q(p){ const {data,error}=await p; if(error) throw error; return data || []; }
+async function rpcJson(fn, args={}){
+  const { data, error } = await sb.rpc(fn, args);
+  if(error) throw error;
+  if(data && data.ok === false) throw new Error(data.message || (fn + ' failed'));
+  return data;
+}
+function setLoading(msg='Loading...'){ $('contentArea').innerHTML = `<div class="empty"><i class="fas fa-spinner fa-spin"></i> ${msg}</div>`; }
+
+async function loadAll(){
+  if(!sb) return renderSetup();
+  setLoading('Supabase RPC se developer data load ho raha hai...');
+  try{
+    const { data, error } = await sb.rpc('app_dev_panel_data', {});
+    if(error) throw error;
+    if(!data || data.ok !== true) throw new Error((data && data.message) || 'DEV_PANEL_DATA_NOT_FOUND');
+
+    const orgs = data.organizations || [];
+    const branches = data.org_branches || [];
+    const features = data.features || [];
+    const orgAccess = data.org_feature_access || [];
+    const employees = data.employees || [];
+    const empAccess = data.employee_feature_access || [];
+    const attendance = data.attendance || [];
+    const late = data.late_punches || [];
+    const leaves = data.leave_requests || [];
+
+    Object.assign(state,{orgs,branches,features,orgAccess,employees,empAccess,attendance,late,leaves});
+    if(!state.currentOrgId && orgs[0]) state.currentOrgId = orgs[0].id;
+
+    $('connStatus').textContent = 'Supabase RPC Connected';
+    $('connStatus').style.background = 'rgba(255,255,255,.12)';
+    console.log('DEV PANEL DATA', data);
+    render();
+  }catch(e){
+    console.error(e);
+    $('connStatus').textContent='Supabase RPC Error';
+    renderError(e);
+  }
+}
+
+function renderSetup(){
+  $('contentArea').innerHTML = `<div class="card"><h2>Supabase config pending</h2><p class="muted" style="margin:10px 0">Code me <b>SUPABASE_URL</b> aur <b>SUPABASE_ANON_KEY</b> paste karo. Ye panel schema tables: organizations, org_branches, features, org_feature_access, employees, employee_feature_access, attendance se connect hota hai.</p><button class="btn" onclick="location.reload()">Reload</button></div>`;
+}
+function renderError(e){ $('contentArea').innerHTML = `<div class="card"><h2 style="color:#b91c1c">Error</h2><p>${esc(e.message || e)}</p><button class="btn" onclick="loadAll()">Retry</button></div>`; }
+
+function counts(){
+  return {orgs:state.orgs.length, activeOrgs:state.orgs.filter(o=>o.active).length, employees:state.employees.length, activeEmp:state.employees.filter(e=>e.active).length, features:state.features.length, activeFeatures:state.features.filter(f=>f.active).length, punched:state.attendance.filter(a=>a.status==='punched_in').length, late:state.late.length};
+}
+function renderDashboard(){
+  const c=counts(); const demoEmp=state.employees.find(e=>e.emp_code===DEMO_DEV_EMP_CODE);
+  $('contentArea').innerHTML = `
+    <div class="grid">
+      <div class="card"><div class="label">Organizations</div><div class="metric">${c.activeOrgs}/${c.orgs}</div><div class="muted">active / total</div></div>
+      <div class="card"><div class="label">Employees</div><div class="metric">${c.activeEmp}/${c.employees}</div><div class="muted">active / total</div></div>
+      <div class="card"><div class="label">Global Features</div><div class="metric">${c.activeFeatures}/${c.features}</div><div class="muted">enabled / total</div></div>
+      <div class="card"><div class="label">Open Punch In</div><div class="metric">${c.punched}</div><div class="muted">currently punched in</div></div>
+    </div>
+    <div class="section split">
+      <div class="card"><h3>Developer Demo Login</h3><p class="muted" style="margin:8px 0">Demo developer employee id/code: <b>${DEMO_DEV_EMP_CODE}</b></p>
+        ${demoEmp ? `<div class="badge">Ready: ${esc(demoEmp.full_name)}</div>` : `<button class="btn" onclick="ensureDemoDeveloper()"><i class="fas fa-wand-magic-sparkles"></i> Create Demo Developer</button>`}
+        <div style="margin-top:10px" class="muted">Org: ${DEMO_DEV_ORG_CODE} • Email: ${DEMO_DEV_EMAIL} • Password: ${DEMO_PASSWORD}</div>
+      </div>
+      <div class="card"><h3>Quick Actions</h3><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" onclick="syncMissingAccess()">Sync Feature Access</button><button class="btn secondary" onclick="loadAll()">Refresh</button><button class="btn warn" onclick="markMissPunches()">Mark Miss Punches</button></div></div>
+    </div>
+    <div class="section"><div class="section-title">Recent Attendance</div>${attendanceTable(state.attendance.slice(0,8))}</div>`;
+}
+
+function renderFeatures(){
+  $('contentArea').innerHTML = `<div class="toolbar"><button class="btn" onclick="openFeatureModal()">+ Add Feature</button><button class="btn secondary" onclick="loadAll()">Refresh</button></div><div class="grid">${state.features.map(f=>`<div class="card feature-card"><div><b>${esc(f.feature_name)}</b><div class="muted">${esc(f.feature_key)}</div><div class="muted">${esc(f.description||'')}</div></div><div class="toggle ${f.active?'active':''}" onclick="toggleFeature('${f.id}',${!f.active})"></div></div>`).join('') || '<div class="empty">No features found</div>'}</div>`;
+}
+async function toggleFeature(id, active){ try{await rpcJson('app_dev_toggle_feature',{p_feature_id:id,p_active:active}); toast(active?'Feature active':'Feature disabled'); await loadAll();}catch(e){toast(e.message,true)} }
+function openFeatureModal(){ modal(`<div class="modal-head"><h3>Add Feature</h3><button class="close" onclick="closeModal()">&times;</button></div><div class="grid"><div class="form-group"><label>Feature Key</label><input id="fkey" placeholder="payroll"></div><div class="form-group"><label>Feature Name</label><input id="fname" placeholder="Payroll"></div></div><div class="form-group" style="margin-top:10px"><label>Description</label><textarea id="fdesc"></textarea></div><button class="btn" style="margin-top:12px" onclick="addFeature()">Save</button>`)}
+async function addFeature(){ const feature_key=$('fkey').value.trim().toLowerCase().replace(/\s+/g,'_'), feature_name=$('fname').value.trim(), description=$('fdesc').value.trim(); if(!feature_key||!feature_name) return toast('Feature key/name required',true); try{await rpcJson('app_dev_add_feature',{p_feature_key:feature_key,p_feature_name:feature_name,p_description:description}); closeModal(); await loadAll(); toast('Feature added');}catch(e){toast(e.message,true)} }
+
+function orgSelectHtml(){return `<div class="form-group"><label>Select Organization</label><select id="orgSel" onchange="state.currentOrgId=this.value; render()">${state.orgs.map(o=>`<option value="${o.id}" ${o.id===state.currentOrgId?'selected':''}>${esc(o.org_name)} (${esc(o.org_code)})</option>`).join('')}</select></div>`}
+function currentOrg(){return state.orgs.find(o=>o.id===state.currentOrgId)}
+function renderOrgs(){ const org=currentOrg(); if(!org){$('contentArea').innerHTML='<div class="empty">No organization found</div>';return} const emps=state.employees.filter(e=>e.org_id===org.id); const enabled=state.orgAccess.filter(a=>a.org_id===org.id&&a.is_enabled).length;
+  $('contentArea').innerHTML = `<div class="toolbar">${orgSelectHtml()}<button class="btn" onclick="openOrgModal()">+ Add Org</button><button class="btn secondary" onclick="loadAll()">Refresh</button></div><div class="grid"><div class="card"><div class="label">Org Code</div><div class="metric" style="font-size:22px">${esc(org.org_code)}</div><div class="muted">${esc(org.org_type)} • ${esc(org.city||'')}</div></div><div class="card"><div class="label">Employee Limit</div><div class="metric">${emps.length}/${org.emp_limit}</div></div><div class="card"><div class="label">Feature Access</div><div class="metric">${enabled}/${state.features.length}</div></div><div class="card"><div class="label">Status</div><div class="metric" style="font-size:22px">${org.active?'Active':'Blocked'}</div><button class="btn ${org.active?'danger':''}" onclick="toggleOrg('${org.id}',${!org.active})">${org.active?'Block':'Activate'}</button></div></div><div class="section"><div class="section-title">Company Feature Access</div><div class="grid">${state.features.map(f=>{const a=state.orgAccess.find(x=>x.org_id===org.id&&x.feature_id===f.id); const on=!!a?.is_enabled && f.active; return `<div class="card feature-card"><div><b>${esc(f.feature_name)}</b><div class="muted">${f.active?'Global active':'Global disabled'}</div></div><div class="toggle ${on?'active':''}" onclick="setOrgFeature('${org.id}','${f.id}',${!on})"></div></div>`}).join('')}</div></div>`;
+}
+async function toggleOrg(id,active){try{await rpcJson('app_dev_toggle_org',{p_org_id:id,p_active:active}); await loadAll(); toast(active?'Org active':'Org blocked')}catch(e){toast(e.message,true)}}
+async function setOrgFeature(org_id,feature_id,is_enabled){
+  try{
+    const { data, error } = await sb.rpc('app_dev_set_org_feature', {
+      p_org_id: org_id,
+      p_feature_id: feature_id,
+      p_is_enabled: is_enabled
+    });
+
+    if(error) throw error;
+    if(!data || data.ok !== true) throw new Error((data && data.message) || 'Feature update failed');
+
+    await loadAll();
+    toast(is_enabled ? 'Company feature enabled' : 'Company feature disabled aur staff se bhi hata diya');
+  }catch(e){
+    console.error(e);
+    toast(e.message || 'Feature update failed', true);
+  }
+}
+function openOrgModal(){ modal(`<div class="modal-head"><h3>Add Organization</h3><button class="close" onclick="closeModal()">&times;</button></div><div class="grid"><div class="form-group"><label>Org Code</label><input id="ocode"></div><div class="form-group"><label>Org Name</label><input id="oname"></div><div class="form-group"><label>Type</label><select id="otype"><option>company</option><option>hospital</option><option>school</option><option>coaching</option><option>mall</option><option>institute</option><option>hotel</option><option>warehouse</option><option>clinic</option><option>factory</option><option>other</option></select></div><div class="form-group"><label>Email</label><input id="oemail"></div><div class="form-group"><label>Phone</label><input id="ophone"></div><div class="form-group"><label>Emp Limit</label><input id="olimit" type="number" value="50"></div></div><button class="btn" style="margin-top:12px" onclick="addOrg()">Save Organization</button>`)}
+async function addOrg(){try{const res=await rpcJson('app_dev_add_org',{p_org_code:$('ocode').value.trim(),p_org_name:$('oname').value.trim(),p_org_type:$('otype').value,p_email:$('oemail').value.trim()||null,p_phone:$('ophone').value.trim()||null,p_emp_limit:Number($('olimit').value||50)}); closeModal(); await loadAll(); if(res && res.org_id) state.currentOrgId=res.org_id; renderOrgs(); toast('Organization added')}catch(e){toast(e.message,true)}}
+
+function renderEmployees(){ const org=currentOrg(); const emps=state.currentOrgId?state.employees.filter(e=>e.org_id===state.currentOrgId):state.employees; $('contentArea').innerHTML=`<div class="toolbar">${orgSelectHtml()}<button class="btn" onclick="openEmpModal()">+ Add Employee</button><input id="empSearch" placeholder="Search emp..." oninput="filterEmpRows()"><button class="btn secondary" onclick="loadAll()">Refresh</button></div><div class="table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Email/Mobile</th><th>Department</th><th>Status</th><th>Features</th><th>Action</th></tr></thead><tbody id="empRows">${emps.map(empRow).join('')}</tbody></table></div>`; }
+function empRow(e){ const cnt=state.empAccess.filter(a=>a.employee_id===e.id&&a.is_enabled).length; return `<tr data-key="${esc((e.full_name+' '+e.emp_code+' '+e.email+' '+e.mobile).toLowerCase())}"><td><b>${esc(e.emp_code)}</b></td><td>${esc(e.full_name)}</td><td>${esc(e.email||'-')}<br><span class="muted">${esc(e.mobile||'')}</span></td><td>${esc(e.department||'-')}<br><span class="muted">${esc(e.designation||'')}</span></td><td><span class="badge ${e.active?'':'off'}">${e.active?'Active':'Blocked'}</span></td><td>${cnt}/${state.features.length}</td><td><button class="btn secondary" onclick="openEmpFeatures('${e.id}')">Features</button> <button class="btn ${e.active?'danger':''}" onclick="toggleEmp('${e.id}',${!e.active})">${e.active?'Block':'Active'}</button></td></tr>`}
+function filterEmpRows(){ const s=$('empSearch').value.toLowerCase(); document.querySelectorAll('#empRows tr').forEach(r=>r.style.display=r.dataset.key.includes(s)?'':'none'); }
+function openEmpModal(){ const org=currentOrg(); if(!org) return toast('Select organization',true); modal(`<div class="modal-head"><h3>Add Employee</h3><button class="close" onclick="closeModal()">&times;</button></div><div class="grid"><div class="form-group"><label>Emp Code</label><input id="ecode" placeholder="06"></div><div class="form-group"><label>Full Name</label><input id="ename"></div><div class="form-group"><label>Email</label><input id="eemail"></div><div class="form-group"><label>Mobile</label><input id="emobile"></div><div class="form-group"><label>Department</label><input id="edept"></div><div class="form-group"><label>Designation</label><input id="edesig"></div></div><button class="btn" style="margin-top:12px" onclick="addEmp()">Save Employee</button>`)}
+async function addEmp(){ const org=currentOrg(); try{await rpcJson('app_dev_add_employee',{p_org_id:org.id,p_emp_code:$('ecode').value.trim(),p_full_name:$('ename').value.trim(),p_email:$('eemail').value.trim()||null,p_mobile:$('emobile').value.trim()||null,p_department:$('edept').value.trim()||null,p_designation:$('edesig').value.trim()||null,p_password:DEMO_PASSWORD}); closeModal(); await loadAll(); toast('Employee added')}catch(e){toast(e.message,true)} }
+async function toggleEmp(id,active){try{await rpcJson('app_dev_toggle_employee',{p_employee_id:id,p_active:active}); await loadAll(); toast('Employee updated')}catch(e){toast(e.message,true)}}
+function openEmpFeatures(empId){ const emp=state.employees.find(e=>e.id===empId); const org=currentOrg() || state.orgs.find(o=>o.id===emp.org_id); const allowed=state.features.filter(f=>f.active && state.orgAccess.some(a=>a.org_id===org.id&&a.feature_id===f.id&&a.is_enabled)); modal(`<div class="modal-head"><h3>${esc(emp.full_name)} Features</h3><button class="close" onclick="closeModal()">&times;</button></div><div class="grid">${allowed.map(f=>{const on=state.empAccess.some(a=>a.employee_id===emp.id&&a.feature_id===f.id&&a.is_enabled); return `<div class="card feature-card"><div><b>${esc(f.feature_name)}</b><div class="muted">${esc(f.feature_key)}</div></div><div class="toggle ${on?'active':''}" onclick="setEmpFeature('${emp.id}','${emp.org_id}','${f.id}',${!on})"></div></div>`}).join('')||'<div class="empty">No org feature enabled</div>'}</div>`)}
+async function setEmpFeature(employee_id,org_id,feature_id,is_enabled){
+  try{
+    // RLS ON mode: direct insert/update nahi chalega. Ye SECURITY DEFINER RPC se update hota hai.
+    const data = await rpcJson('app_dev_set_employee_feature', {
+      p_org_id: org_id,
+      p_employee_id: employee_id,
+      p_feature_id: feature_id,
+      p_is_enabled: is_enabled
+    });
+    await loadAll();
+    openEmpFeatures(employee_id);
+    toast(is_enabled ? 'Employee feature enabled' : 'Employee feature disabled');
+  }catch(e){
+    console.error(e);
+    toast(e.message || 'Employee feature update failed', true);
+  }
+}
+
+
+function renderActivity(){ $('contentArea').innerHTML=`<div class="section-title">Attendance Logs</div>${attendanceTable(state.attendance)}<div class="section-title">Late Punches</div><div class="table-wrap"><table><thead><tr><th>Employee</th><th>Org</th><th>Date</th><th>Roster</th><th>Late</th></tr></thead><tbody>${state.late.map(l=>`<tr><td>${esc(l.employee_name)}<br><span class="muted">${esc(l.emp_code)}</span></td><td>${esc(l.org_code)}</td><td>${esc(l.roster_date)}</td><td>${esc(l.roster_start)} - ${esc(l.roster_end)}</td><td><span class="badge warn">${l.late_minutes} min</span></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No late punch</td></tr>'}</tbody></table></div>`; }
+function attendanceTable(rows){return `<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Org</th><th>Date</th><th>Punch In</th><th>Punch Out</th><th>Status</th><th>Late</th><th>Worked</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${esc(a.employee_name)}<br><span class="muted">${esc(a.emp_code)}</span></td><td>${esc(a.org_code)}</td><td>${esc(a.attendance_date)}</td><td>${a.punch_in?new Date(a.punch_in).toLocaleString():'-'}</td><td>${a.punch_out?new Date(a.punch_out).toLocaleString():'-'}</td><td><span class="badge ${a.status==='absent'||a.status==='miss_punch'?'off':''}">${esc(a.status)}</span></td><td>${a.is_late?`<span class="badge warn">${a.late_minutes} min</span>`:'-'}</td><td>${a.worked_minutes||0} min</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No attendance found</td></tr>'}</tbody></table></div>`}
+async function markMissPunches(){try{await q(sb.rpc('mark_miss_punches')); await loadAll(); toast('Miss punches updated')}catch(e){toast(e.message,true)}}
+
+function renderBackup(){ $('contentArea').innerHTML=`<div class="split"><div class="card"><h3>Export JSON</h3><p class="muted" style="margin:8px 0">Current loaded Supabase records ka local backup download kare.</p><button class="btn" onclick="downloadBackup()">Download Backup</button></div><div class="card"><h3>Danger Zone</h3><p class="muted" style="margin:8px 0">Restore/import safe mode is disabled in browser panel. SQL Editor ya secure backend se import karo.</p><button class="btn secondary" onclick="loadAll()">Reload Data</button></div></div>`; }
+function downloadBackup(){ const blob=new Blob([JSON.stringify({...state, exported_at:new Date().toISOString()},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='inlist_developer_backup_'+new Date().toISOString().slice(0,19)+'.json'; a.click(); URL.revokeObjectURL(a.href); }
+
+async function ensureDemoDeveloper(){
+  try{
+    await rpcJson('app_dev_ensure_demo_developer',{});
+    await loadAll();
+    toast('Demo developer created: emp id 06');
+  }catch(e){toast(e.message,true)}
+}
+async function syncMissingAccess(){
+  try{
+    await rpcJson('app_dev_sync_feature_access',{});
+    await loadAll();
+    toast('Feature access synced with company permission');
+  }catch(e){toast(e.message,true)}
+}
+
+
+function modal(html){ const m=document.createElement('div'); m.className='modal'; m.id='modal'; m.innerHTML=`<div class="modal-box">${html}</div>`; document.body.appendChild(m); }
+function closeModal(){ document.getElementById('modal')?.remove(); }
+function render(){ if(state.tab==='dashboard') renderDashboard(); else if(state.tab==='features') renderFeatures(); else if(state.tab==='orgs') renderOrgs(); else if(state.tab==='employees') renderEmployees(); else if(state.tab==='activity') renderActivity(); else if(state.tab==='backup') renderBackup(); }
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');state.tab=t.dataset.tab;render();}));
+function goBack(){ if(history.length>1) history.back(); else location.href='admin.html'; }
+window.addEventListener('DOMContentLoaded',()=>{ if(initSupabase()) loadAll(); else renderSetup(); });
+</script>
+</body>
+</html>

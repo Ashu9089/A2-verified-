@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Admin Chat | Same Employee Chat Table</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:radial-gradient(ellipse at 20% 30%,#eef2f9,#d9e2ec);min-height:100vh;padding:1rem}
+    .glass-header{background:linear-gradient(135deg,rgba(30,58,65,.95),rgba(20,45,50,.95));border-radius:2rem;margin-bottom:1.2rem;padding:.8rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;box-shadow:0 8px 20px rgba(0,0,0,.1);color:white}
+    .back-btn{background:rgba(255,255,255,.15);border:0;padding:8px 18px;border-radius:40px;cursor:pointer;font-weight:800;display:flex;align-items:center;gap:6px;color:white}.title{font-weight:900;background:rgba(255,255,255,.2);padding:6px 20px;border-radius:40px;font-size:.9rem}
+    .chat-container{max-width:1450px;margin:0 auto;display:flex;gap:1.2rem;align-items:stretch}.left-panel{width:390px;min-width:300px;background:#fff;border-radius:1.8rem;box-shadow:0 12px 28px rgba(0,0,0,.08);overflow:hidden;border:1px solid rgba(0,0,0,.05);display:flex;flex-direction:column;max-height:calc(100vh - 110px)}
+    .panel-header{background:#f8fafc;padding:1rem;border-bottom:1px solid #e2e8f0}.panel-header h2{font-size:1.05rem;font-weight:900;color:#1e5a4c;display:flex;align-items:center;gap:8px}.admin-box{font-size:.78rem;color:#64748b;margin-top:5px;font-weight:700}
+    .search-row{display:flex;gap:8px;margin-top:12px}.search-row input{flex:1;padding:10px 14px;border-radius:2rem;border:1px solid #e2e8f0;outline:none}.search-row button{border:0;background:#1f6e68;color:white;border-radius:2rem;padding:0 13px;font-weight:900;cursor:pointer}
+    .developer-section{padding:.7rem 1rem;border-bottom:1px solid #e2e8f0;background:#f0fdf4}.section-title{font-size:.72rem;font-weight:900;color:#166534;margin-bottom:8px;letter-spacing:.3px;text-transform:uppercase}.staff-section-title{padding:10px 1rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:.72rem;font-weight:900;color:#475569;text-transform:uppercase}
+    .contacts-list{overflow-y:auto;flex:1}.contact-item{padding:.9rem 1rem;border-bottom:1px solid #edf2f7;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:12px;position:relative}.contact-item:hover{background:#f8fafc}.contact-item.active{background:#eef6f4;border-left:4px solid #1f6e68}.contact-avatar{width:43px;height:43px;background:linear-gradient(135deg,#1f6e68,#155a54);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:.85rem;position:relative;flex-shrink:0}.dot{width:10px;height:10px;border-radius:50%;background:#94a3b8;border:2px solid #fff;position:absolute;right:0;bottom:0}.dot.online{background:#22c55e}.contact-info{flex:1;min-width:0}.contact-name{font-weight:900;color:#1e5a4c;display:flex;align-items:center;gap:6px}.role-chip{font-size:.58rem;background:#e2e8f0;color:#475569;padding:2px 7px;border-radius:999px}.contact-role{font-size:.7rem;color:#6b8c9c;margin-top:2px}.last-msg{font-size:.72rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.unread-badge{background:#e84c3d;color:white;font-size:.62rem;font-weight:900;padding:2px 7px;border-radius:20px}.pager{display:flex;gap:8px;justify-content:center;align-items:center;padding:10px;border-top:1px solid #e2e8f0;background:#f8fafc}.pager button{border:0;background:#e2e8f0;color:#334155;border-radius:20px;padding:6px 12px;font-weight:900;cursor:pointer}.pager button:disabled{opacity:.45;cursor:not-allowed}
+    .chat-panel{flex:1;background:#fff;border-radius:1.8rem;box-shadow:0 12px 28px rgba(0,0,0,.08);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(0,0,0,.05);max-height:calc(100vh - 110px)}
+    .chat-header{background:#f8fafc;padding:1rem 1.2rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.chat-contact{display:flex;align-items:center;gap:12px}.chat-avatar{width:48px;height:48px;background:linear-gradient(135deg,#1f6e68,#155a54);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900}.actions{display:flex;gap:8px;flex-wrap:wrap}.action-btn{background:#eef2f5;border:0;border-radius:30px;padding:8px 12px;color:#2c655e;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:5px}.action-btn:hover{background:#1f6e68;color:white}
+    .messages-area{flex:1;padding:1rem;overflow-y:auto;background:#fcfdfe;display:flex;flex-direction:column}.message-wrapper{margin-bottom:1rem;display:flex;flex-direction:column;position:relative}.message-bubble{display:flex}.sent-msg{justify-content:flex-end}.received-msg{justify-content:flex-start}.bubble{max-width:70%;padding:10px 14px;border-radius:1.2rem;font-size:.86rem;line-height:1.45;word-wrap:break-word}.sent-msg .bubble{background:#1f6e68;color:white;border-bottom-right-radius:4px}.received-msg .bubble{background:#eef6f4;color:#1e5a4c;border-bottom-left-radius:4px}.msg-media{max-width:230px;max-height:180px;border-radius:.8rem;margin-top:5px;display:block}.msg-time{font-size:.62rem;opacity:.7;margin-top:4px;text-align:right}.reply-area{padding:1rem;background:white;border-top:1px solid #e2e8f0}.input-group{display:flex;gap:10px;align-items:center}.reply-area textarea{flex:1;padding:10px 16px;border-radius:2rem;border:1px solid #e2e8f0;resize:none;font-family:inherit;font-size:.85rem;outline:none}.attach-btn,.send-btn{background:#1f6e68;color:white;border:0;padding:9px 16px;border-radius:2rem;cursor:pointer;font-weight:900}.attach-btn{background:#e2e8f0;color:#2c655e}.preview-area{display:flex;gap:8px;margin-top:8px}.preview-item{position:relative}.preview-item img,.preview-item video{width:65px;height:65px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0}.remove-preview{position:absolute;top:-6px;right:-6px;background:#b91c1c;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .toast{position:fixed;bottom:20px;left:20px;background:#1a5e58;color:white;padding:8px 16px;border-radius:40px;font-size:.8rem;z-index:1000}.toast.err{background:#b91c1c}.empty{padding:2rem;text-align:center;color:#64748b;font-weight:800}
+    @media(max-width:860px){.chat-container{flex-direction:column}.left-panel{width:100%;max-height:420px}.chat-panel{max-height:calc(100vh - 120px)}}
+  </style>
+</head>
+<body>
+<div class="glass-header">
+  <button class="back-btn" id="backBtn"><span class="material-icons" style="font-size:1.2rem">arrow_back</span> Back</button>
+  <div class="title">👑 Admin Chat</div>
+  <div style="width:80px"></div>
+</div>
+
+<div class="chat-container">
+  <div class="left-panel">
+    <div class="panel-header">
+      <h2><span class="material-icons">support_agent</span> Admin Chat</h2>
+      <div class="admin-box" id="adminBox">Loading...</div>
+      <div class="search-row">
+        <input type="text" id="searchStaff" placeholder="Search staff name / emp id...">
+        <button id="searchBtn">Search</button>
+      </div>
+    </div>
+
+    <div class="developer-section">
+      <div class="section-title">Developer / Support</div>
+      <div id="developerList">Loading...</div>
+    </div>
+
+    <div class="staff-section-title">Staff Messages / Staff List (10 only)</div>
+    <div id="staffList" class="contacts-list">Loading...</div>
+
+    <div class="pager">
+      <button id="prevPage">Prev</button>
+      <span id="pageInfo" style="font-size:.76rem;font-weight:900;color:#475569">Page 1</span>
+      <button id="nextPage">Next</button>
+    </div>
+  </div>
+
+  <div class="chat-panel">
+    <div class="chat-header">
+      <div class="chat-contact">
+        <div class="chat-avatar" id="chatAvatar">👤</div>
+        <div>
+          <div style="font-weight:900" id="chatName">Select staff/developer</div>
+          <div style="font-size:.72rem;color:#6b8c9c;font-weight:700" id="chatRole"></div>
+        </div>
+      </div>
+      <div class="actions" id="chatActions"></div>
+    </div>
+
+    <div id="messagesArea" class="messages-area">
+      <div class="empty">Select staff/developer to start chat</div>
+    </div>
+
+    <div class="reply-area" id="replyArea">
+      <div class="input-group">
+        <textarea id="messageInput" rows="1" placeholder="Type message... (Ctrl+Enter)"></textarea>
+        <button id="attachMediaBtn" class="attach-btn"><span class="material-icons">attach_file</span></button>
+        <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none">
+        <button id="sendMessageBtn" class="send-btn">Send</button>
+      </div>
+      <div id="previewArea" class="preview-area"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const $=id=>document.getElementById(id);
+let state={org:null,adminUser:null,adminEmp:null,developers:[],staff:[],current:null,messages:[],page:1,limit:10,search:'',pendingMedia:null};
+
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
+function initials(name){return String(name||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?'}
+function fmtTime(iso){if(!iso)return'';const d=new Date(iso);const diff=Math.floor((Date.now()-d.getTime())/60000);if(diff<1)return'Just now';if(diff<60)return`${diff} min ago`;if(diff<1440)return`${Math.floor(diff/60)} hrs ago`;return d.toLocaleDateString('en-IN')}
+async function rpc(fn,args){const {data,error}=await sb.rpc(fn,args||{});if(error)throw error;return data}
+function getSession(){let s={},p={};try{s=JSON.parse(localStorage.getItem('currentSession')||'{}')}catch(e){}try{p=JSON.parse(localStorage.getItem('personalData')||'{}')}catch(e){}return{org_code:String(s.orgCode||s.org_code||localStorage.getItem('orgCode')||localStorage.getItem('org_code')||'HOSP001').toUpperCase(),email:s.email||p.email||'',phone:s.phone||p.phone||s.mobile||p.mobile||'',admin_id:s.adminId||s.userId||s.id||p.id||null,admin_name:p.fullName||p.full_name||s.fullName||s.full_name||s.name||'Admin'}}
+async function init(){
+  const ss=getSession();
+  const ctx=await rpc('admin_empchat_get_context',{p_org_code:ss.org_code,p_admin_user_id:ss.admin_id,p_admin_email:ss.email,p_admin_phone:ss.phone,p_admin_name:ss.admin_name});
+  state.org=ctx.organization;state.adminUser=ctx.admin_user;state.adminEmp=ctx.admin_employee;
+  $('adminBox').innerHTML=`Admin: <strong>${esc(state.adminEmp.full_name)}</strong> | ${esc(state.adminEmp.emp_code)} | ${esc(state.org.org_code)}`;
+  await loadDevelopers();
+  await loadStaff(1);
+  setupInputEvents();
+}
+async function loadDevelopers(){
+  state.developers=await rpc('admin_empchat_get_developers',{p_org_id:state.org.id,p_admin_employee_id:state.adminEmp.id});
+  renderDevelopers();
+}
+async function loadStaff(page=state.page){
+  state.page=Math.max(1,page);
+  const data=await rpc('admin_empchat_get_staff_contacts',{p_org_id:state.org.id,p_admin_employee_id:state.adminEmp.id,p_search:state.search||null,p_limit:state.limit,p_offset:(state.page-1)*state.limit});
+  const seen=new Set();
+  state.staff=(data.items||[]).filter(x=>{if(seen.has(x.employee_id))return false;seen.add(x.employee_id);return true});
+  $('pageInfo').textContent=`Page ${state.page}`;
+  $('prevPage').disabled=state.page<=1;
+  $('nextPage').disabled=state.staff.length<state.limit;
+  renderStaff();
+}
+function contactHtml(c,kind){
+  const active=state.current?.conversation_id===c.conversation_id?'active':'';
+  const online=c.online?'online':'';
+  return `<div class="contact-item ${active}" data-kind="${kind}" data-conv="${esc(c.conversation_id)}">
+    <div class="contact-avatar">${esc(initials(c.full_name))}<span class="dot ${online}"></span></div>
+    <div class="contact-info">
+      <div class="contact-name">${esc(c.full_name)} <span class="role-chip">${esc(c.role_label||kind)}</span></div>
+      <div class="contact-role">${esc(c.emp_code||'')} • ${esc(c.department||'-')}</div>
+      <div class="last-msg">${esc(c.last_message_text||'No messages')}</div>
+    </div>
+    ${Number(c.unread_count||0)>0?`<div class="unread-badge">${Number(c.unread_count)}</div>`:''}
+  </div>`;
+}
+function renderDevelopers(){
+  $('developerList').innerHTML=state.developers.length?state.developers.map(c=>contactHtml(c,'developer')).join(''):'<div class="empty" style="padding:.8rem">No developer found</div>';
+}
+function renderStaff(){
+  $('staffList').innerHTML=state.staff.length?state.staff.map(c=>contactHtml(c,'staff')).join(''):'<div class="empty">No staff found</div>';
+}
+async function selectContact(convId){
+  const all=[...state.developers,...state.staff];
+  const c=all.find(x=>String(x.conversation_id)===String(convId));
+  if(!c)return;
+  state.current=c;
+  $('chatName').textContent=c.full_name;
+  $('chatRole').textContent=`${c.role_label||'Staff'} • ${c.emp_code||''} • ${c.online?'Online':'Offline'}`;
+  $('chatAvatar').textContent=initials(c.full_name);
+  $('chatActions').innerHTML=`<button class="action-btn" id="refreshBtn"><span class="material-icons">refresh</span>Refresh</button>`;
+  $('refreshBtn').onclick=()=>loadMessages();
+  await loadMessages();
+  renderDevelopers();renderStaff();
+}
+async function loadMessages(){
+  if(!state.current)return;
+  state.messages=await rpc('admin_empchat_get_messages',{p_conversation_id:state.current.conversation_id,p_admin_employee_id:state.adminEmp.id,p_limit:100});
+  renderMessages();
+}
+function renderMessages(){
+  const box=$('messagesArea');
+  if(!state.messages.length){box.innerHTML='<div class="empty">No messages yet.</div>';return}
+  box.innerHTML=state.messages.map(m=>{
+    const sent=m.sender_employee_id===state.adminEmp.id;
+    let content='';
+    if(m.media_type==='image')content+=`<img src="${esc(m.media_data||m.media_url||'')}" class="msg-media" onclick="window.open(this.src,'_blank')">`;
+    if(m.media_type==='video')content+=`<video controls src="${esc(m.media_data||m.media_url||'')}" class="msg-media"></video>`;
+    if(m.message_text)content+=`<div>${esc(m.message_text)}</div>`;
+    return `<div class="message-wrapper">
+      <div class="message-bubble ${sent?'sent-msg':'received-msg'}">
+        <div class="bubble">${content||'<i>Media</i>'}<div class="msg-time">${fmtTime(m.created_at)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+  box.scrollTop=box.scrollHeight;
+}
+function setupInputEvents(){
+  $('sendMessageBtn').onclick=sendMessage;
+  $('messageInput').onkeydown=e=>{if(e.ctrlKey&&e.key==='Enter')sendMessage()};
+  $('attachMediaBtn').onclick=()=>$('mediaInput').click();
+  $('mediaInput').onchange=handleMediaSelect;
+}
+function handleMediaSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  if(!file.type.startsWith('image/')&&!file.type.startsWith('video/'))return toast('Only photo/video allowed',true);
+  if(file.size>8*1024*1024)return toast('Max 8MB allowed',true);
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    state.pendingMedia={type:file.type.startsWith('image/')?'image':'video',data:ev.target.result};
+    $('previewArea').innerHTML=`<div class="preview-item">${state.pendingMedia.type==='image'?`<img src="${state.pendingMedia.data}">`:`<video src="${state.pendingMedia.data}"></video>`}<div class="remove-preview" id="clearPreview">×</div></div>`;
+    $('clearPreview').onclick=()=>{state.pendingMedia=null;$('previewArea').innerHTML=''};
+  };
+  reader.readAsDataURL(file);e.target.value='';
+}
+async function sendMessage(){
+  if(!state.current)return toast('Select chat first',true);
+  const text=$('messageInput').value.trim();
+  if(!text&&!state.pendingMedia)return toast('Message/photo/video required',true);
+  await rpc('admin_empchat_send_message',{p_conversation_id:state.current.conversation_id,p_admin_employee_id:state.adminEmp.id,p_message_text:text||null,p_media_type:state.pendingMedia?.type||null,p_media_data:state.pendingMedia?.data||null});
+  $('messageInput').value='';state.pendingMedia=null;$('previewArea').innerHTML='';
+  await loadMessages();await loadDevelopers();await loadStaff(state.page);
+}
+$('developerList').onclick=e=>{const item=e.target.closest('.contact-item');if(item)selectContact(item.dataset.conv).catch(er=>toast(er.message,true))};
+$('staffList').onclick=e=>{const item=e.target.closest('.contact-item');if(item)selectContact(item.dataset.conv).catch(er=>toast(er.message,true))};
+$('searchStaff').onkeydown=e=>{if(e.key==='Enter')$('searchBtn').click()};
+$('searchBtn').onclick=()=>{state.search=$('searchStaff').value.trim();loadStaff(1).catch(e=>toast(e.message,true))};
+$('prevPage').onclick=()=>loadStaff(state.page-1).catch(e=>toast(e.message,true));
+$('nextPage').onclick=()=>loadStaff(state.page+1).catch(e=>toast(e.message,true));
+$('backBtn').onclick=()=>history.length>1?history.back():location.href='admin.html';
+setInterval(()=>{loadDevelopers().catch(()=>{});loadStaff(state.page).catch(()=>{});if(state.current)loadMessages().catch(()=>{})},10000);
+init().catch(e=>{toast(e.message,true);$('staffList').innerHTML='<div class="empty" style="color:#b91c1c">'+esc(e.message)+'</div>'});
+</script>
+</body>
+</html>
