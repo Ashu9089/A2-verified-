@@ -1,18 +1,24 @@
-const CACHE_NAME = "inlist-pwa-v1";
+const CACHE_NAME = "inlist-pwa-v2";
+
+const BASE_PATH = "/A2-verified-/";
 
 const APP_SHELL = [
-  "./",
-  "./index.html",
-  "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  BASE_PATH,
+  BASE_PATH + "index.html",
+  BASE_PATH + "manifest.webmanifest",
+  BASE_PATH + "icons/icon-192.png",
+  BASE_PATH + "icons/icon-512.png"
 ];
 
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(function (cache) { return cache.addAll(APP_SHELL); })
-      .then(function () { return self.skipWaiting(); })
+      .then(function (cache) {
+        return cache.addAll(APP_SHELL);
+      })
+      .then(function () {
+        return self.skipWaiting();
+      })
   );
 });
 
@@ -22,11 +28,17 @@ self.addEventListener("activate", function (event) {
       .then(function (keys) {
         return Promise.all(
           keys
-            .filter(function (key) { return key !== CACHE_NAME; })
-            .map(function (key) { return caches.delete(key); })
+            .filter(function (key) {
+              return key !== CACHE_NAME;
+            })
+            .map(function (key) {
+              return caches.delete(key);
+            })
         );
       })
-      .then(function () { return self.clients.claim(); })
+      .then(function () {
+        return self.clients.claim();
+      })
   );
 });
 
@@ -36,7 +48,6 @@ self.addEventListener("fetch", function (event) {
 
   if (request.method !== "GET") return;
 
-  // Supabase, Google Maps and API requests should stay network-first.
   if (
     url.hostname.includes("supabase.co") ||
     url.hostname.includes("googleapis.com") ||
@@ -50,22 +61,25 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  // App pages/assets: cache-first, then network.
   event.respondWith(
     caches.match(request).then(function (cached) {
       if (cached) return cached;
 
       return fetch(request)
         .then(function (response) {
+          if (!response || response.status !== 200) return response;
+
           const responseClone = response.clone();
+
           caches.open(CACHE_NAME).then(function (cache) {
             cache.put(request, responseClone);
           });
+
           return response;
         })
         .catch(function () {
           if (request.mode === "navigate") {
-            return caches.match("./index.html");
+            return caches.match(BASE_PATH + "index.html");
           }
         });
     })
