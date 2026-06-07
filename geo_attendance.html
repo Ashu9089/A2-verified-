@@ -387,6 +387,7 @@
           <div><strong>Longitude:</strong> <span id="lngDisplay">--</span></div>
           <div><strong>Address:</strong> <span id="addressDisplay">--</span></div>
         </div>
+        <button id="currentLocationBtn" class="update-btn" style="background:#2563eb;margin-bottom:8px;">📍 Current Location</button>
         <button id="updateGeofenceBtn" class="update-btn">💾 Update Geofence</button>
       </div>
     </div>
@@ -1423,6 +1424,72 @@
     updateEmployeeList();
   });
 
+  async function getCurrentLocation() {
+    if (!navigator.geolocation) {
+      showToast("Geolocation supported nahi hai", true);
+      return;
+    }
+
+    const btn = document.getElementById("currentLocationBtn");
+    btn.disabled = true;
+    btn.innerText = "Getting Location...";
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = Number(position.coords.latitude);
+        const lng = Number(position.coords.longitude);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          showToast("Valid current location nahi mili", true);
+          btn.disabled = false;
+          btn.innerText = "📍 Current Location";
+          return;
+        }
+
+        currentCenter = { lat, lng };
+
+        if (map) {
+          map.setCenter(currentCenter);
+          map.setZoom(18);
+        }
+
+        if (marker) {
+          if (marker.setPosition) marker.setPosition(currentCenter);
+          else marker.position = currentCenter;
+        }
+
+        if (circle) {
+          circle.setCenter(currentCenter);
+        }
+
+        document.getElementById("latDisplay").innerText = lat.toFixed(6);
+        document.getElementById("lngDisplay").innerText = lng.toFixed(6);
+
+        await updateLocationInfo(lat, lng);
+        updateEmployeeList();
+
+        showToast("Current location loaded");
+        btn.disabled = false;
+        btn.innerText = "📍 Current Location";
+      },
+      (err) => {
+        console.error("Current location error:", err);
+        let msg = "Location access denied";
+        if (err.code === 1) msg = "Location permission allow karo";
+        if (err.code === 2) msg = "Current location unavailable hai";
+        if (err.code === 3) msg = "Location timeout ho gaya";
+        showToast(msg, true);
+        btn.disabled = false;
+        btn.innerText = "📍 Current Location";
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
+  }
+
   async function updateGeofence() {
     if (!currentBranch) return;
 
@@ -2019,6 +2086,7 @@
     updateEmployeeList();
   });
 
+  document.getElementById("currentLocationBtn").addEventListener("click", getCurrentLocation);
   document.getElementById("updateGeofenceBtn").addEventListener("click", updateGeofence);
   document.getElementById("exportHistoryBtn").addEventListener("click", exportHistory);
   document.getElementById("refreshBtn").addEventListener("click", async () => {
