@@ -1,37 +1,24 @@
 {
   "name": "INLIST Attendance & HR",
   "short_name": "INLIST",
-  "description": "Secure attendance, HR, leave and organization management app.",
-  "id": "./index.html",
-  "start_url": "./index.html",
-  "scope": "./",
+  "id": "/A2-verified/",
+  "start_url": "/A2-verified/",
+  "scope": "/A2-verified/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui", "browser"],
-  "orientation": "portrait-primary",
   "background_color": "#051a18",
   "theme_color": "#0a2c2f",
-  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "/A2-verified/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-     "purpose": "any"
+      "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "/A2-verified/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Open Login",
-      "short_name": "Login",
-      "description": "Open INLIST login screen",
-      "url": "./index.html",
-      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
