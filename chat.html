@@ -19,8 +19,13 @@
     .chat-panel{flex:1;background:#fff;border-radius:1.8rem;box-shadow:0 12px 28px rgba(0,0,0,.08);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(0,0,0,.05);max-height:calc(100vh - 110px)}
     .chat-header{background:#f8fafc;padding:1rem 1.2rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.chat-contact{display:flex;align-items:center;gap:12px}.chat-avatar{width:48px;height:48px;background:linear-gradient(135deg,#1f6e68,#155a54);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900}.actions{display:flex;gap:8px;flex-wrap:wrap}.action-btn{background:#eef2f5;border:0;border-radius:30px;padding:8px 12px;color:#2c655e;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:5px}.action-btn:hover{background:#1f6e68;color:white}
     .messages-area{flex:1;padding:1rem;overflow-y:auto;background:#fcfdfe;display:flex;flex-direction:column}.message-wrapper{margin-bottom:1rem;display:flex;flex-direction:column;position:relative}.message-bubble{display:flex}.sent-msg{justify-content:flex-end}.received-msg{justify-content:flex-start}.bubble{max-width:70%;padding:10px 14px;border-radius:1.2rem;font-size:.86rem;line-height:1.45;word-wrap:break-word}.sent-msg .bubble{background:#1f6e68;color:white;border-bottom-right-radius:4px}.received-msg .bubble{background:#eef6f4;color:#1e5a4c;border-bottom-left-radius:4px}.msg-media{max-width:230px;max-height:180px;border-radius:.8rem;margin-top:5px;display:block}.msg-time{font-size:.62rem;opacity:.7;margin-top:4px;text-align:right}.reply-area{padding:1rem;background:white;border-top:1px solid #e2e8f0}.input-group{display:flex;gap:10px;align-items:center}.reply-area textarea{flex:1;padding:10px 16px;border-radius:2rem;border:1px solid #e2e8f0;resize:none;font-family:inherit;font-size:.85rem;outline:none}.attach-btn,.send-btn{background:#1f6e68;color:white;border:0;padding:9px 16px;border-radius:2rem;cursor:pointer;font-weight:900}.attach-btn{background:#e2e8f0;color:#2c655e}.preview-area{display:flex;gap:8px;margin-top:8px}.preview-item{position:relative}.preview-item img,.preview-item video{width:65px;height:65px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0}.remove-preview{position:absolute;top:-6px;right:-6px;background:#b91c1c;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .typing-indicator{min-height:0;padding:0 1rem;background:#fcfdfe;color:#1f6e68;font-size:.76rem;font-weight:800;transition:.2s}.typing-indicator.show{min-height:28px;padding:.25rem 1rem .6rem}.typing-dots::after{content:'';animation:dots 1.2s infinite}@keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}100%{content:'.'}}
+    .mobile-chat-back{display:none;background:#e2e8f0;color:#2c655e;border:0;border-radius:30px;padding:8px 12px;font-weight:900;cursor:pointer;align-items:center;gap:4px}
     .toast{position:fixed;bottom:20px;left:20px;background:#1a5e58;color:white;padding:8px 16px;border-radius:40px;font-size:.8rem;z-index:1000}.toast.err{background:#b91c1c}.empty{padding:2rem;text-align:center;color:#64748b;font-weight:800}
-    @media(max-width:860px){.chat-container{flex-direction:column}.left-panel{width:100%;max-height:420px}.chat-panel{max-height:calc(100vh - 120px)}}
+    @media(max-width:860px){
+      body{padding:.6rem;overflow:hidden}.glass-header{border-radius:1.2rem;margin-bottom:.7rem;padding:.65rem .9rem}.title{font-size:.8rem;padding:6px 12px}.chat-container{display:block;max-width:100%;height:calc(100vh - 86px)}
+      .left-panel{width:100%;min-width:0;height:100%;max-height:none;border-radius:1.2rem}.chat-panel{display:none;height:100%;max-height:none;border-radius:1.2rem}.chat-container.mobile-chat-open .left-panel{display:none}.chat-container.mobile-chat-open .chat-panel{display:flex}.mobile-chat-back{display:flex}.chat-header{padding:.7rem;flex-wrap:nowrap}.chat-contact{min-width:0}.chat-avatar{width:42px;height:42px}.actions{display:none}.messages-area{padding:.75rem}.bubble{max-width:86%;font-size:.84rem}.reply-area{padding:.7rem}.input-group{gap:6px}.attach-btn,.send-btn{padding:9px 11px}.reply-area textarea{padding:10px 12px}.developer-section{max-height:180px;overflow:auto}.contacts-list{min-height:0}.pager{padding:8px}
+    }
   </style>
 </head>
 <body>
@@ -58,6 +63,7 @@
 
   <div class="chat-panel">
     <div class="chat-header">
+      <button class="mobile-chat-back" id="mobileChatBack"><span class="material-icons">arrow_back</span> List</button>
       <div class="chat-contact">
         <div class="chat-avatar" id="chatAvatar">👤</div>
         <div>
@@ -71,6 +77,7 @@
     <div id="messagesArea" class="messages-area">
       <div class="empty">Select staff/developer to start chat</div>
     </div>
+    <div id="typingIndicator" class="typing-indicator"></div>
 
     <div class="reply-area" id="replyArea">
       <div class="input-group">
@@ -89,7 +96,7 @@ const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
-let state={org:null,adminUser:null,adminEmp:null,developers:[],staff:[],current:null,messages:[],page:1,limit:10,search:'',pendingMedia:null};
+let state={org:null,adminUser:null,adminEmp:null,developers:[],staff:[],current:null,messages:[],page:1,limit:10,search:'',pendingMedia:null,chatChannel:null,globalChannel:null,typingTimer:null,lastTypingSent:0,isMobileChatOpen:false};
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
 function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
@@ -105,6 +112,8 @@ async function init(){
   await loadDevelopers();
   await loadStaff(1);
   setupInputEvents();
+  setupGlobalRealtime();
+  startSmartPolling();
 }
 async function loadDevelopers(){
   state.developers=await rpc('admin_empchat_get_developers',{p_org_id:state.org.id,p_admin_employee_id:state.adminEmp.id});
@@ -149,6 +158,8 @@ async function selectContact(convId){
   $('chatAvatar').textContent=initials(c.full_name);
   $('chatActions').innerHTML=`<button class="action-btn" id="refreshBtn"><span class="material-icons">refresh</span>Refresh</button>`;
   $('refreshBtn').onclick=()=>loadMessages();
+  openMobileChat();
+  setupConversationRealtime(c.conversation_id);
   await loadMessages();
   renderDevelopers();renderStaff();
 }
@@ -174,9 +185,73 @@ function renderMessages(){
   }).join('');
   box.scrollTop=box.scrollHeight;
 }
+function openMobileChat(){
+  state.isMobileChatOpen=true;
+  document.querySelector('.chat-container').classList.add('mobile-chat-open');
+}
+function closeMobileChat(){
+  state.isMobileChatOpen=false;
+  document.querySelector('.chat-container').classList.remove('mobile-chat-open');
+}
+function showTyping(name){
+  const el=$('typingIndicator');
+  el.innerHTML=`<span class="typing-dots">${esc(name||'User')} typing</span>`;
+  el.classList.add('show');
+  clearTimeout(state.typingTimer);
+  state.typingTimer=setTimeout(()=>{el.classList.remove('show');el.innerHTML=''},2200);
+}
+function setupGlobalRealtime(){
+  if(!state.org?.id)return;
+  try{ if(state.globalChannel) sb.removeChannel(state.globalChannel); }catch(e){}
+  state.globalChannel=sb.channel('admin-contact-list-'+state.org.id+'-'+state.adminEmp.id)
+    .on('postgres_changes',{event:'*',schema:'public',table:'employee_chat_messages'},async()=>{
+      await loadDevelopers().catch(()=>{});
+      await loadStaff(state.page).catch(()=>{});
+    })
+    .subscribe(status=>{ if(status==='CHANNEL_ERROR') console.warn('Realtime contact list channel error'); });
+}
+function setupConversationRealtime(conversationId){
+  try{ if(state.chatChannel) sb.removeChannel(state.chatChannel); }catch(e){}
+  const channelName='admin-chat-'+conversationId+'-'+state.adminEmp.id;
+  state.chatChannel=sb.channel(channelName,{config:{broadcast:{self:false}}})
+    .on('broadcast',{event:'typing'},payload=>{
+      const p=payload.payload||{};
+      if(String(p.conversation_id)!==String(conversationId))return;
+      if(String(p.sender_employee_id)===String(state.adminEmp.id))return;
+      showTyping(p.sender_name||state.current?.full_name||'User');
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'employee_chat_messages',filter:`conversation_id=eq.${conversationId}`},async()=>{
+      await loadMessages().catch(()=>{});
+      await loadDevelopers().catch(()=>{});
+      await loadStaff(state.page).catch(()=>{});
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'employee_chat_messages',filter:`conversation_id=eq.${conversationId}`},async()=>{
+      await loadMessages().catch(()=>{});
+    })
+    .subscribe(status=>{ if(status==='CHANNEL_ERROR') console.warn('Realtime chat channel error'); });
+}
+function sendTypingSignal(){
+  if(!state.current||!state.chatChannel)return;
+  const now=Date.now();
+  if(now-state.lastTypingSent<1200)return;
+  state.lastTypingSent=now;
+  state.chatChannel.send({
+    type:'broadcast',
+    event:'typing',
+    payload:{conversation_id:state.current.conversation_id,sender_employee_id:state.adminEmp.id,sender_name:state.adminEmp.full_name||'Admin'}
+  }).catch(()=>{});
+}
+function startSmartPolling(){
+  setInterval(()=>{
+    loadDevelopers().catch(()=>{});
+    loadStaff(state.page).catch(()=>{});
+    if(state.current)loadMessages().catch(()=>{});
+  },5000);
+}
 function setupInputEvents(){
   $('sendMessageBtn').onclick=sendMessage;
   $('messageInput').onkeydown=e=>{if(e.ctrlKey&&e.key==='Enter')sendMessage()};
+  $('messageInput').oninput=sendTypingSignal;
   $('attachMediaBtn').onclick=()=>$('mediaInput').click();
   $('mediaInput').onchange=handleMediaSelect;
 }
@@ -206,8 +281,9 @@ $('searchStaff').onkeydown=e=>{if(e.key==='Enter')$('searchBtn').click()};
 $('searchBtn').onclick=()=>{state.search=$('searchStaff').value.trim();loadStaff(1).catch(e=>toast(e.message,true))};
 $('prevPage').onclick=()=>loadStaff(state.page-1).catch(e=>toast(e.message,true));
 $('nextPage').onclick=()=>loadStaff(state.page+1).catch(e=>toast(e.message,true));
-$('backBtn').onclick=()=>history.length>1?history.back():location.href='admin.html';
-setInterval(()=>{loadDevelopers().catch(()=>{});loadStaff(state.page).catch(()=>{});if(state.current)loadMessages().catch(()=>{})},10000);
+$('mobileChatBack').onclick=closeMobileChat;
+$('backBtn').onclick=()=>{ if(state.isMobileChatOpen){ closeMobileChat(); return; } history.length>1?history.back():location.href='admin.html'; };
+window.addEventListener('beforeunload',()=>{try{if(state.chatChannel)sb.removeChannel(state.chatChannel);if(state.globalChannel)sb.removeChannel(state.globalChannel)}catch(e){}});
 init().catch(e=>{toast(e.message,true);$('staffList').innerHTML='<div class="empty" style="color:#b91c1c">'+esc(e.message)+'</div>'});
 </script>
 </body>
