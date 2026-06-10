@@ -145,6 +145,37 @@ function isMobile(){return window.matchMedia('(max-width:860px)').matches}
 function openMobileChat(){if(isMobile())document.body.classList.add('mobile-chat-mode')}
 function closeMobileChat(){document.body.classList.remove('mobile-chat-mode')}
 function setTypingText(text){const el=$('typingIndicator');if(el)el.textContent=text||''}
+
+function normText(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+function profileText(c){
+  return [
+    c?.role_label,c?.role,c?.designation,c?.department,c?.employee_type,
+    c?.full_name,c?.emp_code,c?.is_system_contact?'system':''
+  ].map(normText).join(' ');
+}
+function isProtectedProfile(c){
+  const t=profileText(c);
+  return !!(c?.is_system_contact) ||
+    /\b(admin|owner|developer|dev|company|support)\b/.test(t);
+}
+function isDeveloperProfile(c){
+  const t=profileText(c);
+  return /\b(developer|dev|support)\b/.test(t);
+}
+function contactPhone(c){return c?.mobile||c?.phone||c?.contact_mobile||c?.contact_phone||c?.whatsapp||''}
+function contactEmail(c){return c?.email||c?.work_email||c?.contact_email||''}
+function callContact(){
+  const c=state.current;if(!c)return;
+  const phone=contactPhone(c);
+  if(!phone)return toast('Developer ka mobile/call number data me nahi mila',true);
+  location.href='tel:'+String(phone).replace(/\s+/g,'');
+}
+function emailContact(){
+  const c=state.current;if(!c)return;
+  const email=contactEmail(c);
+  if(!email)return toast('Developer ka email data me nahi mila',true);
+  location.href='mailto:'+email;
+}
 async function setMyTyping(isTyping){
   if(!state.current?.conversation_id||!state.me?.id)return;
   try{
@@ -354,13 +385,25 @@ function updateChatHeader(){
     if($('headerAccept')) $('headerAccept').onclick=()=>acceptRequest(c.conversation_id);
     if($('headerReject')) $('headerReject').onclick=()=>rejectRequest(c.conversation_id);
   }else{
+    const protectedProfile=isProtectedProfile(c);
+    const devProfile=isDeveloperProfile(c);
+    const devButtons=devProfile
+      ? `<button class="action-icon" id="devCallBtn"><span class="material-icons">call</span> Call</button>
+         <button class="action-icon" id="devEmailBtn"><span class="material-icons">email</span> Email</button>`
+      : '';
+    const blockButton=!protectedProfile
+      ? `<button class="action-icon danger-action" id="blockBtn"><span class="material-icons">block</span> ${c.is_blocked?'Unblock':'Block'}</button>`
+      : '';
     $('contactActions').innerHTML=`
       <button class="action-icon" id="refreshChat"><span class="material-icons">refresh</span> Refresh</button>
-      <button class="action-icon danger-action" id="blockBtn"><span class="material-icons">block</span> ${c.is_blocked?'Unblock':'Block'}</button>
+      ${devButtons}
+      ${blockButton}
       <button class="action-icon danger-action" id="clearChatBtn"><span class="material-icons">delete_sweep</span> Delete All</button>
     `;
     $('refreshChat').onclick=()=>loadMessages();
-    $('blockBtn').onclick=()=>toggleBlock();
+    if($('devCallBtn')) $('devCallBtn').onclick=callContact;
+    if($('devEmailBtn')) $('devEmailBtn').onclick=emailContact;
+    if($('blockBtn')) $('blockBtn').onclick=()=>toggleBlock();
     $('clearChatBtn').onclick=()=>deleteEntireChat();
   }
   updateReplyBox();
@@ -466,6 +509,10 @@ async function rejectRequest(convId){
 }
 async function toggleBlock(){
   if(!state.current)return;
+  if(isProtectedProfile(state.current)){
+    toast('Admin / Owner / Developer / Company profile ko block nahi kar sakte.', true);
+    return;
+  }
   const blocked=!state.current.is_blocked;
   await rpc('chat_set_block',{p_conversation_id:state.current.conversation_id,p_employee_id:state.me.id,p_blocked:blocked});
   toast(blocked?'Chat blocked':'Chat unblocked');
