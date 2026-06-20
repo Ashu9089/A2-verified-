@@ -899,6 +899,38 @@ function fmtDateTime(value){
 function uuid(){
   return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 }
+function getBrowserFingerprintRaw(){
+  // Chrome data delete hone par localStorage wali device_id delete ho sakti hai.
+  // Fingerprint wahi mobile/laptop par mostly same rahega, isliye server exact device_id ke saath fingerprint bhi match karega.
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const parts = [
+    navigator.userAgent || '',
+    navigator.platform || '',
+    navigator.language || '',
+    screen.width || '',
+    screen.height || '',
+    screen.colorDepth || '',
+    window.devicePixelRatio || '',
+    tz,
+    navigator.hardwareConcurrency || '',
+    navigator.maxTouchPoints || ''
+  ];
+  return parts.join('|');
+}
+async function sha256Text(text){
+  try{
+    if(window.crypto?.subtle){
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+  }catch(e){ console.warn('sha256 fallback:', e.message); }
+  let hash = 0;
+  for(let i=0;i<text.length;i++){ hash = ((hash << 5) - hash) + text.charCodeAt(i); hash |= 0; }
+  return 'fallback-' + Math.abs(hash).toString(16);
+}
+async function getDeviceFingerprint(){
+  return await sha256Text(getBrowserFingerprintRaw());
+}
 function getDeviceId(){
   const key = 'inlist_verified_device_id_v1';
   let id = localStorage.getItem(key);
@@ -1002,6 +1034,7 @@ async function upsertDeviceApprovalRequest(emp, deviceId, oldDeviceId){
 }
 async function precheckEmployeeAndDevice(){
   const deviceId = getDeviceId();
+  const deviceFingerprint = await getDeviceFingerprint();
 
   // RLS ON me direct table select/insert/update avoid.
   // Ye RPC organization, employee, device request/approval sab handle karega.
@@ -1013,6 +1046,7 @@ async function precheckEmployeeAndDevice(){
     p_email: null,
     p_mobile: null,
     p_device_id: deviceId,
+    p_device_fingerprint: deviceFingerprint,
     p_device_name: deviceName(),
     p_platform: 'web'
   });
@@ -1698,6 +1732,37 @@ document.getElementById('moduleCloseBtn').addEventListener('click', () => $('mod
 document.getElementById('recheckDeviceBtn').addEventListener('click', () => loadData());
 
 
+
+/* ==================================================
+   AUTO FINALIZE PREVIOUS DAY ATTENDANCE
+   Next day screen open/login hote hi kal/pichhle pending roster ka status mark hoga:
+   - approved leave => leave
+   - roster week off/off => week_off
+   - roster c off/comp off => c_off
+   - roster tha aur punch nahi hai => absent
+   SQL RPC: app_auto_finalize_employee_attendance
+================================================== */
+async function autoFinalizePreviousAttendance(){
+  try{
+    if(!login?.org_code || !login?.emp_code) return;
+    const { data, error } = await supabaseClient.rpc('app_auto_finalize_employee_attendance', {
+      p_org_code: login.org_code,
+      p_emp_code: login.emp_code,
+      p_upto_date: todayISO(),
+      p_days_back: 7
+    });
+    if(error){
+      console.warn('Auto attendance finalize skipped:', error.message);
+      return;
+    }
+    if(data && Number(data.marked_count || 0) > 0){
+      showToast(`${data.marked_count} previous attendance auto updated.`, 'warn');
+    }
+  }catch(e){
+    console.warn('Auto attendance finalize failed:', e.message);
+  }
+}
+
 /* ==================================================
    AUTO MISS PUNCH CHECK
    Agar employee punch-in karta hai aur duty khatam hone ke baad
@@ -1725,7 +1790,9 @@ async function markMissPunchAfterMidnight(){
 }
 
 createLoginBox();
-markMissPunchAfterMidnight().finally(loadData);
+autoFinalizePreviousAttendance()
+  .then(markMissPunchAfterMidnight)
+  .finally(loadData);
 </script>
 </body>
 </html>
