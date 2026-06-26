@@ -117,7 +117,7 @@ const ATTENDANCE_FACE_BUCKET = 'employee-face'; // same bucket, attendance folde
 
 function getParam(name){ return new URLSearchParams(location.search).get(name); }
 const ORG_ID = getParam('org_id');
-const ORG_CODE = getParam('org_code');
+let ORG_CODE = getParam('org_code');
 const BRANCH_ID = getParam('branch_id');
 const EMP_ID_PARAM = getParam('emp_id') || getParam('employee_id');
 const EMP_CODE_PARAM = getParam('emp_code');
@@ -263,6 +263,10 @@ async function trySelect(table, selects, build){
 
 async function loadEmployee(){
   const selects=[
+    'id,org_id,org_code,branch_id,emp_code,full_name,email,mobile,department,designation,employee_type,active',
+    'id,org_id,org_code,branch_id,emp_code,full_name,email,mobile,department,designation,active',
+    'id,org_id,org_code,branch_id,emp_code,full_name,email,mobile,department,active',
+    'id,org_id,org_code,branch_id,emp_code,full_name,email,mobile,active',
     'id,org_id,branch_id,emp_code,full_name,email,mobile,department,designation,employee_type,active',
     'id,org_id,branch_id,emp_code,full_name,email,mobile,department,designation,active',
     'id,org_id,branch_id,emp_code,full_name,email,mobile,department,active',
@@ -280,8 +284,17 @@ async function loadEmployee(){
   if(!rows.length) throw new Error('Employee nahi mila. URL me emp_id ya emp_code bhejo. Owner user_id ko employee mat mano.');
   const e=rows[0];
   employee={
-    id:e.id, org_id:e.org_id||ORG_ID, branch_id:e.branch_id||BRANCH_ID, emp_code:e.emp_code||EMP_CODE_PARAM||'',
-    name:e.full_name||e.emp_code||USER_NAME_PARAM||'Employee', email:e.email||'', mobile:e.mobile||'', dept:e.department||e.designation||'—', designation:e.designation||'', employee_type:e.employee_type||''
+    id:e.id,
+    org_id:e.org_id||ORG_ID,
+    org_code:e.org_code||ORG_CODE||'',
+    branch_id:e.branch_id||BRANCH_ID,
+    emp_code:e.emp_code||EMP_CODE_PARAM||'',
+    name:e.full_name||e.emp_code||USER_NAME_PARAM||'Employee',
+    email:e.email||'',
+    mobile:e.mobile||'',
+    dept:e.department||e.designation||'—',
+    designation:e.designation||'',
+    employee_type:e.employee_type||''
   };
   document.getElementById('userAvatar').textContent=initials(employee.name);
   document.getElementById('userName').textContent=employee.name;
@@ -299,6 +312,44 @@ function firstNumber(row, keys){
   const v = firstValue(row, keys);
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function resolveOrgCode(){
+  const urlCode = clean(ORG_CODE || getParam('org_code') || '');
+  const empCode = clean(employee && employee.org_code ? employee.org_code : '');
+  const orgCode = clean(organization && organization.org_code ? organization.org_code : '');
+  const rawCode = clean((organization && firstValue(organization, ['org_code','code'])) || '');
+  const finalCode = urlCode || empCode || orgCode || rawCode;
+  if(finalCode){
+    ORG_CODE = finalCode;
+    if(employee) employee.org_code = finalCode;
+    if(organization) organization.org_code = finalCode;
+  }
+  return finalCode;
+}
+
+function requireOrgCode(){
+  const code = resolveOrgCode();
+  if(!code){
+    throw new Error('org_code missing hai. URL me org_code bhejo ya organizations table me org_code save karo.');
+  }
+  return code;
+}
+
+function requireEmpCode(){
+  const code = clean(employee && employee.emp_code ? employee.emp_code : EMP_CODE_PARAM || '');
+  if(!code){
+    throw new Error('emp_code missing hai. employees table me emp_code save karo.');
+  }
+  return code;
+}
+
+function requireEmployeeName(){
+  const name = clean(employee && employee.name ? employee.name : USER_NAME_PARAM || '');
+  if(!name){
+    throw new Error('employee_name missing hai. employees table me full_name save karo.');
+  }
+  return name;
 }
 function geofenceFromRow(row, source){
   if(!row) return null;
@@ -405,6 +456,7 @@ async function loadOrganization(){
   }
 
   organization = rows[0] || { id: ORG_ID, org_code: ORG_CODE || '' };
+  resolveOrgCode();
 
   // 1) Branch geofence — same as employee Punch In/Out
   const branchRow = await loadBranchGeofence();
@@ -783,19 +835,23 @@ async function saveAttendance(action){
   const faceUrl=await uploadAttendanceFace(action);
   const late=calcLate(now);
   const d=todayISO();
+  const finalOrgCode = requireOrgCode();
+  const finalEmpCode = requireEmpCode();
+  const finalEmployeeName = requireEmployeeName();
+  const finalBranchId = employee.branch_id || BRANCH_ID || (roster && roster.branch_id) || null;
 
   if(action==='punch_in'){
     const payload={
-      org_id:ORG_ID, branch_id:employee.branch_id||BRANCH_ID||null, employee_id:employee.id, roster_id:roster.id||null,
-      org_code:ORG_CODE||null, emp_code:employee.emp_code||null, employee_name:employee.name||null, email:employee.email||null, mobile:employee.mobile||null,
+      org_id:employee.org_id||ORG_ID, branch_id:finalBranchId, employee_id:employee.id, roster_id:roster.id||null,
+      org_code:finalOrgCode, emp_code:finalEmpCode, employee_name:finalEmployeeName, email:employee.email||'', mobile:employee.mobile||'',
       attendance_date:d, punch_in:nowIso, punch_in_time:nowIso,
       punch_in_lat:currentLocation.lat, punch_in_lng:currentLocation.lng, punch_in_distance_meters:currentDistance,
       status:late.isLate?'late':'present', is_late:late.isLate, late_minutes:late.lateMinutes,
       source:'face_attendance', attendance_source:'face_attendance', correction_source:'face_attendance',
       remarks: faceUrl ? `Face attendance punch in. image=${faceUrl}` : 'Face attendance punch in',
-      department:employee.dept||null, designation:employee.designation||null,
+      department:(employee.dept&&employee.dept!=='—')?employee.dept:null, designation:employee.designation||null,
       created_by:USER_ID||employee.id, updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
-      updated_by_name:employee.name, updated_by_emp_code:employee.emp_code||null, updated_at:nowIso
+      updated_by_name:finalEmployeeName, updated_by_emp_code:finalEmpCode, updated_at:nowIso
     };
     await insertAttendanceWithFallback(payload);
     await loadTodayAttendance();
@@ -811,7 +867,7 @@ async function saveAttendance(action){
       punch_out_lat:currentLocation.lat, punch_out_lng:currentLocation.lng, punch_out_distance_meters:currentDistance,
       worked_minutes:workedMinutes, worked_hours:workedHours, working_hours:workedHours,
       status:todayAttendance.is_late?'late':'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
-      updated_by_name:employee.name, updated_by_emp_code:employee.emp_code||null, updated_at:nowIso,
+      updated_by_name:finalEmployeeName, updated_by_emp_code:finalEmpCode, updated_at:nowIso,
       remarks: faceUrl ? `Face attendance punch out. image=${faceUrl}` : 'Face attendance punch out'
     };
     await updateAttendanceWithFallback(todayAttendance.id, payload);
@@ -822,7 +878,12 @@ async function saveAttendance(action){
   updateUI();
 }
 async function insertAttendanceWithFallback(payload){
-  const payloads=[payload, strip(payload,['org_code','employee_name','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']), strip(payload,['org_code','employee_name','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']), strip(payload,['punch_in_time','punch_out_time','org_code','employee_name','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])];
+  const payloads=[
+    payload,
+    strip(payload,['department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']),
+    strip(payload,['email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']),
+    strip(payload,['punch_in_time','punch_out_time','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])
+  ];
   let lastErr=null;
   for(const p of payloads){
     const {error}=await sb.from('attendance').insert(p);
