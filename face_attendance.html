@@ -338,50 +338,47 @@ function geofenceFromRow(row, source){
 }
 
 async function loadBranchGeofence(){
-  // First priority: org_branches, because user confirmed:
-  // org_branches(id,org_id,branch_code,branch_name,address,city,state,lat,lng,radius_meters,active,created_at,updated_at)
+  // SAME AS EMP PUNCH SCREEN:
+  // Branch geofence ko highest priority diya gaya hai. User ke DB me main table org_branches hai:
+  // id, org_id, branch_code, branch_name, address, city, state, lat, lng, radius_meters, active
   const tableAttempts = ['org_branches', 'branches'];
   let lastErr = null;
 
   for(const table of tableAttempts){
-    try{
-      let q = sb.from(table).select('*').eq('org_id', ORG_ID);
+    const attempts = [];
 
-      if(BRANCH_ID){
-        q = q.eq('id', BRANCH_ID);
-      }
+    // 1) Exact branch_id + active branch
+    if(BRANCH_ID){
+      attempts.push({ strictBranch:true, active:true });
+      attempts.push({ strictBranch:true, active:false });
+    }
 
-      // active column exists in org_branches. If branches table does not have active, fallback below will catch error.
-      if(table === 'org_branches') q = q.eq('active', true);
+    // 2) Agar branch_id URL me missing/galat ho to org ki first active branch
+    attempts.push({ strictBranch:false, active:true });
+    attempts.push({ strictBranch:false, active:false });
 
-      const res = await q.limit(1);
-      if(!res.error && res.data && res.data.length){
-        console.log('Geofence loaded from', table, res.data[0]);
-        return res.data[0];
-      }
+    for(const a of attempts){
+      try{
+        let q = sb.from(table).select('*').eq('org_id', ORG_ID);
+        if(a.strictBranch && BRANCH_ID) q = q.eq('id', BRANCH_ID);
+        if(a.active && table === 'org_branches') q = q.eq('active', true);
 
-      if(res.error){
-        lastErr = res.error;
-        console.warn(table, 'geofence load failed:', res.error);
-      }
-
-      // If branch_id exact did not match, try same table without branch id but active org branch.
-      if(BRANCH_ID){
-        let q2 = sb.from(table).select('*').eq('org_id', ORG_ID);
-        if(table === 'org_branches') q2 = q2.eq('active', true);
-        const res2 = await q2.limit(1);
-        if(!res2.error && res2.data && res2.data.length){
-          console.log('Geofence loaded from', table, 'without branch_id strict filter', res2.data[0]);
-          return res2.data[0];
+        const res = await q.limit(1);
+        if(!res.error && res.data && res.data.length){
+          const row = res.data[0];
+          if(geofenceFromRow(row, 'branch')){
+            console.log('Geofence loaded from', table, a, row);
+            return row;
+          }
         }
-        if(res2.error){
-          lastErr = res2.error;
-          console.warn(table, 'geofence fallback without branch_id failed:', res2.error);
+        if(res.error){
+          lastErr = res.error;
+          console.warn(table, 'geofence attempt failed:', a, res.error);
         }
+      }catch(e){
+        lastErr = e;
+        console.warn(table, 'geofence exception:', a, e);
       }
-    }catch(e){
-      lastErr = e;
-      console.warn(table, 'geofence exception:', e);
     }
   }
 
@@ -389,8 +386,8 @@ async function loadBranchGeofence(){
   return null;
 }
 async function loadOrganization(){
-  // IMPORTANT: select('*') use kiya hai taki missing columns (org_code/lat/lng/radius_meters/address)
-  // ki wajah se 400 Bad Request na aaye. Columns ko neeche multiple possible names se read kiya ja raha hai.
+  // IMPORTANT: Punch In/Out screen branch radius se verify karta hai.
+  // Isliye Face Attendance me bhi branch FIRST use hoga, organization/company fallback baad me.
   let rows = [];
   try{
     rows = await trySelect('organizations', ['*'], (q,sel)=>q.eq('id', ORG_ID).limit(1));
@@ -408,21 +405,22 @@ async function loadOrganization(){
   }
 
   organization = rows[0] || { id: ORG_ID, org_code: ORG_CODE || '' };
-  geofence = geofenceFromRow(organization, 'organization');
 
-  // Agar company/org table me lat-lng nahi hai to branch table se location/radius lo.
+  // 1) Branch geofence — same as employee Punch In/Out
+  const branchRow = await loadBranchGeofence();
+  const branchGeo = geofenceFromRow(branchRow, 'branch');
+
+  // 2) Company/org fallback — sirf branch lat/lng missing ho to
+  const orgGeo = geofenceFromRow(organization, 'organization');
+
+  geofence = branchGeo || orgGeo || null;
+  if(branchRow) organization.branch_geofence = branchRow;
+
   if(!geofence){
-    const branchRow = await loadBranchGeofence();
-    const branchGeo = geofenceFromRow(branchRow, 'branch');
-    if(branchGeo){
-      geofence = branchGeo;
-      organization.branch_geofence = branchRow;
-    }
+    throw new Error('Company/branch location nahi mila. org_branches me lat, lng, radius_meters save karo.');
   }
 
-  if(!rows.length && !geofence){
-    throw new Error('Organization/branch location nahi mila. Org RLS ya location columns check karo.');
-  }
+  console.log('FINAL FACE GEOFENCE:', geofence.source, geofence);
 }
 
 async function loadFaceRegistration(){
@@ -536,7 +534,7 @@ async function loadTodayAttendance(){
 function getOneGeoPosition(timeout=12000){
   return new Promise((resolve,reject)=>{
     if(!navigator.geolocation) return reject(new Error('Geolocation browser me supported nahi hai.'));
-    navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout,maximumAge:0});
+    navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout,maximumAge:30000});
   });
 }
 
@@ -638,7 +636,7 @@ function updateUI(){
 function checksReady(){
   const faceOk=!!(faceRegistration && (faceRegistration.registered===true || faceRegistration.face_status==='registered' || faceRegistration.face_image_url));
   const rosterOk=!!roster;
-  const geoOk=!!(currentLocation && currentDistance!==null && geofence && currentDistance <= (Number.isFinite(Number(geofence.radius)) ? Number(geofence.radius) : 50));
+  const geoOk=!!(currentLocation && currentDistance!==null && geofence && currentDistance <= getAllowedRadius());
   return {faceOk,rosterOk,geoOk,all:faceOk&&rosterOk&&geoOk};
 }
 function updateScanButton(){
