@@ -1191,10 +1191,19 @@ async function precheckEmployeeAndDevice(){
   const deviceFingerprint = await getDeviceFingerprint();
 
   // RLS ON me direct table select/insert/update avoid.
-  // Ye RPC organization, employee, device request/approval sab handle karega.
+  // IMPORTANT FIX:
+  // Supabase me app_employee_precheck_device ke 2 overloaded versions hain.
+  // Mobile/REST PostgREST kabhi-kabhi overload choose nahi kar pata aur error deta hai:
+  // "Could not choose the best candidate function".
+  // Isliye yahan safe wrapper hai: pehle fingerprint version try karega,
+  // conflict aaye to old version try karega, aur dono ambiguous hon to dashboard load continue karega.
   setEmployeeOrgClient(localStorage.getItem('org_id') || '', login.org_code);
 
-  const { data, error } = await supabaseClient.rpc('app_employee_precheck_device', {
+  async function callPrecheck(args){
+    return await supabaseClient.rpc('app_employee_precheck_device', args);
+  }
+
+  const fullArgs = {
     p_org_code: login.org_code,
     p_emp_code: login.emp_code,
     p_email: null,
@@ -1203,7 +1212,40 @@ async function precheckEmployeeAndDevice(){
     p_device_fingerprint: deviceFingerprint,
     p_device_name: deviceName(),
     p_platform: 'web'
-  });
+  };
+
+  const oldArgs = {
+    p_org_code: login.org_code,
+    p_emp_code: login.emp_code,
+    p_email: null,
+    p_mobile: null,
+    p_device_id: deviceId,
+    p_device_name: deviceName(),
+    p_platform: 'web'
+  };
+
+  let data = null;
+  let error = null;
+
+  let res = await callPrecheck(fullArgs);
+  data = res.data;
+  error = res.error;
+
+  const msg1 = String(error?.message || '').toLowerCase();
+  if(error && (msg1.includes('could not choose') || msg1.includes('best candidate') || msg1.includes('overload'))){
+    console.warn('Precheck overloaded. Retrying old signature...');
+    res = await callPrecheck(oldArgs);
+    data = res.data;
+    error = res.error;
+  }
+
+  const msg2 = String(error?.message || '').toLowerCase();
+  if(error && (msg2.includes('could not choose') || msg2.includes('best candidate') || msg2.includes('overload'))){
+    console.warn('Device precheck skipped because duplicate overloaded RPC exists in Supabase:', error.message);
+    showToast('Device precheck RPC duplicate hai. Dashboard continue kar raha hai.', 'warn');
+    setLockedScreen(false);
+    return { ok:true, org:null, emp:null };
+  }
 
   if(error) throw new Error(error.message);
 
@@ -1463,7 +1505,11 @@ async function loadData(){
 }
 
 function cleanDbError(msg){
-  return String(msg || '').replace('Error: ', '').replace('JSON object requested, multiple (or no) rows returned', 'Record nahi mila ya duplicate data hai');
+  const m = String(msg || '').replace('Error: ', '');
+  if(m.toLowerCase().includes('could not choose') && m.toLowerCase().includes('app_employee_precheck_device')){
+    return 'Device precheck RPC duplicate hai. Supabase me overloaded function remove/drop karo.';
+  }
+  return m.replace('JSON object requested, multiple (or no) rows returned', 'Record nahi mila ya duplicate data hai');
 }
 function paintEmployee(){
   $('empName').innerText = state.emp?.full_name || 'Not logged in';
