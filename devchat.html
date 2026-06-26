@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Developer Chat Monitor | Supabase</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:radial-gradient(ellipse at 20% 30%,#081c24,#102f3a 60%,#061116);min-height:100vh;padding:1rem;color:#0f172a}
+    .top{max-width:1500px;margin:0 auto 1rem;background:linear-gradient(135deg,#0f3b46,#071d24);color:white;border-radius:2rem;padding:1rem 1.3rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;box-shadow:0 12px 28px rgba(0,0,0,.25)}
+    .back{border:0;background:rgba(255,255,255,.13);color:white;border-radius:999px;padding:9px 18px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:7px}
+    .title{font-weight:950;background:rgba(255,255,255,.15);border-radius:999px;padding:8px 20px}.pill{background:rgba(255,255,255,.1);border-radius:999px;padding:7px 16px;font-size:.8rem;font-weight:800}
+    .layout{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:330px 390px 1fr;gap:1rem;height:calc(100vh - 110px)}
+    .panel{background:#fff;border-radius:1.6rem;overflow:hidden;box-shadow:0 14px 30px rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.2);display:flex;flex-direction:column;min-height:0}
+    .panel-head{padding:1rem;background:#f8fafc;border-bottom:1px solid #e2e8f0}.panel-head h2{font-size:1rem;color:#0f3f48;font-weight:950;display:flex;align-items:center;gap:7px}.hint{font-size:.72rem;color:#64748b;margin-top:5px;font-weight:700}
+    .search{padding:.85rem;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;gap:8px}.search input,.search select{width:100%;padding:10px 13px;border-radius:999px;border:1px solid #cbd5e1;outline:none;font-size:.84rem}.search button{border:0;background:#0f766e;color:white;border-radius:999px;padding:0 14px;font-weight:900;cursor:pointer}
+    .list{overflow-y:auto;flex:1}.item{padding:.9rem 1rem;border-bottom:1px solid #edf2f7;display:flex;gap:11px;align-items:center;cursor:pointer}.item:hover{background:#f8fafc}.item.active{background:#ecfeff;border-left:4px solid #0891b2}.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#0f766e,#075985);color:white;display:flex;align-items:center;justify-content:center;font-weight:950;position:relative;flex:0 0 auto}.dot{width:10px;height:10px;border-radius:50%;background:#94a3b8;border:2px solid white;position:absolute;right:0;bottom:0}.dot.on{background:#22c55e}
+    .info{min-width:0;flex:1}.name{font-weight:950;color:#164e63;display:flex;gap:6px;align-items:center}.sub{font-size:.72rem;color:#64748b;margin-top:2px}.last{font-size:.72rem;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tag{font-size:.6rem;border-radius:999px;background:#e2e8f0;color:#334155;padding:2px 7px;font-weight:900}.count{background:#ef4444;color:white;border-radius:999px;font-size:.64rem;font-weight:950;padding:2px 7px}
+    .chat-head{padding:1rem 1.2rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.chat-title{font-weight:950;color:#164e63}.chat-sub{font-size:.72rem;color:#64748b;font-weight:700}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;background:#e2e8f0;color:#334155;border-radius:999px;padding:8px 13px;font-weight:900;cursor:pointer}.btn.primary{background:#0f766e;color:white}.btn.danger{background:#fee2e2;color:#991b1b}.btn.warn{background:#fef3c7;color:#92400e}
+    .messages{flex:1;overflow-y:auto;background:#fcfdff;padding:1rem}.empty{padding:2rem;text-align:center;color:#64748b;font-weight:900}.msg{margin-bottom:1rem;display:flex;flex-direction:column}.bubble{max-width:78%;border-radius:1.2rem;padding:10px 13px;line-height:1.45;font-size:.85rem;position:relative}.sent{align-items:flex-end}.recv{align-items:flex-start}.sent .bubble{background:#0f766e;color:white;border-bottom-right-radius:5px}.recv .bubble{background:#eef6f4;color:#0f3f48;border-bottom-left-radius:5px}.deleted .bubble{background:#fff7ed!important;color:#9a3412!important;border:1px dashed #f59e0b}
+    .meta{font-size:.62rem;opacity:.75;margin-top:5px;text-align:right}.media{max-width:260px;max-height:190px;border-radius:.8rem;display:block;margin-top:7px;border:1px solid rgba(0,0,0,.08);cursor:pointer}.msg-actions{margin-top:6px;display:flex;gap:6px;justify-content:flex-end}.small{border:0;border-radius:999px;padding:5px 9px;font-size:.68rem;font-weight:900;cursor:pointer;background:#e2e8f0;color:#334155}.small.restore{background:#dcfce7;color:#166534}.small.view{background:#dbeafe;color:#1e40af}
+    .drawer{padding:1rem;border-top:1px solid #e2e8f0;background:#f8fafc}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:white;border-radius:1rem;padding:.7rem;text-align:center;border:1px solid #e2e8f0}.num{font-size:1.2rem;font-weight:950;color:#0f766e}.lab{font-size:.64rem;color:#64748b;font-weight:800}
+    .toast{position:fixed;bottom:20px;left:20px;background:#0f766e;color:white;border-radius:999px;padding:10px 18px;font-size:.8rem;font-weight:800;z-index:9999}.toast.err{background:#b91c1c}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:5000;align-items:center;justify-content:center;padding:1rem}.modal-box{max-width:900px;max-height:90vh;background:white;border-radius:1.2rem;padding:1rem;overflow:auto}.modal img,.modal video{max-width:100%;max-height:75vh;border-radius:1rem}.modal audio{width:min(700px,90vw)}
+
+    .media-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;justify-content:flex-end}
+    .download-btn{display:inline-flex;align-items:center;gap:4px;text-decoration:none;border:0;border-radius:999px;padding:5px 9px;font-size:.68rem;font-weight:900;background:#e0f2fe;color:#075985;cursor:pointer}
+    .download-btn:hover{background:#bae6fd}
+    .audio-box{min-width:250px;margin-top:7px}.audio-box audio{width:100%}
+    .chat-menu-wrap{position:relative}
+    .menu-dot{width:42px;height:42px;border:0;border-radius:50%;background:#e2e8f0;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .menu-dot:hover{background:#0f766e;color:white}
+    .side-menu{display:none;position:absolute;right:0;top:48px;background:white;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 14px 35px rgba(0,0,0,.22);min-width:220px;overflow:hidden;z-index:2000}
+    .side-menu.open{display:block}
+    .side-menu button,.side-menu a{width:100%;display:flex;align-items:center;gap:8px;border:0;background:white;color:#334155;text-decoration:none;padding:12px 14px;font-weight:900;font-size:.82rem;cursor:pointer;text-align:left}
+    .side-menu button:hover,.side-menu a:hover{background:#f1f5f9}
+    .side-menu .danger{color:#991b1b}
+    .side-menu .warn{color:#92400e}
+    .scroll-bottom-btn{position:fixed;right:24px;bottom:28px;width:52px;height:52px;border:0;border-radius:50%;background:#0f766e;color:white;display:none;align-items:center;justify-content:center;z-index:3000;cursor:pointer;box-shadow:0 10px 28px rgba(0,0,0,.3)}
+    .scroll-bottom-btn.show{display:flex}
+    .new-msg-dot{position:absolute;right:7px;top:7px;min-width:18px;height:18px;border-radius:999px;background:#ef4444;color:white;font-size:.62rem;font-weight:950;display:none;align-items:center;justify-content:center;padding:0 5px}
+    .scroll-bottom-btn.has-new .new-msg-dot{display:flex}
+    .deleted-media-note{font-size:.7rem;font-weight:900;color:#92400e;background:#fffbeb;border:1px dashed #f59e0b;border-radius:10px;padding:6px 8px;margin-top:7px}
+    @media(max-width:1100px){.layout{grid-template-columns:1fr;height:auto}.panel{min-height:420px}.messages{max-height:520px}}
+  </style>
+</head>
+<body>
+<div class="top">
+  <button class="back" id="backBtn"><span class="material-icons">arrow_back</span> Back</button>
+  <div class="title">🛠 Developer Chat Monitor</div>
+  <div class="pill" id="devBox">Developer View</div>
+</div>
+
+<div class="layout">
+  <section class="panel">
+    <div class="panel-head">
+      <h2><span class="material-icons">business</span> Select Company</h2>
+      <div class="hint">Company select karo, phir us company ke chat dekhoge.</div>
+    </div>
+    <div class="search">
+      <input id="companySearch" placeholder="Company code/name search...">
+      <button id="companySearchBtn">Search</button>
+    </div>
+    <div class="list" id="companyList">Loading companies...</div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2><span class="material-icons">forum</span> Company Chats</h2>
+      <div class="hint" id="companyHint">Company select karo.</div>
+    </div>
+    <div class="search">
+      <input id="chatSearch" placeholder="Emp ID/name/message search...">
+      <button id="chatSearchBtn">Search</button>
+    </div>
+    <div class="list" id="chatList"><div class="empty">No company selected</div></div>
+    <div class="drawer">
+      <div class="stats">
+        <div class="stat"><div class="num" id="totalConv">0</div><div class="lab">Chats</div></div>
+        <div class="stat"><div class="num" id="totalMsg">0</div><div class="lab">Messages</div></div>
+        <div class="stat"><div class="num" id="deletedMsg">0</div><div class="lab">Deleted</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="chat-head">
+      <div>
+        <div class="chat-title" id="chatTitle">Select chat</div>
+        <div class="chat-sub" id="chatSub">Deleted messages bhi yahi dikhengi.</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="refreshBtn">Refresh</button>
+        <button class="btn warn" id="showDeletedBtn">Show Deleted</button>
+        <div class="chat-menu-wrap">
+          <button class="menu-dot" id="chatMenuBtn" title="More options"><span class="material-icons">more_vert</span></button>
+          <div class="side-menu" id="chatMenu">
+            <button id="menuBlockBtn" class="danger"><span class="material-icons">block</span> Block / Unblock User</button>
+            <button id="menuCallA"><span class="material-icons">call</span> Call Employee A</button>
+            <button id="menuCallB"><span class="material-icons">call</span> Call Employee B</button>
+            <button id="menuMailA"><span class="material-icons">mail</span> Mail Employee A</button>
+            <button id="menuMailB"><span class="material-icons">mail</span> Mail Employee B</button>
+            <button id="menuCopyPhoneA"><span class="material-icons">content_copy</span> Copy A Mobile</button>
+            <button id="menuCopyPhoneB"><span class="material-icons">content_copy</span> Copy B Mobile</button>
+            <button id="menuCopyMailA"><span class="material-icons">content_copy</span> Copy A Email</button>
+            <button id="menuCopyMailB"><span class="material-icons">content_copy</span> Copy B Email</button>
+            <button id="menuBottom"><span class="material-icons">keyboard_arrow_down</span> Go to Bottom</button>
+            <button id="menuDetails" class="warn"><span class="material-icons">info</span> Chat Details</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="messages" id="messagesBox"><div class="empty">Chat select karo</div></div>
+  </section>
+</div>
+
+<button id="scrollBottomBtn" class="scroll-bottom-btn" title="Go to bottom">
+  <span class="material-icons">keyboard_arrow_down</span>
+  <span class="new-msg-dot" id="newMsgDot">0</span>
+</button>
+
+<div class="modal" id="mediaModal">
+  <div class="modal-box">
+    <div style="text-align:right;margin-bottom:8px"><button class="btn danger" id="closeModal">Close</button></div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE'.replace('eyJpc3MiOiJIUzI1NiIs','eyJpc3MiOiJIUzI1NiIs');
+/* fallback direct key: */
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const $=id=>document.getElementById(id);
+let state={companies:[],company:null,chats:[],chat:null,messages:[],showDeleted:true,stats:{},newMsgCount:0,lastMessageCount:0};
+
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function initials(v){return String(v||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?'}
+function toast(msg,err=false){let o=document.querySelector('.toast');if(o)o.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
+function time(v){if(!v)return'';const d=new Date(v);return d.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
+
+function mediaSrc(m){return m?.media_url||m?.media_data||''}
+function mediaDownloadName(m){
+  const ext=m?.media_type==='image'?'jpg':m?.media_type==='video'?'mp4':m?.media_type==='audio'?'mp3':'file';
+  return `chat-${m?.id||Date.now()}.${ext}`;
+}
+function isNearBottom(box){
+  if(!box)return true;
+  return (box.scrollHeight - box.scrollTop - box.clientHeight) < 140;
+}
+function updateBottomButton(){
+  const box=$('messagesBox');
+  const btn=$('scrollBottomBtn');
+  if(!box||!btn)return;
+  const show=!isNearBottom(box) && state.chat;
+  btn.classList.toggle('show',!!show);
+  btn.classList.toggle('has-new',Number(state.newMsgCount||0)>0);
+  if($('newMsgDot')) $('newMsgDot').textContent=String(state.newMsgCount||0);
+}
+function scrollMessagesToBottom(smooth=true){
+  const box=$('messagesBox');
+  if(!box)return;
+  box.scrollTo({top:box.scrollHeight,behavior:smooth?'smooth':'auto'});
+  state.newMsgCount=0;
+  updateBottomButton();
+}
+function closeMenu(){ if($('chatMenu')) $('chatMenu').classList.remove('open'); }
+function cleanPhone(v){
+  return String(v||'').replace(/[^0-9+]/g,'').trim();
+}
+function cleanEmail(v){
+  return String(v||'').trim();
+}
+function localContactValue(side,type){
+  if(!state.chat)return '';
+  const p = side === 'B' ? 'employee_b' : 'employee_a';
+  const short = side === 'B' ? 'b' : 'a';
+  const keys = type === 'phone'
+    ? [`${p}_mobile`,`${p}_phone`,`${p}_contact_mobile`,`${p}_contact_phone`,`${p}_whatsapp`,`${short}_mobile`,`${short}_phone`,`${short}_contact_mobile`,`${short}_contact_phone`]
+    : [`${p}_email`,`${p}_work_email`,`${p}_contact_email`,`${short}_email`,`${short}_work_email`,`${short}_contact_email`];
+  for(const k of keys){
+    if(state.chat[k]) return state.chat[k];
+  }
+  return '';
+}
+async function ensureChatContacts(){
+  if(!state.chat)return null;
+  // Agar already fetched hai to repeat DB call nahi hoga
+  if(state.chat.__contacts_loaded)return state.chat.__contacts_loaded;
+  const aId = state.chat.employee_a_id || state.chat.a_employee_id || state.chat.employee_a;
+  const bId = state.chat.employee_b_id || state.chat.b_employee_id || state.chat.employee_b;
+  let data=null;
+  try{
+    data = await rpc('dev_chat_get_contact_details',{
+      p_employee_a_id:aId||null,
+      p_employee_b_id:bId||null
+    });
+  }catch(err){
+    console.warn('dev_chat_get_contact_details RPC failed, trying direct employee fallback:',err);
+    try{
+      const ids=[aId,bId].filter(Boolean);
+      if(ids.length){
+        const {data:rows,error}=await sb.from('employees')
+          .select('id,full_name,emp_code,email,mobile,alternate_mobile,department,designation')
+          .in('id',ids);
+        if(error)throw error;
+        const a=(rows||[]).find(x=>String(x.id)===String(aId))||{};
+        const b=(rows||[]).find(x=>String(x.id)===String(bId))||{};
+        data={a,b};
+      }
+    }catch(e2){
+      console.error('direct contact fallback failed:',e2);
+    }
+  }
+  if(data){
+    const a=data.a||data.employee_a||{};
+    const b=data.b||data.employee_b||{};
+    Object.assign(state.chat,{
+      employee_a_mobile:a.mobile||a.phone||a.alternate_mobile||state.chat.employee_a_mobile||state.chat.a_mobile||'',
+      employee_b_mobile:b.mobile||b.phone||b.alternate_mobile||state.chat.employee_b_mobile||state.chat.b_mobile||'',
+      employee_a_email:a.email||state.chat.employee_a_email||state.chat.a_email||'',
+      employee_b_email:b.email||state.chat.employee_b_email||state.chat.b_email||'',
+      employee_a_designation:a.designation||state.chat.employee_a_designation||'',
+      employee_b_designation:b.designation||state.chat.employee_b_designation||'',
+      employee_a_department:a.department||state.chat.employee_a_department||'',
+      employee_b_department:b.department||state.chat.employee_b_department||''
+    });
+    state.chat.__contacts_loaded=data;
+  }
+  return data;
+}
+async function callSide(side){
+  if(!state.chat)return toast('Chat select karo',true);
+  let phone=cleanPhone(localContactValue(side,'phone'));
+  if(!phone){
+    await ensureChatContacts();
+    phone=cleanPhone(localContactValue(side,'phone'));
+  }
+  if(!phone)return toast(`${side==='B'?'Employee B':'Employee A'} ka mobile number employees table me nahi mila`,true);
+  location.href='tel:'+phone;
+}
+async function mailSide(side){
+  if(!state.chat)return toast('Chat select karo',true);
+  let email=cleanEmail(localContactValue(side,'email'));
+  if(!email){
+    await ensureChatContacts();
+    email=cleanEmail(localContactValue(side,'email'));
+  }
+  if(!email)return toast(`${side==='B'?'Employee B':'Employee A'} ka email employees table me nahi mila`,true);
+  location.href='mailto:'+email;
+}
+async function copyContact(side,type){
+  if(!state.chat)return toast('Chat select karo',true);
+  let val = type==='phone' ? cleanPhone(localContactValue(side,'phone')) : cleanEmail(localContactValue(side,'email'));
+  if(!val){
+    await ensureChatContacts();
+    val = type==='phone' ? cleanPhone(localContactValue(side,'phone')) : cleanEmail(localContactValue(side,'email'));
+  }
+  if(!val)return toast('Data nahi mila',true);
+  try{ await navigator.clipboard.writeText(val); toast('Copied: '+val); }
+  catch(e){ prompt('Copy manually:',val); }
+}
+function openTel(v){
+  const phone=cleanPhone(v);
+  if(!phone)return toast('Mobile number data me nahi mila',true);
+  location.href='tel:'+phone;
+}
+function openMail(v){
+  const email=cleanEmail(v);
+  if(!email)return toast('Email data me nahi mila',true);
+  location.href='mailto:'+email;
+}
+function chatJsonDetails(){
+  if(!state.chat)return toast('Chat select karo',true);
+  alert(JSON.stringify(state.chat,null,2));
+}
+async function rpc(fn,args){const {data,error}=await sb.rpc(fn,args||{});if(error)throw error;return data}
+
+async function loadCompanies(){
+  const q=$('companySearch').value.trim()||null;
+  state.companies=await rpc('dev_chat_get_companies',{p_search:q,p_limit:50});
+  renderCompanies();
+}
+function renderCompanies(){
+  const box=$('companyList');
+  if(!state.companies.length){box.innerHTML='<div class="empty">No companies found</div>';return}
+  box.innerHTML=state.companies.map(c=>`
+    <div class="item ${state.company?.id===c.id?'active':''}" data-company="${esc(c.id)}">
+      <div class="avatar">${esc(initials(c.org_name||c.org_code))}</div>
+      <div class="info">
+        <div class="name">${esc(c.org_name||'-')} <span class="tag">${esc(c.org_code||'-')}</span></div>
+        <div class="sub">Chats: ${Number(c.conversation_count||0)} • Msg: ${Number(c.message_count||0)} • Deleted: ${Number(c.deleted_count||0)}</div>
+        <div class="last">${c.last_message_at?('Last: '+time(c.last_message_at)):'No messages'}</div>
+      </div>
+    </div>`).join('');
+}
+async function selectCompany(id){
+  state.company=state.companies.find(c=>String(c.id)===String(id));
+  state.chat=null;state.messages=[];
+  $('companyHint').textContent=`${state.company.org_name} (${state.company.org_code})`;
+  $('chatTitle').textContent='Select chat';
+  $('messagesBox').innerHTML='<div class="empty">Chat select karo</div>';
+  await loadChats();
+  renderCompanies();
+}
+async function loadChats(){
+  if(!state.company)return;
+  const q=$('chatSearch').value.trim()||null;
+  const data=await rpc('dev_chat_get_company_conversations',{p_org_id:state.company.id,p_search:q,p_limit:100});
+  state.chats=data.items||[];
+  state.stats=data.stats||{};
+  $('totalConv').textContent=state.stats.total_conversations||0;
+  $('totalMsg').textContent=state.stats.total_messages||0;
+  $('deletedMsg').textContent=state.stats.deleted_messages||0;
+  renderChats();
+}
+function renderChats(){
+  const box=$('chatList');
+  if(!state.chats.length){box.innerHTML='<div class="empty">No chats found</div>';return}
+  box.innerHTML=state.chats.map(c=>`
+    <div class="item ${state.chat?.conversation_id===c.conversation_id?'active':''}" data-conv="${esc(c.conversation_id)}">
+      <div class="avatar">${esc(initials(c.employee_a_name))}<span class="dot ${c.a_online?'on':''}"></span></div>
+      <div class="info">
+        <div class="name">${esc(c.employee_a_name)} ↔ ${esc(c.employee_b_name)} ${Number(c.deleted_count||0)>0?`<span class="count">${c.deleted_count} del</span>`:''}</div>
+        <div class="sub">${esc(c.employee_a_code)} ↔ ${esc(c.employee_b_code)} • ${esc(c.status)}</div>
+        <div class="last">${esc(c.last_message_text||'No messages')} ${c.last_message_at?' • '+time(c.last_message_at):''}</div>
+      </div>
+    </div>`).join('');
+}
+async function selectChat(id){
+  state.chat=state.chats.find(c=>String(c.conversation_id)===String(id));
+  await ensureChatContacts().catch(()=>{});
+  state.newMsgCount=0;
+  state.lastMessageCount=0;
+  $('chatTitle').textContent=`${state.chat.employee_a_name} ↔ ${state.chat.employee_b_name}`;
+  $('chatSub').textContent=`${state.chat.employee_a_code} ↔ ${state.chat.employee_b_code} | ${state.company.org_code} | A:${state.chat.employee_a_mobile||'-'} / ${state.chat.employee_a_email||'-'} | B:${state.chat.employee_b_mobile||'-'} / ${state.chat.employee_b_email||'-'}`;
+  await loadMessages(true);
+  renderChats();
+  setTimeout(()=>scrollMessagesToBottom(false),80);
+}
+async function loadMessages(forceBottom=false){
+  if(!state.chat)return;
+  const box=$('messagesBox');
+  const wasNear=isNearBottom(box);
+  const oldCount=state.messages.length;
+  state.messages=await rpc('dev_chat_get_messages',{p_conversation_id:state.chat.conversation_id,p_include_deleted:state.showDeleted,p_limit:50});
+  if(!wasNear && state.messages.length>oldCount){
+    state.newMsgCount += (state.messages.length-oldCount);
+  }
+  renderMessages(forceBottom || wasNear);
+}
+function renderMessages(shouldScroll=false){
+  const box=$('messagesBox');
+  const wasNear=isNearBottom(box);
+  const oldTop=box.scrollTop;
+  const oldHeight=box.scrollHeight;
+
+  if(!state.messages.length){
+    box.innerHTML='<div class="empty">No messages</div>';
+    updateBottomButton();
+    return;
+  }
+
+  box.innerHTML=state.messages.map(m=>{
+    const sent=String(m.sender_employee_id)===String(state.chat.employee_a_id);
+    const del=m.deleted_for_both||Number(m.deleted_for_me_count||0)>0;
+    const src=mediaSrc(m);
+    let content='';
+
+    if(m.media_type==='image' && src){
+      content+=`<img class="media" src="${esc(src)}" data-media-type="image" data-src="${esc(src)}" alt="chat image">
+        <div class="media-actions">
+          <a class="download-btn" href="${esc(src)}" download="${esc(mediaDownloadName(m))}"><span class="material-icons" style="font-size:.9rem">download</span> Download Image</a>
+          <button class="download-btn" data-media-type="image" data-src="${esc(src)}"><span class="material-icons" style="font-size:.9rem">visibility</span> View</button>
+        </div>`;
+    }
+    if(m.media_type==='video' && src){
+      content+=`<video class="media" controls preload="metadata" src="${esc(src)}" data-media-type="video" data-src="${esc(src)}"></video>
+        <div class="media-actions">
+          <a class="download-btn" href="${esc(src)}" download="${esc(mediaDownloadName(m))}"><span class="material-icons" style="font-size:.9rem">download</span> Download Video</a>
+          <button class="download-btn" data-media-type="video" data-src="${esc(src)}"><span class="material-icons" style="font-size:.9rem">visibility</span> View</button>
+        </div>`;
+    }
+    if(m.media_type==='audio' && src){
+      content+=`<div class="audio-box"><audio controls preload="metadata" src="${esc(src)}"></audio></div>
+        <div class="media-actions">
+          <a class="download-btn" href="${esc(src)}" download="${esc(mediaDownloadName(m))}"><span class="material-icons" style="font-size:.9rem">download</span> Download Audio</a>
+          <button class="download-btn" data-media-type="audio" data-src="${esc(src)}"><span class="material-icons" style="font-size:.9rem">play_arrow</span> Play</button>
+        </div>`;
+    }
+
+    if(del && src){
+      content+=`<div class="deleted-media-note">Deleted media bhi developer view me available hai. Yahan se view/download/restore kar sakte ho.</div>`;
+    }
+    if(m.message_text) content+=`<div>${esc(m.message_text)}</div>`;
+    if(!content) content='<i>No text/media</i>';
+
+    const deletedText = m.deleted_for_both ? 'Deleted for both' : (Number(m.deleted_for_me_count||0)>0 ? `Deleted for ${m.deleted_for_me_count} user side` : '');
+    return `<div class="msg ${sent?'sent':'recv'} ${del?'deleted':''}">
+      <div class="bubble">
+        <div style="font-size:.68rem;font-weight:950;margin-bottom:5px;opacity:.85">${esc(m.sender_name||'Sender')} → ${esc(m.receiver_name||'Receiver')} ${del?`<span class="tag">${esc(deletedText)}</span>`:''}</div>
+        ${content}
+        <div class="meta">${time(m.created_at)} ${m.deleted_for_both_at?' • deleted '+time(m.deleted_for_both_at):''}</div>
+      </div>
+      <div class="msg-actions">
+        ${m.deleted_for_both?`<button class="small restore" data-restore="${esc(m.id)}">Restore for Both</button>`:''}
+        ${Number(m.deleted_for_me_count||0)>0?`<button class="small restore" data-clear-del="${esc(m.id)}">Restore Self Deleted</button>`:''}
+        <button class="small view" data-json="${esc(m.id)}">Details</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  if(shouldScroll || wasNear){
+    box.scrollTop=box.scrollHeight;
+    state.newMsgCount=0;
+  }else{
+    const newHeight=box.scrollHeight;
+    box.scrollTop=oldTop + Math.max(0,newHeight-oldHeight);
+  }
+  state.lastMessageCount=state.messages.length;
+  updateBottomButton();
+}
+async function restoreBoth(id){
+  await rpc('dev_chat_restore_message',{p_message_id:id,p_restore_for_both:true,p_clear_self_deletions:false});
+  toast('Message restored for both');
+  await loadMessages();await loadChats();
+}
+async function clearSelfDeleted(id){
+  await rpc('dev_chat_restore_message',{p_message_id:id,p_restore_for_both:false,p_clear_self_deletions:true});
+  toast('Self delete records cleared');
+  await loadMessages();await loadChats();
+}
+function showDetails(id){
+  const m=state.messages.find(x=>String(x.id)===String(id));
+  alert(JSON.stringify(m,null,2));
+}
+function openMedia(type,src){
+  if(!src)return toast('Media URL/data nahi mila',true);
+  if(type==='video'){
+    $('modalContent').innerHTML=`<video controls autoplay src="${esc(src)}"></video>
+      <div class="media-actions"><a class="download-btn" href="${esc(src)}" download="chat-video.mp4"><span class="material-icons" style="font-size:.9rem">download</span> Download Video</a></div>`;
+  }else if(type==='audio'){
+    $('modalContent').innerHTML=`<audio controls autoplay src="${esc(src)}"></audio>
+      <div class="media-actions"><a class="download-btn" href="${esc(src)}" download="chat-audio.mp3"><span class="material-icons" style="font-size:.9rem">download</span> Download Audio</a></div>`;
+  }else{
+    $('modalContent').innerHTML=`<img src="${esc(src)}">
+      <div class="media-actions"><a class="download-btn" href="${esc(src)}" download="chat-image.jpg"><span class="material-icons" style="font-size:.9rem">download</span> Download Image</a></div>`;
+  }
+  $('mediaModal').style.display='flex';
+}
+
+
+async function devToggleBlock(){
+  if(!state.chat)return toast('Chat select karo',true);
+  const target=prompt('Kisko block/unblock karna hai? A ya B likho.\\nA: '+state.chat.employee_a_name+'\\nB: '+state.chat.employee_b_name,'A');
+  if(!target)return;
+  const t=String(target).trim().toUpperCase();
+  const employeeId=t==='B'?state.chat.employee_b_id:state.chat.employee_a_id;
+  if(!employeeId)return toast('Employee id nahi mila',true);
+  const next=!confirm('OK dabane par BLOCK hoga. Cancel dabane par UNBLOCK hoga.');
+  const blocked=!next;
+  try{
+    await rpc('dev_chat_set_user_block',{p_conversation_id:state.chat.conversation_id,p_employee_id:employeeId,p_blocked:blocked});
+  }catch(e){
+    await rpc('chat_set_block',{p_conversation_id:state.chat.conversation_id,p_employee_id:employeeId,p_blocked:blocked});
+  }
+  toast(blocked?'User blocked':'User unblocked');
+  await loadChats().catch(()=>{});
+  await loadMessages(false).catch(()=>{});
+}
+function bindMenuActions(){
+  if($('chatMenuBtn')) $('chatMenuBtn').onclick=(e)=>{e.stopPropagation();$('chatMenu').classList.toggle('open')};
+  document.addEventListener('click',e=>{if(!e.target.closest('.chat-menu-wrap')) closeMenu();});
+  if($('menuBottom')) $('menuBottom').onclick=()=>{closeMenu();scrollMessagesToBottom(true)};
+  if($('menuDetails')) $('menuDetails').onclick=()=>{closeMenu();chatJsonDetails()};
+  if($('menuBlockBtn')) $('menuBlockBtn').onclick=()=>{closeMenu();devToggleBlock().catch(er=>toast(er.message,true))};
+  if($('menuCallA')) $('menuCallA').onclick=()=>{closeMenu();callSide('A').catch(er=>toast(er.message,true))};
+  if($('menuCallB')) $('menuCallB').onclick=()=>{closeMenu();callSide('B').catch(er=>toast(er.message,true))};
+  if($('menuMailA')) $('menuMailA').onclick=()=>{closeMenu();mailSide('A').catch(er=>toast(er.message,true))};
+  if($('menuMailB')) $('menuMailB').onclick=()=>{closeMenu();mailSide('B').catch(er=>toast(er.message,true))};
+  if($('menuCopyPhoneA')) $('menuCopyPhoneA').onclick=()=>{closeMenu();copyContact('A','phone').catch(er=>toast(er.message,true))};
+  if($('menuCopyPhoneB')) $('menuCopyPhoneB').onclick=()=>{closeMenu();copyContact('B','phone').catch(er=>toast(er.message,true))};
+  if($('menuCopyMailA')) $('menuCopyMailA').onclick=()=>{closeMenu();copyContact('A','email').catch(er=>toast(er.message,true))};
+  if($('menuCopyMailB')) $('menuCopyMailB').onclick=()=>{closeMenu();copyContact('B','email').catch(er=>toast(er.message,true))};
+  if($('scrollBottomBtn')) $('scrollBottomBtn').onclick=()=>scrollMessagesToBottom(true);
+  if($('messagesBox')) $('messagesBox').addEventListener('scroll',()=>{
+    if(isNearBottom($('messagesBox'))) state.newMsgCount=0;
+    updateBottomButton();
+  });
+}
+
+$('companyList').onclick=e=>{const it=e.target.closest('.item');if(it)selectCompany(it.dataset.company).catch(er=>toast(er.message,true))};
+$('chatList').onclick=e=>{const it=e.target.closest('.item');if(it)selectChat(it.dataset.conv).catch(er=>toast(er.message,true))};
+$('companySearchBtn').onclick=()=>loadCompanies().catch(e=>toast(e.message,true));
+$('chatSearchBtn').onclick=()=>loadChats().catch(e=>toast(e.message,true));
+$('companySearch').onkeydown=e=>{if(e.key==='Enter')$('companySearchBtn').click()};
+$('chatSearch').onkeydown=e=>{if(e.key==='Enter')$('chatSearchBtn').click()};
+$('refreshBtn').onclick=()=>{if(state.company)loadChats().catch(e=>toast(e.message,true));if(state.chat)loadMessages(false).catch(e=>toast(e.message,true))};
+$('showDeletedBtn').onclick=()=>{state.showDeleted=!state.showDeleted;$('showDeletedBtn').textContent=state.showDeleted?'Hide Deleted':'Show Deleted';if(state.chat)loadMessages(false).catch(e=>toast(e.message,true))};
+$('messagesBox').onclick=e=>{
+  const rb=e.target.closest('[data-restore]'); if(rb) return restoreBoth(rb.dataset.restore).catch(er=>toast(er.message,true));
+  const cb=e.target.closest('[data-clear-del]'); if(cb) return clearSelfDeleted(cb.dataset.clearDel).catch(er=>toast(er.message,true));
+  const js=e.target.closest('[data-json]'); if(js) return showDetails(js.dataset.json);
+  const media=e.target.closest('[data-media-type]'); if(media) return openMedia(media.dataset.mediaType, media.dataset.src);
+};
+$('backBtn').onclick=()=>history.length>1?history.back():location.href='dev.html';
+$('closeModal').onclick=()=>$('mediaModal').style.display='none';
+$('mediaModal').onclick=e=>{if(e.target.id==='mediaModal')$('mediaModal').style.display='none'};
+setInterval(()=>{ if(state.company) loadChats().catch(()=>{}); if(state.chat) loadMessages(false).catch(()=>{}); },15000);
+bindMenuActions();
+loadCompanies().catch(e=>toast(e.message,true));
+</script>
+</body>
+</html>

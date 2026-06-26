@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Employee Attendance Manager | Calendar View</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,'Segoe UI',Roboto,sans-serif}
+    body{min-height:100vh;background:linear-gradient(135deg,#eef5ff,#dbeafe);color:#0f172a}
+    .top{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,#0f3b35,#14532d);color:white;box-shadow:0 12px 28px rgba(15,23,42,.18)}
+    .top-inner{max-width:1280px;margin:auto;padding:13px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .back{border:0;background:rgba(255,255,255,.16);color:white;border-radius:999px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .emp-pill{background:rgba(255,255,255,.18);padding:8px 18px;border-radius:999px;font-weight:800;font-size:14px}
+    .wrap{max-width:1280px;margin:auto;padding:22px 20px}
+    .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
+    @media(min-width:850px){.stats{grid-template-columns:repeat(6,1fr)}}
+    .stat{background:white;border-radius:20px;padding:13px;text-align:center;box-shadow:0 8px 22px rgba(15,23,42,.08);border-left:5px solid #64748b}
+    .stat b{font-size:25px;display:block}.stat span{font-size:11px;text-transform:uppercase;color:#64748b;font-weight:800}
+    .c-present{border-color:#16a34a}.c-absent{border-color:#dc2626}.c-leave{border-color:#8b5cf6}.c-holiday{border-color:#f59e0b}.c-coff{border-color:#0ea5e9}.c-none{border-color:#94a3b8}
+    .controls{background:white;border-radius:22px;padding:14px 18px;margin-bottom:18px;box-shadow:0 8px 22px rgba(15,23,42,.08);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+    select,.btn{border:1px solid #dbe3ea;background:#f8fafc;padding:10px 13px;border-radius:14px;font-weight:800;outline:none}
+    .btn{cursor:pointer;background:#14532d;color:white;border:0;display:inline-flex;align-items:center;gap:6px}.btn.light{background:#e2e8f0;color:#0f172a}.btn.sky{background:#0284c7;color:#fff}.btn.red{background:#b91c1c;color:#fff}
+    .admin-bar{background:#fef9e3;border-radius:20px;padding:12px 18px;margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;border:1px solid #fde047}
+    .employee-selector{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.employee-selector label{font-weight:900;color:#334155}
+    .employee-fixed{font-size:14px;font-weight:900;color:#334155;background:#fff;border-radius:999px;padding:9px 14px;border:1px solid #fde047}
+    .calendar-card,.list-card{background:white;border-radius:24px;padding:16px;box-shadow:0 10px 28px rgba(15,23,42,.09)}
+    .week{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;font-weight:900;color:#64748b;margin-bottom:8px}.week div{padding:8px 0}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;justify-items:center}
+    .cell{width:74px;height:74px;border-radius:20px;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;position:relative;background:#f8fafc;color:#0f172a;font-weight:900;box-shadow:0 2px 8px rgba(15,23,42,.08);transition:.1s;border:2px solid transparent;overflow:hidden;text-align:center}
+    .cell small{font-size:9px;font-weight:900;margin-top:2px;line-height:1.05}.cell:hover{transform:scale(.96);filter:brightness(.96)}
+    .empty{opacity:.25;cursor:default}.today{box-shadow:0 0 0 2px white,0 0 0 4px #2563eb}.sunday{border-color:#dc2626}
+    .present{background:#16a34a;color:#fff}.punched_in{background:#22c55e;color:#fff}.absent{background:#dc2626;color:#fff}.leave{background:#8b5cf6;color:#fff}.cl{background:#7c3aed;color:#fff}.pl{background:#6d28d9;color:#fff}.paid_leave{background:#9333ea;color:#fff}.unpaid_leave{background:#a21caf;color:#fff}.holiday{background:#f59e0b;color:#fff}.coff{background:#0ea5e9;color:#fff}.half_day{background:#f97316;color:#fff}.miss_punch{background:#e11d48;color:#fff}.week_off,.wo{background:#38bdf8;color:#fff}.no_attendance{background:#e2e8f0;color:#475569}
+    .future-date{background:#f8fafc!important;color:#94a3b8!important;border-color:#cbd5e1!important;cursor:not-allowed!important}.locked-old{opacity:.72;cursor:not-allowed!important;filter:grayscale(.35)}.locked-old:after,.future-date:after{position:absolute;right:5px;top:4px;font-size:12px;background:rgba(255,255,255,.88);border-radius:99px;padding:1px 4px;color:#0f172a}.locked-old:after{content:'🔒'}.future-date:after{content:'⏳'}
+    .legend{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:15px;border-top:1px solid #e5e7eb;padding-top:13px;font-size:12px;font-weight:800}
+    .dot{width:13px;height:13px;border-radius:999px;display:inline-block;margin-right:4px;vertical-align:-2px}.hidden{display:none!important}
+    .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:12px;border-bottom:1px solid #eef2f7;text-align:left}th{background:#f8fafc}.badge{padding:5px 11px;border-radius:999px;color:white;font-size:12px;font-weight:900;display:inline-block}
+    .action-link{border:0;background:#0284c7;color:white;border-radius:999px;padding:6px 14px;font-weight:900;cursor:pointer;font-size:12px}.action-link.disabled{background:#94a3b8;cursor:not-allowed}
+    .toast{position:fixed;left:18px;bottom:18px;background:#14532d;color:white;border-radius:999px;padding:12px 18px;z-index:60;font-weight:900;max-width:calc(100vw - 36px)}.toast.err{background:#991b1b}
+    .modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:100;align-items:center;justify-content:center;padding:16px}
+    .modal-box{width:min(720px,100%);background:#fff;border-radius:32px;box-shadow:0 30px 60px rgba(0,0,0,.3);overflow:hidden;max-height:92vh;overflow-y:auto}
+    .modal-head{background:linear-gradient(135deg,#0f3b35,#14532d);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}.modal-head b{font-size:18px}.modal-close{background:rgba(255,255,255,.2);border:0;color:#fff;width:34px;height:34px;border-radius:99px;cursor:pointer;font-size:22px}
+    .modal-body{padding:22px 20px;display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-weight:900;color:#0f172a}.field input,.field select,.field textarea{padding:12px;border-radius:16px;border:1px solid #cbd5e1;font-weight:600;background:#fff}.field textarea{min-height:70px;resize:vertical}
+    .hint{grid-column:1/-1;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:10px 12px;border-radius:16px;font-weight:800;font-size:13px;line-height:1.45}.danger-hint{background:#fee2e2;color:#991b1b;border-color:#fecaca}
+    .btn-save{grid-column:1/-1;background:#14532d;color:white;border:0;padding:12px;border-radius:40px;font-weight:900;cursor:pointer;font-size:16px}.btn-save:disabled{background:#94a3b8;cursor:not-allowed}
+    .mini-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mini{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:10px;font-size:13px}.mini span{display:block;color:#64748b;font-weight:800}.mini b{color:#0f172a}
+    .leave-balance-card{background:white;border-radius:24px;padding:16px;margin-bottom:18px;box-shadow:0 10px 28px rgba(15,23,42,.09)}
+    .leave-balance-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .leave-balance-head h3{font-size:17px;color:#0f3b35;display:flex;align-items:center;gap:7px}
+    .leave-balance-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    @media(min-width:850px){.leave-balance-grid{grid-template-columns:repeat(5,1fr)}}
+    .leave-bal{border:1px solid #e2e8f0;background:#f8fafc;border-radius:18px;padding:12px}
+    .leave-bal b{display:block;font-size:22px;color:#14532d}.leave-bal span{font-size:11px;color:#64748b;font-weight:900;text-transform:uppercase}
+    .leave-bal small{display:block;margin-top:5px;color:#334155;font-weight:800}
+    .balance-warning{grid-column:1/-1;border-radius:16px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-weight:900;font-size:13px}.btn-mini{border:0;background:#14532d;color:#fff;border-radius:999px;padding:9px 14px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:6px}.btn-mini.blue{background:#0284c7}.btn-mini.red{background:#b91c1c}
+
+    .holiday-dot{position:absolute;top:6px;right:6px;width:11px;height:11px;background:#facc15;border:2px solid #fff;border-radius:999px;box-shadow:0 0 5px rgba(0,0,0,.38);z-index:6}
+    .holiday-info-box{grid-column:1/-1;background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:11px 13px;border-radius:16px;font-weight:900;font-size:13px;line-height:1.55}
+    .holiday-info-box b{color:#78350f}
+    @media(max-width:640px){.cell{width:44px;height:44px;font-size:11px}.cell small{display:none}.calendar{gap:4px}.controls{align-items:stretch}.controls>div{width:100%;display:flex;gap:8px}.controls select,.controls button{flex:1}.modal-body{grid-template-columns:1fr}.mini-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <button class="back" id="backBtn" type="button"><span class="material-icons">arrow_back</span></button>
+    <div class="emp-pill" id="empLabel">Loading...</div>
+    <button class="back" id="refreshBtn" type="button"><span class="material-icons">refresh</span></button>
+  </div>
+</header>
+<main class="wrap" id="appRoot">
+  <div class="admin-bar" id="adminBar">
+    <div class="employee-selector" id="employeeSelectorBox">
+      <label for="adminEmployeeSelect">👥 Employee:</label>
+      <select id="adminEmployeeSelect" style="min-width:240px"></select>
+    </div>
+    <div class="employee-fixed hidden" id="fixedEmployeeBox">👤 Employee</div>
+    <div style="font-size:13px;color:#78350f;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span class="material-icons" style="font-size:16px">info</span>
+      Date par click karke attendance update karo. Present karne par roster ke hisaab se punch-in/punch-out, working hours, company lat/lng aur distance auto-set hoga.
+    </div>
+  </div>
+
+  <div class="stats" id="statsPanel">
+    <div class="stat c-present"><b id="presentCount">0</b><span>Present</span></div>
+    <div class="stat c-absent"><b id="absentCount">0</b><span>Absent</span></div>
+    <div class="stat c-leave"><b id="leaveCount">0</b><span>Leave</span></div>
+    <div class="stat c-holiday"><b id="holidayCount">0</b><span>Holiday</span></div>
+    <div class="stat c-coff"><b id="coffCount">0</b><span>C-Off / WO</span></div>
+    <div class="stat c-none"><b id="noneCount">0</b><span>No Mark</span></div>
+  </div>
+
+
+  <section class="leave-balance-card" id="leaveBalanceCard">
+    <div class="leave-balance-head">
+      <h3><span class="material-icons">account_balance_wallet</span> Leave Balance</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-mini blue" id="addLeaveCreditBtn" type="button"><span class="material-icons">add_circle</span>Add CL/PL/C-Off</button><button class="btn light" id="refreshBalanceBtn" type="button"><span class="material-icons">sync</span>Balance Refresh</button></div>
+    </div>
+    <div class="leave-balance-grid" id="leaveBalanceGrid">
+      <div class="leave-bal"><b>--</b><span>Loading</span><small>Please wait</small></div>
+    </div>
+  </section>
+
+  <div class="controls" id="controlsPanel">
+    <div id="monthYearControls"><select id="monthSelect"></select><select id="yearSelect"></select></div>
+    <div>
+      <button class="btn light" id="currentBtn" type="button"><span class="material-icons">today</span>Current</button>
+      <button class="btn sky" id="toggleBtn" type="button"><span class="material-icons">view_list</span>List View</button>
+    </div>
+  </div>
+
+  <section class="calendar-card" id="calendarView">
+    <div class="week"><div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div></div>
+    <div id="calendar" class="calendar"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:#16a34a"></i>Present</span><span><i class="dot" style="background:#dc2626"></i>Absent</span><span><i class="dot" style="background:#8b5cf6"></i>Leave/CL/PL</span>
+      <span><i class="dot" style="background:#f59e0b"></i>Holiday</span><span><i class="dot" style="background:#0ea5e9"></i>C-Off/WO</span><span><i class="dot" style="background:#f97316"></i>Half Day</span><span><i class="dot" style="background:#e11d48"></i>Miss Punch</span>
+    </div>
+  </section>
+
+  <section class="list-card hidden" id="listView">
+    <h3 style="margin-bottom:12px"><span class="material-icons">format_list_bulleted</span> Attendance List with Roster, Location, Working Hours & Approver</h3>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Day</th><th>Status</th><th>Roster</th><th>Punch Time</th><th>Hours</th><th>Location</th><th>Updated By</th><th>Action</th></tr></thead><tbody id="listBody"></tbody></table></div>
+  </section>
+</main>
+
+<div id="editAttendanceModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head"><b id="modalDateTitle">Set Attendance</b><button class="modal-close" id="closeEditModalBtn" type="button">×</button></div>
+    <div class="modal-body">
+      <div class="hint" id="rosterHint">Roster details loading...</div>
+      <div class="field"><label for="statusSelect">📌 Attendance Status</label><select id="statusSelect"></select></div>
+      <div class="field" id="leaveTypeBox"><label for="leaveTypeSelect">🍃 Leave Type / Balance</label><select id="leaveTypeSelect"></select></div>
+      <div class="balance-warning hidden" id="leaveBalanceWarning">Balance check...</div>
+      <div class="field"><label for="attendanceSource">Source / Reason Type</label><select id="attendanceSource"><option value="manual_admin">Manual Admin</option><option value="leave_approved">Leave Approved</option><option value="holiday_auto">Holiday</option><option value="coff_approved">C-Off Approved</option><option value="correction">Correction</option></select></div>
+      <div class="field"><label for="punchInInput">Punch In</label><input type="datetime-local" id="punchInInput"></div>
+      <div class="field"><label for="punchOutInput">Punch Out</label><input type="datetime-local" id="punchOutInput"></div>
+      <div class="field"><label for="locationInput">📍 Location / Ward</label><input type="text" id="locationInput" placeholder="ICU, OPD, Emergency, Branch"></div>
+      <div class="field"><label for="distanceInput">📏 Distance (meter)</label><input type="number" id="distanceInput" min="0" step="0.01" placeholder="Auto 0"></div>
+      <div class="field"><label for="latInput">Company Latitude</label><input type="number" id="latInput" step="0.0000001" placeholder="Company lat"></div>
+      <div class="field"><label for="lngInput">Company Longitude</label><input type="number" id="lngInput" step="0.0000001" placeholder="Company lng"></div>
+      <div class="field"><label for="workingHoursInput">Working Hours</label><input type="number" id="workingHoursInput" min="0" step="0.01" placeholder="Auto calculate"></div>
+      <div class="field full"><label for="adminNoteInput">📝 Admin Note</label><textarea id="adminNoteInput" placeholder="Kyu update kiya, approval/correction note..."></textarea></div>
+      <div class="mini-grid">
+        <div class="mini"><span>Roster Shift</span><b id="miniRoster">--</b></div>
+        <div class="mini"><span>Roster Time</span><b id="miniRosterTime">--</b></div>
+        <div class="mini"><span>Last Updated By</span><b id="miniUpdatedBy">--</b></div>
+        <div class="mini"><span>Last Updated At</span><b id="miniUpdatedAt">--</b></div>
+      </div>
+      <button class="btn-save" id="saveAttendanceBtn" type="button">💾 Save Attendance</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="leaveCreditModal" class="modal">
+  <div class="modal-box" style="width:min(560px,100%)">
+    <div class="modal-head"><b>Manual Leave Credit</b><button class="modal-close" id="closeLeaveCreditModalBtn" type="button">×</button></div>
+    <div class="modal-body">
+      <div class="hint">Yahan se staff ko manual CL, PL, Paid Leave, Unpaid Leave ya C-Off credit de sakte ho. Use hone par balance automatically kam hoga.</div>
+      <div class="field"><label for="creditLeaveType">Leave Type</label><select id="creditLeaveType"><option value="cl">CL</option><option value="pl">PL</option><option value="paid_leave">Paid Leave</option><option value="unpaid_leave">Unpaid Leave</option><option value="coff">C-Off</option></select></div>
+      <div class="field"><label for="creditQty">Credit Days</label><input type="number" id="creditQty" min="0.5" step="0.5" value="1"></div>
+      <div class="field"><label for="creditYear">Year</label><input type="number" id="creditYear" min="2020" max="2100"></div>
+      <div class="field"><label for="creditReason">Reason / Note</label><input type="text" id="creditReason" placeholder="Manual credit / opening balance / earned C-Off"></div>
+      <button class="btn-save" id="saveLeaveCreditBtn" type="button">💾 Add Leave Credit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const SUPABASE_URL = 'https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+var state={org:null,orgCode:'',viewer:null,currentEmployee:null,allEmployees:[],records:{},attendance:{},holidays:{},leaveBalances:{},loading:false,isList:false,selectedDateForEdit:null,monthYear:{year:new Date().getFullYear(),month:new Date().getMonth()}};
+var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var STATUS_OPTIONS=[
+  ['present','Present'],['absent','Absent'],['half_day','Half Day'],['miss_punch','Miss Punch'],['leave','Leave'],['holiday','Holiday'],['coff','C-Off'],['week_off','Week Off']
+];
+
+var BALANCE_TYPES=['cl','pl','paid_leave','unpaid_leave','coff'];
+function leaveLabel(type){let m={cl:'CL',pl:'PL',paid_leave:'Paid Leave',unpaid_leave:'Unpaid Leave',coff:'C-Off',leave:'General Leave'};return m[type]||statusLabel(type)}
+function buildLeaveBalanceMap(rows){let map={};(rows||[]).forEach(r=>{map[String(r.leave_type||'').toLowerCase()]={...r,remaining:Number(r.remaining||0),used:Number(r.used||0),pending:Number(r.pending||0),credited:Number(r.credited||0),opening_balance:Number(r.opening_balance||0)}});return map}
+function renderLeaveBalances(){let grid=$('leaveBalanceGrid');if(!grid)return;let map=state.leaveBalances||{};let order=['cl','pl','paid_leave','unpaid_leave','coff'];grid.innerHTML=order.map(k=>{let b=map[k]||{};let rem=(b.remaining ?? 0);let used=(b.used ?? 0);let pending=(b.pending ?? 0);let total=Number(b.opening_balance||0)+Number(b.credited||0);return `<div class="leave-bal"><b>${Number(rem).toFixed(1)}</b><span>${esc(leaveLabel(k))} Left</span><small>Total ${Number(total).toFixed(1)} • Used ${Number(used).toFixed(1)} • Pending ${Number(pending).toFixed(1)}</small></div>`}).join('')}
+async function loadLeaveBalances(){if(!state.org||!state.currentEmployee)return;try{let year=state.monthYear.year||new Date().getFullYear();let r=await sb.rpc('app_get_employee_leave_balances',{p_org_id:state.org.id,p_employee_id:state.currentEmployee.id,p_year:year});if(r.error)throw new Error(r.error.message);state.leaveBalances=buildLeaveBalanceMap(r.data?.balances||[]);renderLeaveBalances()}catch(e){console.warn('leave balance failed:',e);let grid=$('leaveBalanceGrid');if(grid)grid.innerHTML='<div class="leave-bal"><b>!</b><span>Balance RPC Missing</span><small>'+esc(e.message)+'</small></div>'}}
+function populateLeaveTypeOptions(){let s=$('leaveTypeSelect');if(!s)return;s.innerHTML='';[['leave','General Leave'],['cl','CL'],['pl','PL'],['paid_leave','Paid Leave'],['unpaid_leave','Unpaid Leave'],['coff','C-Off']].forEach(([v,l])=>{let o=document.createElement('option');o.value=v;o.textContent=l;s.appendChild(o)})}
+function isLeaveStatus(st){return ['leave','cl','pl','paid_leave','unpaid_leave','coff'].includes(normalizeStatus(st))}
+function syncLeaveTypeVisibility(){let st=normalizeStatus($('statusSelect').value);let box=$('leaveTypeBox'),warn=$('leaveBalanceWarning');if(!box)return;let show=isLeaveStatus(st);box.classList.toggle('hidden',!show);warn.classList.toggle('hidden',!show);if(show){if(st==='cl'||st==='pl'||st==='paid_leave'||st==='unpaid_leave'||st==='coff')$('leaveTypeSelect').value=st;checkLeaveBalanceWarning()}else{warn.textContent=''}}
+function checkLeaveBalanceWarning(){let warn=$('leaveBalanceWarning');if(!warn)return;let lt=$('leaveTypeSelect').value;let bal=state.leaveBalances?.[lt];if(lt==='leave'){warn.textContent='General Leave selected: balance se deduct nahi hoga. CL/PL/Paid/C-Off balance se deduct hoga.';warn.classList.remove('danger-hint');return}if(lt==='unpaid_leave'){warn.textContent='Unpaid Leave selected: salary/unpaid note ke liye use karein. Balance unlimited/default ho sakta hai.';warn.classList.remove('danger-hint');return}let rem=Number(bal?.remaining||0);if(rem<=0){warn.textContent=leaveLabel(lt)+' balance 0 hai. Save karne par SQL insufficient balance error de sakta hai.';warn.classList.add('danger-hint')}else{warn.textContent=leaveLabel(lt)+' balance available: '+rem.toFixed(1)+' day(s). Save karne par 1 day deduct hoga.';warn.classList.remove('danger-hint')}}
+
+function $(id){return document.getElementById(id)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))}
+function toast(msg,err=false){let o=document.querySelector('.toast');if(o)o.remove();let d=document.createElement('div');d.className='toast'+(err?' err':'');d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
+function dateISO(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
+function daysInMonth(y,m){return new Date(y,m+1,0).getDate()}
+function dayName(ds){return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(ds+'T00:00:00').getDay()]}
+function todayLocalISO(){let n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')}
+function addDaysISO(base,days){let d=new Date(base+'T00:00:00');d.setDate(d.getDate()+days);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function isFutureDate(ds){return String(ds)>todayLocalISO()}
+function isEditableDate(ds){let today=todayLocalISO();let min=addDaysISO(today,-7);return String(ds)<=today && String(ds)>=min}
+function dateLockReason(ds){if(isFutureDate(ds))return 'Future date par attendance mark/change allowed nahi hai.';if(!isEditableDate(ds))return 'Sirf previous 7 din ke andar attendance change allowed hai.';return ''}
+function fmtTime(v){return !v?'--':String(v).slice(0,5)}
+function fmtDateTime(v){if(!v)return'--';let d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString('en-IN')}
+function getQueryParam(n){return new URLSearchParams(location.search).get(n)||''}
+function getSessionValue(keys){for(let k of keys){let v=getQueryParam(k)||localStorage.getItem(k)||sessionStorage.getItem(k);if(v)return v}return''}
+function localDateTimeValue(ds,time){return ds+'T'+String(time||'00:00').slice(0,5)}
+function toIsoFromLocalInput(v){return v?new Date(v).toISOString():null}
+function calcHours(inLocal,outLocal){if(!inLocal||!outLocal)return 0;let a=new Date(inLocal),b=new Date(outLocal);if(b<a)b.setDate(b.getDate()+1);return Math.max(0,Math.round(((b-a)/3600000)*100)/100)}
+function getLocationValue(r){return r?(r.ward_location||r.duty_location||r.location||''):''}
+function getCompanyLat(){return Number(state.org?.lat ?? state.org?.latitude ?? state.org?.company_lat ?? 0)||0}
+function getCompanyLng(){return Number(state.org?.lng ?? state.org?.longitude ?? state.org?.company_lng ?? 0)||0}
+function getAttendanceLat(a){return Number(a?.punch_in_lat ?? a?.punch_out_lat ?? getCompanyLat())||0}
+function getAttendanceLng(a){return Number(a?.punch_in_lng ?? a?.punch_out_lng ?? getCompanyLng())||0}
+function getAttendanceDistance(a){return Number(a?.punch_in_distance_meters ?? a?.punch_out_distance_meters ?? 0)||0}
+function getCompanyLocationLabel(){let lat=getCompanyLat(),lng=getCompanyLng();return lat&&lng?('Company ('+lat.toFixed(6)+', '+lng.toFixed(6)+')'):'Company Location'}
+function setCompanyLocationFields(){let lat=getCompanyLat(),lng=getCompanyLng();if($('latInput'))$('latInput').value=lat?lat.toFixed(7):'';if($('lngInput'))$('lngInput').value=lng?lng.toFixed(7):'';if($('distanceInput'))$('distanceInput').value='0.00';if($('locationInput')&&!$('locationInput').value.trim())$('locationInput').value=getCompanyLocationLabel()}
+function normalizeStatus(s){let v=String(s||'no_attendance').toLowerCase();if(v==='c_off'||v==='comp_off')return'coff';if(v==='wo')return'week_off';return v}
+function statusLabel(s){let v=normalizeStatus(s);let found=STATUS_OPTIONS.find(x=>x[0]===v);return found?found[1]:(v==='no_attendance'?'No Mark':v.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()))}
+function statusClass(s){let v=normalizeStatus(s);if(v==='week_off')return'week_off';return ['present','punched_in','absent','leave','cl','pl','paid_leave','unpaid_leave','holiday','coff','half_day','miss_punch','no_attendance'].includes(v)?v:'no_attendance'}
+function displayStatusLabel(info){let st=normalizeStatus(info?.status);let lt=normalizeStatus(info?.leaveType||info?.attendance?.leave_type||'');if(st==='leave'&&lt&&lt!=='leave')return leaveLabel(lt);return statusLabel(st)}
+function displayStatusClass(info){let st=normalizeStatus(info?.status);let lt=normalizeStatus(info?.leaveType||info?.attendance?.leave_type||'');if(st==='leave'&&['cl','pl','paid_leave','unpaid_leave'].includes(lt))return lt;return statusClass(st)}
+function rosterText(r){return r?(r.shift_name||'Roster'):'No Roster'}
+function rosterTime(r){return r?(fmtTime(r.shift_start)+' - '+fmtTime(r.shift_end)):'--'}
+function defaultPunchTimes(ds,r,status){let st=normalizeStatus(status);if(st!=='present'&&st!=='half_day')return{pin:'',pout:''};let start=r?.shift_start||'10:00',end=r?.shift_end||'19:00';let pin=localDateTimeValue(ds,start);let outDate=ds;let s=start.slice(0,5),e=end.slice(0,5);if(e<=s){let d=new Date(ds+'T00:00:00');d.setDate(d.getDate()+1);outDate=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}let pout=localDateTimeValue(outDate,end);return{pin,pout}}
+function getDayInfo(ds){
+  let a=state.attendance[ds],r=state.records[ds],holiday=state.holidays?.[ds]||null;
+  let lt=normalizeStatus(a?.leave_type||'');
+  let st='no_attendance';
+  if(!isFutureDate(ds)){
+    st=normalizeStatus(a?.status || (new Date(ds+'T00:00:00').getDay()===0&&!a?'week_off':'no_attendance'));
+  }
+  if(st==='cl'||st==='pl'||st==='paid_leave'||st==='unpaid_leave')st='leave';
+  let info={status:st,leaveType:lt,attendance:a||null,roster:r||null,holiday,location:a?.location||a?.ward_location||a?.punch_in_location||getLocationValue(r),lockedReason:dateLockReason(ds)};
+  // Attendance me Holiday status/leave_type hai to full yellow rahega.
+  // Sirf org_holidays table me holiday hai to normal color + yellow dot rahega.
+  return info;
+}
+function updateHeaderLabel(){let e=state.currentEmployee;$('empLabel').innerHTML=e?'👤 '+esc(e.full_name||'Employee')+' ('+esc(e.emp_code||'')+')':'No Employee'}
+function populateEmployeeSelect(){let s=$('adminEmployeeSelect');s.innerHTML='';state.allEmployees.forEach(e=>{let o=document.createElement('option');o.value=e.id;o.textContent=(e.full_name||'Employee')+' ('+(e.emp_code||'')+')';if(state.currentEmployee&&state.currentEmployee.id===e.id)o.selected=true;s.appendChild(o)})}
+function hideEmployeeDropdown(){let box=$('employeeSelectorBox'),fixed=$('fixedEmployeeBox'),e=state.currentEmployee;if(box)box.classList.add('hidden');if(fixed){fixed.classList.remove('hidden');fixed.innerHTML=e?'👤 '+esc(e.full_name||'Employee')+' ('+esc(e.emp_code||'')+')':''}}
+async function resolveOrganization(){let orgId=getSessionValue(['org_id','orgId']),orgCode=getSessionValue(['org_code','orgCode','company_code','companyCode']);let org=null;if(orgId){let r=await sb.from('organizations').select('*').eq('id',orgId).limit(1);if(!r.error&&r.data?.length)org=r.data[0]}if(!org&&orgCode){let r=await sb.from('organizations').select('*').eq('org_code',orgCode).limit(1);if(!r.error&&r.data?.length)org=r.data[0]}if(!org&&orgId)org={id:orgId,org_code:orgCode||'',org_name:'Organization'};if(!org)throw new Error('Organization not found');state.org=org;state.orgCode=org.org_code||orgCode||'';localStorage.setItem('org_id',org.id);if(state.orgCode)localStorage.setItem('org_code',state.orgCode)}
+
+function createOrgClient(){
+  return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global:{headers:{'x-org-id': state.org?.id || '', 'x-org-code': state.orgCode || state.org?.org_code || ''}},
+    auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'admin-attendance-holiday-client'}
+  });
+}
+async function loadOrgHolidays(start,end){
+  state.holidays={};
+  if(!state.org?.id)return;
+  try{
+    const client=createOrgClient();
+    let q=client.from('org_holidays')
+      .select('id,org_id,org_code,holiday_date,holiday_name,holiday_type,description,active')
+      .eq('org_id',state.org.id)
+      .eq('active',true)
+      .gte('holiday_date',start)
+      .lte('holiday_date',end)
+      .order('holiday_date',{ascending:true});
+    const r=await q;
+    if(r.error)throw new Error(r.error.message);
+    (r.data||[]).forEach(h=>{if(h.holiday_date)state.holidays[h.holiday_date]=h});
+    console.log('org_holidays loaded', state.holidays);
+  }catch(e){
+    console.warn('org_holidays load failed:',e);
+    toast('Holiday table load failed: '+e.message,true);
+  }
+}
+function isAttendanceHoliday(info){
+  const st=normalizeStatus(info?.status||info?.attendance?.status||'');
+  const lt=normalizeStatus(info?.leaveType||info?.attendance?.leave_type||info?.attendance?.attendance_type||'');
+  const src=String(info?.attendance?.source||info?.attendance?.attendance_source||'').toLowerCase();
+  return st==='holiday'||st==='paid_holiday'||lt==='holiday'||lt==='paid_holiday'||src.includes('holiday');
+}
+function getHolidayName(h){return h?.holiday_name||h?.holyday_name||h?.name||'Holiday'}
+function holidayDetailHtml(ds,info){
+  const h=state.holidays?.[ds];
+  if(!h)return '';
+  const full=isAttendanceHoliday(info);
+  return `<div class="holiday-info-box">🎉 <b>${esc(getHolidayName(h))}</b><br>Type: ${esc(h.holiday_type||h.type||'Holiday')}<br>Show: ${full?'Full Yellow (Attendance Holiday)':'Yellow Dot (Holiday Table)'}${h.description?'<br>Description: '+esc(h.description):''}</div>`;
+}
+function openHolidayOnlyPopup(ds,info){
+  let h=info?.holiday||state.holidays?.[ds];
+  if(!h)return;
+  $('modalDateTitle').innerHTML='Holiday - '+ds+' - '+dayName(ds);
+  $('rosterHint').className='hint';
+  $('rosterHint').innerHTML=holidayDetailHtml(ds,info);
+  $('statusSelect').value=normalizeStatus(info?.status||'no_attendance');
+  syncLeaveTypeVisibility();
+  $('attendanceSource').value='holiday_auto';
+  $('punchInInput').value='';$('punchOutInput').value='';
+  $('locationInput').value=info?.location||'';
+  $('latInput').value='';$('lngInput').value='';$('distanceInput').value='0.00';$('workingHoursInput').value='0.00';
+  $('adminNoteInput').value='Holiday table: '+getHolidayName(h);
+  $('miniRoster').textContent=rosterText(info?.roster);
+  $('miniRosterTime').textContent=rosterTime(info?.roster);
+  $('miniUpdatedBy').textContent='--';$('miniUpdatedAt').textContent='--';
+  $('saveAttendanceBtn').disabled=!!info?.lockedReason;
+  $('saveAttendanceBtn').textContent=info?.lockedReason?'🔒 Locked Date':'💾 Save Attendance';
+  $('editAttendanceModal').style.display='flex';
+}
+async function loadEmployees(){let empId=getSessionValue(['emp_id','employee_id','logged_employee_id','staff_id']);let empCode=getSessionValue(['emp_code','employee_code','empCode','staff_code']);let r=await sb.rpc('app_get_org_employees',{p_org_id:state.org.id});if(r.error)throw new Error(r.error.message);let list=r.data?.employees||[];if(empId||empCode){state.currentEmployee=list.find(e=>(empId&&String(e.id)===String(empId))||(empCode&&String(e.emp_code).toUpperCase()===String(empCode).toUpperCase()))}else{state.currentEmployee=list[0]}if(!state.currentEmployee)throw new Error('Employee not found');state.allEmployees=[state.currentEmployee];populateEmployeeSelect();hideEmployeeDropdown();updateHeaderLabel();await loadLeaveBalances()}
+async function switchEmployee(){hideEmployeeDropdown();toast('Is screen me keval opened employee ka attendance dikhega.',true)}
+async function loadMonthData(){if(state.loading||!state.currentEmployee||!state.org)return;state.loading=true;try{let y=state.monthYear.year,m=state.monthYear.month,start=dateISO(y,m,1),end=dateISO(y,m,daysInMonth(y,m));let r=await sb.rpc('app_get_admin_attendance_month',{p_org_id:state.org.id,p_employee_id:state.currentEmployee.id,p_start:start,p_end:end});if(r.error)throw new Error(r.error.message);state.records={};state.attendance={};(r.data?.rosters||[]).forEach(x=>state.records[x.roster_date]=x);(r.data?.attendance||[]).forEach(a=>state.attendance[a.attendance_date]=a);await loadOrgHolidays(start,end);renderAll();await loadLeaveBalances()}catch(e){toast('Load failed: '+e.message,true)}finally{state.loading=false}}
+function renderCalendar(){
+  let y=state.monthYear.year,m=state.monthYear.month,cal=$('calendar');
+  cal.innerHTML='';
+  let first=new Date(y,m,1).getDay(),dim=daysInMonth(y,m),today=todayLocalISO();
+  for(let i=0;i<first;i++){let c=document.createElement('div');c.className='cell empty';cal.appendChild(c)}
+  for(let d=1;d<=dim;d++){
+    let ds=dateISO(y,m,d),info=getDayInfo(ds),cell=document.createElement('div');
+    cell.className='cell '+displayStatusClass(info);
+    if(ds===today)cell.classList.add('today');
+    if(isFutureDate(ds))cell.classList.add('future-date');
+    else if(!isEditableDate(ds))cell.classList.add('locked-old');
+    if(new Date(ds+'T00:00:00').getDay()===0)cell.classList.add('sunday');
+
+    const hasHoliday=!!info.holiday;
+    const fullHoliday=isAttendanceHoliday(info);
+    const dotHtml=(hasHoliday && !fullHoliday)?'<span class="holiday-dot" title="'+esc(getHolidayName(info.holiday))+'"></span>':'';
+    const label=isFutureDate(ds)?'No Mark':displayStatusLabel(info);
+
+    cell.innerHTML=dotHtml+'<span>'+d+'</span><small>'+esc(label)+'</small>';
+    cell.title=ds+'\n'+(info.lockedReason||displayStatusLabel(info))+'\nRoster: '+rosterText(info.roster)+' '+rosterTime(info.roster)+'\nLocation: '+(info.location||'--')+(hasHoliday?'\nHoliday: '+getHolidayName(info.holiday):'');
+    cell.onclick=()=>{if(info.lockedReason){if(info.holiday)return openHolidayOnlyPopup(ds,info);return toast(info.lockedReason,true)}openEditAttendanceModal(ds,info)};
+    cal.appendChild(cell)
+  }
+}
+function renderList(){let y=state.monthYear.year,m=state.monthYear.month,t=$('listBody');t.innerHTML='';for(let d=1;d<=daysInMonth(y,m);d++){let ds=dateISO(y,m,d),info=getDayInfo(ds),a=info.attendance,r=info.roster;let pin=fmtDateTime(a?.punch_in||a?.punch_in_time),pout=fmtDateTime(a?.punch_out||a?.punch_out_time);let hours=(a?.worked_hours ?? a?.working_hours ?? (a?.worked_minutes ? a.worked_minutes/60 : 0) ?? 0);let updater=(a?.updated_by_name||a?.approved_by_name||'--')+(a?.updated_by_emp_code||a?.approved_by_emp_code?' ('+(a.updated_by_emp_code||a.approved_by_emp_code)+')':'');let action=info.lockedReason?`<button class="action-link disabled" type="button" onclick="toast('${esc(info.lockedReason)}',true)">Locked</button>`:`<button class="action-link" type="button" onclick="openEditAttendanceModal('${ds}',null)">Update</button>`;t.insertAdjacentHTML('beforeend',`<tr><td>${ds}</td><td>${dayName(ds)}</td><td><span class="badge ${displayStatusClass(info)}">${esc(displayStatusLabel(info))}</span></td><td>${esc(rosterText(r))}<br><small>${esc(rosterTime(r))}</small></td><td>${esc(pin)}<br>${esc(pout)}</td><td>${Number(hours||0).toFixed(2)}</td><td><strong>${esc(info.location||'—')}</strong><br><small>Lat: ${esc(getAttendanceLat(a)||'--')} | Lng: ${esc(getAttendanceLng(a)||'--')}<br>Distance: ${Number(getAttendanceDistance(a)||0).toFixed(2)} m</small></td><td>${esc(updater)}<br><small>${esc(fmtDateTime(a?.updated_at))}</small></td><td>${action}</td></tr>`)}}
+function renderStats(){let c={present:0,absent:0,leave:0,holiday:0,coff:0,none:0};let y=state.monthYear.year,m=state.monthYear.month;for(let d=1;d<=daysInMonth(y,m);d++){let s=getDayInfo(dateISO(y,m,d)).status;if(['present','punched_in','half_day'].includes(s))c.present++;else if(s==='absent')c.absent++;else if(['leave','cl','pl','paid_leave','unpaid_leave'].includes(s))c.leave++;else if(s==='holiday')c.holiday++;else if(['coff','week_off'].includes(s))c.coff++;else c.none++}$('presentCount').innerText=c.present;$('absentCount').innerText=c.absent;$('leaveCount').innerText=c.leave;$('holidayCount').innerText=c.holiday;$('coffCount').innerText=c.coff;$('noneCount').innerText=c.none}
+function renderAll(){renderStats();renderCalendar();renderList()}
+function populateStatusOptions(){let s=$('statusSelect');s.innerHTML='';STATUS_OPTIONS.forEach(([v,l])=>{let o=document.createElement('option');o.value=v;o.textContent=l;s.appendChild(o)});populateLeaveTypeOptions()}
+function openEditAttendanceModal(ds,existing){let info=existing||getDayInfo(ds);if(info.lockedReason){toast(info.lockedReason,true);return}if($('saveAttendanceBtn')){$('saveAttendanceBtn').disabled=false;$('saveAttendanceBtn').textContent='💾 Save Attendance'}let a=info.attendance,r=info.roster;state.selectedDateForEdit=ds;$('modalDateTitle').innerHTML='Attendance - '+ds+' - '+dayName(ds);$('rosterHint').className='hint';$('rosterHint').innerHTML='Roster: <b>'+esc(rosterText(r))+'</b> | Time: <b>'+esc(rosterTime(r))+'</b> | Location: <b>'+esc(getLocationValue(r)||'--')+'</b>'+holidayDetailHtml(ds,info);let currentStatus=normalizeStatus(a?.status)||'present';let currentLeaveType=normalizeStatus(a?.leave_type||'leave');if(['cl','pl','paid_leave','unpaid_leave'].includes(currentStatus)){currentLeaveType=currentStatus;currentStatus='leave'}$('statusSelect').value=currentStatus;if($('leaveTypeSelect')){$('leaveTypeSelect').value=currentLeaveType||'leave'}syncLeaveTypeVisibility();$('attendanceSource').value=a?.source||a?.attendance_source||'manual_admin';let pinVal=a?.punch_in||a?.punch_in_time,poutVal=a?.punch_out||a?.punch_out_time;if(pinVal){$('punchInInput').value=new Date(pinVal).toISOString().slice(0,16)}else{$('punchInInput').value=defaultPunchTimes(ds,r,$('statusSelect').value).pin}if(poutVal){$('punchOutInput').value=new Date(poutVal).toISOString().slice(0,16)}else{$('punchOutInput').value=defaultPunchTimes(ds,r,$('statusSelect').value).pout}$('locationInput').value=info.location||getLocationValue(r)||getCompanyLocationLabel();$('latInput').value=(getAttendanceLat(a)||getCompanyLat()||'');$('lngInput').value=(getAttendanceLng(a)||getCompanyLng()||'');$('distanceInput').value=Number(getAttendanceDistance(a)||0).toFixed(2);if(['present','half_day'].includes($('statusSelect').value))setCompanyLocationFields();$('workingHoursInput').value=Number((a?.worked_hours ?? a?.working_hours ?? calcHours($('punchInInput').value,$('punchOutInput').value) ?? 0)).toFixed(2);$('adminNoteInput').value=a?.admin_note||a?.note||'';$('miniRoster').textContent=rosterText(r);$('miniRosterTime').textContent=rosterTime(r);$('miniUpdatedBy').textContent=(a?.updated_by_name||a?.approved_by_name||'--')+(a?.updated_by_emp_code||a?.approved_by_emp_code?' ('+(a.updated_by_emp_code||a.approved_by_emp_code)+')':'');$('miniUpdatedAt').textContent=fmtDateTime(a?.updated_at);$('statusSelect').onchange=()=>{let st=$('statusSelect').value;if(['present','half_day'].includes(st)){let t=defaultPunchTimes(ds,r,st);$('punchInInput').value=t.pin;$('punchOutInput').value=t.pout;setCompanyLocationFields()}else{$('punchInInput').value='';$('punchOutInput').value='';$('distanceInput').value='0.00'}syncLeaveTypeVisibility();$('workingHoursInput').value=calcHours($('punchInInput').value,$('punchOutInput').value).toFixed(2)};if($('leaveTypeSelect'))$('leaveTypeSelect').onchange=checkLeaveBalanceWarning;$('punchInInput').onchange=$('punchOutInput').onchange=()=>{$('workingHoursInput').value=calcHours($('punchInInput').value,$('punchOutInput').value).toFixed(2)};$('editAttendanceModal').style.display='flex'}
+async function saveAttendance(){let ds=state.selectedDateForEdit;if(!ds)return;if(!isEditableDate(ds))return toast(dateLockReason(ds),true);let st=$('statusSelect').value;let hours=Number($('workingHoursInput').value||0);let viewerId=getSessionValue(['user_id','admin_id','viewer_user_id','org_user_id']);let viewerName=getSessionValue(['name','admin_name','viewer_name'])||'Admin';let viewerCode=getSessionValue(['emp_code','admin_emp_code','viewer_emp_code'])||'';let leaveType=(isLeaveStatus(st)?$('leaveTypeSelect').value:null);let saveStatus=st;if(['cl','pl','paid_leave','unpaid_leave'].includes(st))saveStatus='leave';if(st==='leave' && leaveType==='coff')saveStatus='coff';let args={p_org_id:state.org.id,p_employee_id:state.currentEmployee.id,p_attendance_date:ds,p_status:saveStatus,p_punch_in:toIsoFromLocalInput($('punchInInput').value),p_punch_out:toIsoFromLocalInput($('punchOutInput').value),p_worked_hours:hours,p_location:$('locationInput').value.trim()||getCompanyLocationLabel(),p_punch_in_lat:Number($('latInput').value||getCompanyLat()||0),p_punch_in_lng:Number($('lngInput').value||getCompanyLng()||0),p_punch_out_lat:Number($('latInput').value||getCompanyLat()||0),p_punch_out_lng:Number($('lngInput').value||getCompanyLng()||0),p_punch_in_distance_meters:Number($('distanceInput').value||0),p_punch_out_distance_meters:Number($('distanceInput').value||0),p_admin_note:$('adminNoteInput').value.trim(),p_source:$('attendanceSource').value,p_updated_by_user_id:viewerId||null,p_updated_by_name:viewerName,p_updated_by_emp_code:viewerCode,p_leave_type:leaveType};let r=await sb.rpc('app_admin_save_attendance_manual',args);if(r.error)return toast('Save failed: '+r.error.message,true);if(r.data?.ok===false)return toast('Save failed: '+(r.data.error||'Unknown error'),true);toast('Attendance saved');$('editAttendanceModal').style.display='none';await loadMonthData()}
+function populateSelectors(){let ms=$('monthSelect'),ys=$('yearSelect'),now=new Date();ms.innerHTML='';ys.innerHTML='';MONTHS.forEach((x,i)=>{let o=document.createElement('option');o.value=i;o.textContent=x;ms.appendChild(o)});for(let y=now.getFullYear()-2;y<=now.getFullYear()+2;y++){let o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o)}ms.value=now.getMonth();ys.value=now.getFullYear();state.monthYear={month:now.getMonth(),year:now.getFullYear()};ms.onchange=()=>{state.monthYear.month=parseInt(ms.value,10);loadMonthData()};ys.onchange=()=>{state.monthYear.year=parseInt(ys.value,10);loadMonthData()}}
+
+function openLeaveCreditModal(){
+  if(!state.currentEmployee)return toast('Employee select karo',true);
+  $('creditYear').value=state.monthYear.year||new Date().getFullYear();
+  $('creditQty').value='1';
+  $('creditReason').value='Manual leave credit';
+  $('leaveCreditModal').style.display='flex';
+}
+async function saveLeaveCredit(){
+  if(!state.org||!state.currentEmployee)return toast('Employee/org missing',true);
+  let qty=Number($('creditQty').value||0);
+  if(qty<=0)return toast('Credit days 0 se jyada hona chahiye',true);
+  let viewerId=getSessionValue(['user_id','admin_id','viewer_user_id','org_user_id']);
+  let viewerName=getSessionValue(['name','admin_name','viewer_name'])||'Admin';
+  let viewerCode=getSessionValue(['emp_code','admin_emp_code','viewer_emp_code'])||'';
+  let r=await sb.rpc('app_add_employee_leave_credit',{
+    p_org_id:state.org.id,
+    p_employee_id:state.currentEmployee.id,
+    p_leave_type:$('creditLeaveType').value,
+    p_qty:qty,
+    p_year:Number($('creditYear').value||new Date().getFullYear()),
+    p_note:$('creditReason').value.trim()||'Manual leave credit',
+    p_created_by_user_id:viewerId||null,
+    p_created_by_name:viewerName,
+    p_created_by_emp_code:viewerCode
+  });
+  if(r.error)return toast('Credit failed: '+r.error.message,true);
+  if(r.data?.ok===false)return toast('Credit failed: '+(r.data.error||'Unknown error'),true);
+  toast('Leave credit added');
+  $('leaveCreditModal').style.display='none';
+  await loadLeaveBalances();
+}
+function initEventListeners(){$('adminEmployeeSelect').onchange=switchEmployee;$('currentBtn').onclick=()=>{let n=new Date();$('monthSelect').value=n.getMonth();$('yearSelect').value=n.getFullYear();state.monthYear={month:n.getMonth(),year:n.getFullYear()};loadMonthData()};$('toggleBtn').onclick=()=>{state.isList=!state.isList;$('calendarView').classList.toggle('hidden',state.isList);$('listView').classList.toggle('hidden',!state.isList);$('toggleBtn').innerHTML=state.isList?'<span class="material-icons">calendar_month</span>Calendar View':'<span class="material-icons">view_list</span>List View'};$('refreshBtn').onclick=loadMonthData;if($('refreshBalanceBtn'))$('refreshBalanceBtn').onclick=loadLeaveBalances;if($('addLeaveCreditBtn'))$('addLeaveCreditBtn').onclick=openLeaveCreditModal;if($('closeLeaveCreditModalBtn'))$('closeLeaveCreditModalBtn').onclick=()=>$('leaveCreditModal').style.display='none';if($('saveLeaveCreditBtn'))$('saveLeaveCreditBtn').onclick=()=>saveLeaveCredit().catch(e=>toast(e.message,true));$('backBtn').onclick=()=>history.back();$('closeEditModalBtn').onclick=()=>$('editAttendanceModal').style.display='none';$('saveAttendanceBtn').onclick=saveAttendance;$('editAttendanceModal').onclick=e=>{if(e.target===$('editAttendanceModal'))$('editAttendanceModal').style.display='none';if(e.target===$('leaveCreditModal'))$('leaveCreditModal').style.display='none'}}
+async function bootApp(){try{populateSelectors();populateStatusOptions();initEventListeners();await resolveOrganization();await loadEmployees();await loadMonthData()}catch(e){console.error(e);toast('Init error: '+e.message,true)}}
+window.openEditAttendanceModal=openEditAttendanceModal;if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootApp,{once:true});else bootApp();
+</script>
+</body>
+</html>

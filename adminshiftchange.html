@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Shift Swap Approval | Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+    body{background:radial-gradient(ellipse at 20% 30%,#0f2f2c,#051c1a);min-height:100vh;padding:1rem}
+    .admin-container{max-width:1400px;margin:0 auto;background:rgba(255,255,255,.96);border-radius:2rem;box-shadow:0 30px 50px rgba(0,0,0,.25);overflow:hidden}
+    .top-bar{background:#0a2c2f;padding:.7rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem;color:white}
+    .org-info{background:#174d47;padding:4px 14px;border-radius:40px;font-size:.8rem}
+    .header{background:linear-gradient(135deg,#1a5c54,#0e3d38);padding:.8rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.8rem;color:white}
+    .header h1{font-size:1.3rem;display:flex;align-items:center;gap:8px}.back-btn{background:rgba(255,255,255,.15);border:0;padding:5px 14px;border-radius:40px;cursor:pointer;color:white}
+    .filters{padding:1rem 1.5rem;background:#f4faf8;border-bottom:1px solid #e0efeb;display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end}
+    .filter-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:130px}.filter-group label{font-size:.7rem;font-weight:800;color:#1e6b63;text-transform:uppercase}
+    select,input{padding:8px 14px;border-radius:2rem;border:1px solid #cfe0db;background:white;font-size:.8rem;outline:none}
+    .btn-sm{background:#1f6e68;color:white;border:0;padding:8px 18px;border-radius:2rem;font-weight:700;cursor:pointer}.btn-secondary{background:#e2e8f0;color:#2c655e;border:0;padding:8px 18px;border-radius:2rem;cursor:pointer}
+    .stats-row{display:flex;flex-wrap:wrap;gap:1rem;padding:1rem 1.5rem;background:white;border-bottom:1px solid #eef4f2}.stat-card{background:#fefcf7;border-radius:1rem;padding:.6rem 1rem;text-align:center;flex:1;min-width:100px}.stat-number{font-size:1.6rem;font-weight:900;color:#1e5a4c}.stat-label{font-size:.7rem;color:#5b8a82;font-weight:700}
+    .bulk-bar{padding:.6rem 1.5rem;background:#fef8e7;display:flex;flex-wrap:wrap;gap:.8rem;align-items:center;justify-content:space-between}.bulk-actions{display:flex;gap:.8rem;flex-wrap:wrap}
+    .cards-list{display:flex;flex-direction:column;gap:1rem;padding:1.5rem}.swap-card{background:white;border-radius:1.2rem;border:1px solid #e0efeb;padding:1rem;transition:.2s;position:relative}.swap-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.05)}
+    .card-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem;padding-bottom:.5rem;border-bottom:1px solid #eef4f2}.emp-info h3{font-size:1rem;font-weight:800;color:#1e5a4c}.emp-details{font-size:.72rem;color:#6b8c9c}
+    .status-badge{padding:4px 12px;border-radius:2rem;font-size:.7rem;font-weight:800}.status-pending_partner{background:#e0f2fe;color:#0369a1}.status-pending_admin,.status-partner_approved{background:#fff3e0;color:#c47a2e}.status-completed,.status-admin_approved{background:#e0f2e9;color:#1e6f3f}.status-partner_rejected,.status-admin_rejected,.status-rejected{background:#ffe6e5;color:#b91c1c}.status-cancelled{background:#e5e7eb;color:#374151}
+    .card-body{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:.8rem}.info-row{flex:1;min-width:190px;font-size:.82rem;line-height:1.5}.info-label{font-weight:800;color:#2c655e}.reason{background:#f4faf8;padding:7px 11px;border-radius:1rem;margin-top:6px}
+    .swap-arrow{font-size:1.8rem;font-weight:900;color:#1f6e68;text-align:center;min-width:50px;display:flex;align-items:center;justify-content:center}
+    .shift-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:1rem;padding:.75rem;flex:1;min-width:230px}
+    .card-actions{display:flex;justify-content:flex-end;gap:.8rem;margin-top:.5rem;padding-top:.5rem;border-top:1px solid #eef4f2;flex-wrap:wrap}.action-btn{border:0;padding:6px 16px;border-radius:2rem;font-weight:700;cursor:pointer;font-size:.75rem}.approve-btn{background:#e0f2e9;color:#1e6f3f}.reject-btn{background:#ffe6e5;color:#b91c1c}.disabled-btn{background:#eef2f5;color:#8aa5a0;cursor:not-allowed}
+    .select-checkbox{position:absolute;top:12px;right:12px;transform:scale(1.1);cursor:pointer}.pagination{display:flex;justify-content:center;gap:6px;padding:1rem;flex-wrap:wrap}.page-btn{background:#eef2f5;border:0;padding:5px 12px;border-radius:2rem;cursor:pointer;font-size:.75rem}.page-btn.active{background:#1f6e68;color:white}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);justify-content:center;align-items:center;z-index:2000}.modal-content{background:white;max-width:450px;width:90%;border-radius:1.5rem;padding:1.5rem}.modal-header{font-size:1.2rem;font-weight:900;color:#1e5a4c;margin-bottom:1rem}.modal textarea{width:100%;padding:8px 12px;border-radius:1rem;border:1px solid #cfe0db;margin:8px 0}
+    .toast{position:fixed;bottom:20px;left:20px;background:#1a5e58;color:white;padding:8px 16px;border-radius:40px;font-size:.78rem;z-index:3000}.toast.err{background:#b91c1c}
+  </style>
+</head>
+<body>
+<div class="admin-container">
+  <div class="top-bar">
+    <div><i class="fas fa-user-shield"></i> Admin: <strong id="adminName">--</strong></div>
+    <div class="org-info"><i class="fas fa-building"></i> <span id="orgName">--</span> | <span id="orgCode">--</span></div>
+  </div>
+
+  <div class="header">
+    <h1><i class="fas fa-right-left"></i> Shift Swap Approval</h1>
+    <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label>Status</label>
+      <select id="statusFilter">
+        <option value="all">All</option>
+        <option value="pending_admin">Admin Pending</option>
+        <option value="pending_partner">Partner Pending</option>
+        <option value="completed">Completed / Approved</option>
+        <option value="partner_rejected">Partner Rejected</option>
+        <option value="admin_rejected">Admin Rejected</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="filter-group"><label>Department</label><select id="deptFilter"><option value="all">All Departments</option></select></div>
+    <div class="filter-group"><label>Search</label><input type="text" id="searchInput" placeholder="Emp Name/ID"></div>
+    <button id="applyFilter" class="btn-sm">Apply</button>
+    <button id="resetFilter" class="btn-secondary">Reset</button>
+    <button id="exportExcel" class="btn-secondary">📎 Export Excel</button>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="bulk-bar">
+    <div><i class="fas fa-check-square"></i> <span id="selectedCount">0</span> selected</div>
+    <div class="bulk-actions">
+      <button id="bulkApprove" class="btn-sm" style="background:#1f6e68;">✅ Approve Selected</button>
+      <button id="bulkReject" class="btn-sm" style="background:#b91c1c;">❌ Reject Selected</button>
+    </div>
+  </div>
+
+  <div id="cardsList" class="cards-list"></div>
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<div id="rejectModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">Reject Shift Swap Request</div>
+    <label>Reason for rejection *</label>
+    <textarea id="rejectRemark" rows="3" placeholder="Enter remarks..."></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:1rem">
+      <button id="modalCancel" class="btn-secondary">Cancel</button>
+      <button id="modalConfirm" class="btn-sm">Confirm Reject</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL="https://tovpcbzztvkiwamimrxt.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+
+const $=id=>document.getElementById(id);
+const PAGE_SIZE=10;
+let state={
+  session:null,
+  rows:[],
+  total:0,
+  counts:{},
+  page:1,
+  status:"all",
+  dept:"all",
+  search:"",
+  selected:new Set(),
+  pendingRejectId:null,
+  searchTimer:null
+};
+
+function esc(v,f="-"){if(v===null||v===undefined||v==="")return f;return String(v).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function isUuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||""))}
+function fmtDate(v){if(!v)return"-";const d=new Date(String(v).includes("T")?v:v+"T00:00:00");return Number.isNaN(d.getTime())?esc(v):d.toLocaleDateString("en-IN")}
+function normalizeDate(v){return v?String(v).slice(0,10):""}
+function toast(msg,err=false){const old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3500)}
+function loading(msg="Loading shift swap requests..."){$('cardsList').innerHTML=`<div style="text-align:center;padding:2rem;color:#2c655e;font-weight:700"><i class="fas fa-spinner fa-spin"></i> ${esc(msg)}</div>`}
+
+function readJson(keys){for(const k of keys){try{const raw=sessionStorage.getItem(k)||localStorage.getItem(k);if(raw)return JSON.parse(raw)}catch(e){}}return{}}
+function qp(k){return new URLSearchParams(location.search).get(k)||""}
+function scanOrgCode(){
+  const direct=["orgCode","org_code","companyCode","company_code","organizationCode"];
+  for(const k of direct){const v=localStorage.getItem(k)||sessionStorage.getItem(k);if(v&&v!=="undefined"&&v!=="null")return v.replaceAll('"','').trim()}
+  return "";
+}
+function readSession(){
+  const inlist=readJson(["inlistSession"]), emp=readJson(["inlistEmployeeSession"]), cur=readJson(["currentSession"]), personal=readJson(["personalData"]), orgSign=readJson(["orgSignData"]);
+  const firstOrg=Array.isArray(orgSign)&&orgSign.length?orgSign[0]:{};
+  const orgId=qp('org_id')||qp('orgId')||inlist.orgId||inlist.org_id||emp.orgId||emp.org_id||cur.orgId||cur.org_id||cur.companyId||firstOrg.id||firstOrg.org_id||"";
+  const orgCode=qp('org_code')||qp('orgCode')||qp('company_code')||qp('companyCode')||inlist.orgCode||inlist.org_code||emp.orgCode||emp.org_code||cur.orgCode||cur.org_code||cur.companyCode||cur.company_code||firstOrg.orgCode||firstOrg.org_code||scanOrgCode()||"";
+  return{
+    orgId:isUuid(orgId)?orgId:"",
+    orgCode:String(orgCode||"").trim(),
+    orgName:qp('org_name')||inlist.orgName||inlist.org_name||cur.orgName||cur.org_name||firstOrg.orgName||firstOrg.org_name||"OrgConnect",
+    userId:qp('user_id')||qp('userId')||qp('admin_user_id')||inlist.userId||inlist.user_id||cur.userId||cur.user_id||cur.adminId||cur.orgUserId||cur.id||"",
+    empId:qp('emp_id')||emp.empId||emp.emp_id||cur.empId||cur.emp_id||"",
+    branchId:qp('branch_id')||inlist.branchId||inlist.branch_id||emp.branchId||emp.branch_id||cur.branchId||cur.branch_id||"",
+    role:qp('role')||inlist.role||emp.role||cur.role||"admin",
+    email:qp('email')||inlist.email||emp.email||cur.email||personal.email||"",
+    mobile:qp('mobile')||inlist.mobile||emp.mobile||cur.mobile||personal.mobile||"",
+    adminName:qp('name')||personal.fullName||personal.full_name||cur.fullName||cur.full_name||cur.name||"Admin",
+    returnPage:qp('return_page')||"admin.html"
+  }
+}
+function headers(){const s=state.session||readSession();return {apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json','x-org-id':s.orgId||'','x-org-code':s.orgCode||''}}
+async function sbFetch(path,opts={}){const r=await fetch(SUPABASE_URL+path,{...opts,headers:{...headers(),...(opts.headers||{})}});const txt=await r.text();let d=null;try{d=txt?JSON.parse(txt):null}catch{d=txt}if(!r.ok)throw new Error(d?.message||d?.details||d?.hint||txt||r.statusText);return d}
+async function rpc(fn,args){return sbFetch('/rest/v1/rpc/'+fn,{method:'POST',body:JSON.stringify(args||{})})}
+
+function setHeader(){const s=state.session;$('adminName').textContent=s.adminName||'Admin';$('orgName').textContent=s.orgName||'OrgConnect';$('orgCode').textContent=s.orgCode||'--'}
+function requireContext(){const s=readSession();state.session=s;setHeader();if(!s.orgId && !s.orgCode){throw new Error('ORG_NOT_FOUND: Dashboard se open karo ya URL me org_id/org_code bhejo. Example: adminshiftchange.html?org_id=...&org_code=...')}return s}
+function contextQS(){const s=state.session||readSession();const p=new URLSearchParams();if(s.orgId)p.set('org_id',s.orgId);if(s.orgCode)p.set('org_code',s.orgCode);if(s.userId)p.set('user_id',s.userId);if(s.branchId)p.set('branch_id',s.branchId);if(s.empId)p.set('emp_id',s.empId);if(s.role)p.set('role',s.role);p.set('mode','company');if(s.email)p.set('email',s.email);if(s.mobile)p.set('mobile',s.mobile);return p.toString()}
+
+async function loadDepartments(){
+  // Large data safe: department list RPC ho to use karo, warna employee table se sirf distinct-like limited list.
+  try{
+    const d=await rpc('admin_shift_swap_departments',{p_org_id:state.session.orgId||null,p_org_code:state.session.orgCode||null});
+    const list=Array.isArray(d)?d:(d?.items||[]);
+    fillDept(list.map(x=>typeof x==='string'?x:(x.department||x.dept)).filter(Boolean));
+  }catch(e){
+    try{
+      let q=`/rest/v1/employees?active=eq.true&select=department&order=department.asc&limit=500`;
+      if(state.session.orgId)q+=`&org_id=eq.${encodeURIComponent(state.session.orgId)}`;else q+=`&org_code=eq.${encodeURIComponent(state.session.orgCode)}`;
+      const rows=await sbFetch(q);
+      fillDept([...new Set((rows||[]).map(r=>r.department).filter(Boolean))]);
+    }catch(err){fillDept([])}
+  }
+}
+function fillDept(depts){const old=$('deptFilter').value||'all';$('deptFilter').innerHTML='<option value="all">All Departments</option>'+[...new Set(depts)].map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');if([...$('deptFilter').options].some(o=>o.value===old))$('deptFilter').value=old}
+
+function readFilters(){state.status=$('statusFilter').value||'all';state.dept=$('deptFilter').value||'all';state.search=($('searchInput').value||'').trim()}
+async function loadRequests(page=1){
+  readFilters();state.page=Math.max(1,Number(page||1));state.selected.clear();$('selectedCount').textContent='0';loading();
+  let data;
+  try{
+    data=await rpc('admin_get_shift_swap_requests',{p_org_id:state.session.orgId||null,p_org_code:state.session.orgCode||null,p_status:state.status,p_department:state.dept,p_search:state.search||null,p_limit:PAGE_SIZE,p_offset:(state.page-1)*PAGE_SIZE});
+  }catch(e){
+    // Fallback: only current page-size from table, never 1000/large load.
+    let q=`/rest/v1/shift_swap_requests?select=*,requester:requester_employee_id(full_name,emp_code,department,designation,email,mobile),partner:partner_employee_id(full_name,emp_code,department,designation,email,mobile)&order=created_at.desc&limit=${PAGE_SIZE}&offset=${(state.page-1)*PAGE_SIZE}`;
+    if(state.session.orgId)q+=`&org_id=eq.${encodeURIComponent(state.session.orgId)}`;
+    if(state.status!=='all')q+= state.status==='completed' ? `&status=in.(completed,admin_approved)` : `&status=eq.${encodeURIComponent(state.status)}`;
+    const rows=await sbFetch(q);
+    data={items:rows,total:rows.length,counts:null,warning:'RPC admin_get_shift_swap_requests nahi mila, fallback limited mode chal raha hai.'};
+  }
+  state.rows=(data.items||data.rows||data.data||[]).map(mapRow);
+  state.total=Number(data.total||state.rows.length||0);
+  state.counts=data.counts||buildCounts(state.rows,state.total);
+  renderStats();renderCards();renderPagination();
+  if(data.warning)toast(data.warning,true);
+}
+function mapRow(row){return{
+  id:row.id, swapDate:normalizeDate(row.swap_date||row.roster_date||row.date),
+  requesterId:row.requester_employee_id, partnerId:row.partner_employee_id,
+  requesterName:row.requester?.full_name||row.requester_name||row.employee_name||'-', requesterCode:row.requester?.emp_code||row.requester_emp_code||row.emp_code||'-', requesterDept:row.requester?.department||row.requester_dept||row.department||'-',
+  partnerName:row.partner?.full_name||row.partner_name||'-', partnerCode:row.partner?.emp_code||row.partner_emp_code||'-', partnerDept:row.partner?.department||row.partner_dept||'-',
+  requesterShift:row.requester_shift_name||row.from_shift||row.requester_shift||'-', partnerShift:row.partner_shift_name||row.to_shift||row.partner_shift||'-',
+  reason:row.reason||'-', status:row.status||'pending_partner', appliedOn:row.created_at||row.applied_at,
+  partnerNote:row.partner_decision_note||row.partner_note||'', adminNote:row.admin_decision_note||row.admin_note||'',
+  partnerAt:row.partner_decision_at, adminAt:row.admin_decision_at
+}}
+function isAdminActionable(st){return ['pending_admin','partner_approved'].includes(String(st||'').toLowerCase())}
+function isPartnerPending(st){return String(st||'').toLowerCase()==='pending_partner'}
+function prettyStatus(st){const s=String(st||'pending_partner').toLowerCase();return {pending_partner:'Partner Pending',partner_approved:'Admin Pending',pending_admin:'Admin Pending',completed:'Approved / Completed',admin_approved:'Approved',partner_rejected:'Partner Rejected',admin_rejected:'Admin Rejected',rejected:'Rejected',cancelled:'Cancelled'}[s]||s.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}
+function buildCounts(rows,total){return{total:total||rows.length,partner_pending:rows.filter(r=>isPartnerPending(r.status)).length,admin_pending:rows.filter(r=>isAdminActionable(r.status)).length,approved:rows.filter(r=>['completed','admin_approved'].includes(String(r.status).toLowerCase())).length,rejected:rows.filter(r=>['partner_rejected','admin_rejected','rejected'].includes(String(r.status).toLowerCase())).length,cancelled:rows.filter(r=>String(r.status).toLowerCase()==='cancelled').length}}
+function renderStats(){const c=state.counts||{};$('statsRow').innerHTML=`
+  <div class="stat-card"><div class="stat-number">${c.total??state.total}</div><div class="stat-label">Total</div></div>
+  <div class="stat-card"><div class="stat-number">${c.partner_pending??c.pending_partner??0}</div><div class="stat-label">Partner Pending</div></div>
+  <div class="stat-card"><div class="stat-number">${c.admin_pending??c.pending_admin??0}</div><div class="stat-label">Admin Pending</div></div>
+  <div class="stat-card"><div class="stat-number">${c.approved??c.completed??0}</div><div class="stat-label">Approved</div></div>
+  <div class="stat-card"><div class="stat-number">${c.rejected??0}</div><div class="stat-label">Rejected</div></div>
+  <div class="stat-card"><div class="stat-number">${c.cancelled??0}</div><div class="stat-label">Cancelled</div></div>`}
+function renderCards(){const c=$('cardsList');if(!state.rows.length){c.innerHTML='<div style="text-align:center;padding:2rem;color:#6b8c9c">No shift swap requests found</div>';return}c.innerHTML=state.rows.map(r=>{const raw=String(r.status||'pending_partner').toLowerCase();const actionable=isAdminActionable(raw);const partnerPending=isPartnerPending(raw);return `<div class="swap-card">
+  <input type="checkbox" class="select-checkbox" data-id="${esc(r.id)}" ${state.selected.has(r.id)?'checked':''} ${actionable?'':'disabled'}>
+  <div class="card-header"><div class="emp-info"><h3>${esc(r.requesterName)} (${esc(r.requesterCode)}) ⇄ ${esc(r.partnerName)} (${esc(r.partnerCode)})</h3><div class="emp-details">Swap Date: ${fmtDate(r.swapDate)} • Applied: ${fmtDate(r.appliedOn)}</div></div><div><span class="status-badge status-${esc(raw)}">${esc(prettyStatus(raw))}</span></div></div>
+  <div class="card-body"><div class="shift-box"><div class="info-row"><span class="info-label">Requester:</span> ${esc(r.requesterName)} (${esc(r.requesterCode)})</div><div class="info-row"><span class="info-label">Department:</span> ${esc(r.requesterDept)}</div><div class="info-row"><span class="info-label">Current Shift:</span> ${esc(r.requesterShift)}</div></div><div class="swap-arrow">⇄</div><div class="shift-box"><div class="info-row"><span class="info-label">Partner:</span> ${esc(r.partnerName)} (${esc(r.partnerCode)})</div><div class="info-row"><span class="info-label">Department:</span> ${esc(r.partnerDept)}</div><div class="info-row"><span class="info-label">Current Shift:</span> ${esc(r.partnerShift)}</div></div><div class="info-row" style="flex-basis:100%"><span class="info-label">Reason:</span><div class="reason">${esc(r.reason)}</div></div>${r.partnerNote?`<div class="info-row" style="flex-basis:100%"><span class="info-label">Partner Note:</span><div class="reason">${esc(r.partnerNote)}</div></div>`:''}${r.adminNote?`<div class="info-row" style="flex-basis:100%"><span class="info-label">Admin Note:</span><div class="reason" style="background:#ffe6e5">${esc(r.adminNote)}</div></div>`:''}</div>
+  <div class="card-actions">${partnerPending?`<button class="action-btn disabled-btn" disabled><i class="fas fa-clock"></i> Waiting Partner Approval</button>`:''}${actionable?`<button class="action-btn approve-btn" data-id="${esc(r.id)}"><i class="fas fa-check-circle"></i> Approve & Swap Roster</button><button class="action-btn reject-btn" data-id="${esc(r.id)}"><i class="fas fa-times-circle"></i> Reject</button>`:''}${(!actionable&&!partnerPending)?`<button class="action-btn disabled-btn" disabled>No actions available</button>`:''}</div>
+</div>`}).join('');
+  document.querySelectorAll('.approve-btn').forEach(b=>b.onclick=()=>updateStatus(b.dataset.id,true,null));
+  document.querySelectorAll('.reject-btn').forEach(b=>b.onclick=()=>openReject(b.dataset.id));
+  document.querySelectorAll('.select-checkbox').forEach(cb=>cb.onchange=e=>{const id=e.target.dataset.id;if(e.target.checked)state.selected.add(id);else state.selected.delete(id);$('selectedCount').textContent=state.selected.size});
+}
+function renderPagination(){const totalPages=Math.max(1,Math.ceil(state.total/PAGE_SIZE));const c=$('pagination');if(totalPages<=1){c.innerHTML='';return}const start=Math.max(1,state.page-2),end=Math.min(totalPages,state.page+2);let html='';if(state.page>1)html+=`<button class="page-btn" data-page="${state.page-1}">Prev</button>`;if(start>1)html+=`<button class="page-btn" data-page="1">1</button><span style="padding:5px">...</span>`;for(let i=start;i<=end;i++)html+=`<button class="page-btn ${i===state.page?'active':''}" data-page="${i}">${i}</button>`;if(end<totalPages)html+=`<span style="padding:5px">...</span><button class="page-btn" data-page="${totalPages}">${totalPages}</button>`;if(state.page<totalPages)html+=`<button class="page-btn" data-page="${state.page+1}">Next</button>`;c.innerHTML=html;document.querySelectorAll('.page-btn').forEach(b=>b.onclick=()=>loadRequests(Number(b.dataset.page)).catch(e=>toast(e.message,true)))}
+async function updateStatus(id,approve,remark){const row=state.rows.find(r=>r.id===id);if(!row)return toast('Request not found',true);if(!isAdminActionable(row.status))return toast(`Status ${prettyStatus(row.status)} hai, admin action allowed nahi hai`,true);try{await rpc('admin_approve_shift_swap',{p_request_id:id,p_admin_user_id:state.session.userId||null,p_approve:approve,p_note:remark||null});toast(approve?'Shift swap approved. Roster swapped.':'Shift swap rejected.');await loadRequests(state.page)}catch(e){toast(e.message||'Shift swap update failed',true)}}
+function openReject(id){state.pendingRejectId=id;$('rejectRemark').value='';$('rejectModal').style.display='flex'}
+function closeModal(){$('rejectModal').style.display='none';state.pendingRejectId=null}
+async function confirmReject(){const remark=$('rejectRemark').value.trim();if(!remark)return toast('Please provide rejection reason',true);await updateStatus(state.pendingRejectId,false,remark);closeModal()}
+async function bulkAction(approve){const ids=[...state.selected];if(!ids.length)return toast('No admin pending requests selected',true);let remark=null;if(!approve){remark=prompt('Enter rejection reason for all selected requests:','Not approved');if(!remark||!remark.trim())return;remark=remark.trim()}for(const id of ids)await updateStatus(id,approve,remark);state.selected.clear();$('selectedCount').textContent='0'}
+function exportToExcel(){if(!state.rows.length)return toast('No data to export',true);const sheet=[["Request ID","Swap Date","Requester","Requester Code","Requester Dept","Requester Shift","Partner","Partner Code","Partner Dept","Partner Shift","Reason","Status","Partner Note","Admin Note","Applied On"]];state.rows.forEach(r=>sheet.push([r.id,r.swapDate,r.requesterName,r.requesterCode,r.requesterDept,r.requesterShift,r.partnerName,r.partnerCode,r.partnerDept,r.partnerShift,r.reason,r.status,r.partnerNote,r.adminNote,fmtDate(r.appliedOn)]));const ws=XLSX.utils.aoa_to_sheet(sheet),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Shift_Swap');XLSX.writeFile(wb,`Shift_Swap_${new Date().toISOString().slice(0,10)}.xlsx`);toast('Excel exported')}
+async function applyFilters(){state.page=1;await loadRequests(1)}
+async function resetFilters(){$('statusFilter').value='all';$('deptFilter').value='all';$('searchInput').value='';state.page=1;await loadRequests(1)}
+async function init(){try{loading('Connecting to Supabase...');requireContext();await loadDepartments();await loadRequests(1)}catch(e){console.error(e);$('cardsList').innerHTML=`<div style="text-align:center;padding:2rem;color:#b91c1c;font-weight:700">${esc(e.message||'Unable to load data')}</div>`;toast(e.message||'Unable to load data',true)}}
+$('applyFilter').onclick=()=>applyFilters().catch(e=>toast(e.message,true));
+$('resetFilter').onclick=()=>resetFilters().catch(e=>toast(e.message,true));
+$('exportExcel').onclick=exportToExcel;
+$('bulkApprove').onclick=()=>bulkAction(true);
+$('bulkReject').onclick=()=>bulkAction(false);
+$('backBtn').onclick=()=>{const s=state.session||readSession();location.href=(s.returnPage||'admin.html')+'?'+contextQS()};
+$('modalCancel').onclick=closeModal;$('modalConfirm').onclick=confirmReject;
+$('searchInput').addEventListener('input',()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(()=>applyFilters().catch(e=>toast(e.message,true)),450)});
+$('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')applyFilters().catch(er=>toast(er.message,true))});
+window.onclick=e=>{if(e.target===$('rejectModal'))closeModal()};
+init();
+</script>
+</body>
+</html>

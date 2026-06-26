@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Admin Dashboard | OrgConnect</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+    body{background:radial-gradient(ellipse at 20% 30%,#0f2f2c,#051c1a);min-height:100vh;display:flex}
+    .sidebar{width:280px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-right:1px solid rgba(220,235,231,.6);padding:2rem 1rem;display:flex;flex-direction:column;gap:2rem;height:100vh;position:sticky;top:0}
+    .logo h2{color:#1e5a4c;font-size:1.5rem;font-weight:800;display:flex;align-items:center;gap:8px}
+    .nav-links{display:flex;flex-direction:column;gap:.5rem}
+    .nav-item{padding:12px 20px;border-radius:2rem;display:flex;align-items:center;gap:12px;color:#2c655e;font-weight:500;transition:.2s;cursor:pointer;position:relative}
+    .nav-item i{width:24px;font-size:1.2rem}.nav-item.active,.nav-item:hover{background:#1f6e68;color:white;box-shadow:0 4px 10px rgba(31,110,104,.2)}
+    .main{flex:1;padding:1.8rem 2rem;overflow-y:auto;height:100vh}.top-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:2rem}
+    .greeting h3{color:white;font-size:1.4rem;font-weight:600}.greeting p{color:#ccebe6;font-size:.85rem}.date-time{background:rgba(255,255,255,.15);backdrop-filter:blur(8px);padding:6px 18px;border-radius:2rem;color:white;text-align:center}.date-time .day{font-size:.75rem;opacity:.8}.date-time .time{font-size:1.1rem;font-weight:700}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1rem;margin-bottom:2rem}.stat-card{background:white;border-radius:1.4rem;padding:1rem 1.2rem;box-shadow:0 4px 12px rgba(0,0,0,.03);border:1px solid #e0efeb;transition:.2s;position:relative}.stat-card:hover{transform:translateY(-3px)}.stat-icon{font-size:1.6rem;color:#1f6e68;margin-bottom:6px}.stat-number{font-size:1.8rem;font-weight:800;color:#1e3a3a}.stat-label{font-size:.7rem;color:#5b8a82;text-transform:uppercase;font-weight:600}.stat-sub{font-size:.68rem;color:#739991;margin-top:3px}
+    .punch-summary{background:rgba(255,255,255,.96);border-radius:2rem;padding:1.2rem 1.5rem;margin-bottom:2rem;display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:center;border:1px solid #e0efeb}.punch-stats{display:flex;gap:2rem;flex-wrap:wrap}.punch-item{text-align:center;position:relative}.punch-label{font-size:.7rem;color:#5b8a82;letter-spacing:.5px}.punch-value{font-size:2rem;font-weight:800;color:#1e5a4c}
+    .detail-click{cursor:pointer}.punch-item.detail-click{border-radius:1rem;padding:.35rem .65rem;background:rgba(31,110,104,.06)}
+    .features-title{font-size:1.2rem;font-weight:700;color:white;margin:1rem 0}.features-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1rem}.feature-btn{background:rgba(255,255,255,.95);border:none;border-radius:1.2rem;padding:.8rem .5rem;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:.2s;position:relative;min-height:96px}.feature-btn i{font-size:1.5rem;color:#1f6e68}.feature-btn span{font-size:.75rem;font-weight:600;color:#1e5a4c;text-align:center}.feature-btn:hover{transform:translateY(-4px);background:white;box-shadow:0 8px 16px rgba(0,0,0,.1)}.fav-star{position:absolute;top:8px;left:8px;border:0;background:#eff8f6;color:#98aaa6;border-radius:999px;width:26px;height:26px;cursor:pointer}.fav-star.on{color:#d97706;background:#fff2cc}.badge{position:absolute;top:6px;right:8px;background:#dc2626;color:white;border-radius:999px;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;padding:0 6px}.section-title{grid-column:1/-1;color:#e1f8f4;font-size:.82rem;font-weight:800;letter-spacing:.5px;margin-top:.2rem}
+    .mobile-bottom-nav{display:none;position:fixed;bottom:0;left:0;width:100%;background:rgba(255,255,255,.98);backdrop-filter:blur(10px);border-top:1px solid #dcebe7;padding:.6rem 1rem;justify-content:space-around;z-index:100}.mobile-nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.7rem;color:#2c655e;cursor:pointer;padding:6px 12px;border-radius:2rem;transition:.2s}.mobile-nav-item i{font-size:1.2rem}.mobile-nav-item.active{background:#1f6e68;color:white}.toast{position:fixed;bottom:20px;left:20px;background:#1a5e58;color:white;padding:9px 18px;border-radius:40px;font-size:.8rem;z-index:4000;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+    .detail-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:3000}.detail-modal.show{display:flex}.detail-box{width:min(980px,96vw);max-height:86vh;overflow:hidden;background:white;border-radius:24px;box-shadow:0 24px 80px rgba(0,0,0,.35);display:flex;flex-direction:column}.detail-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:16px 18px;border-bottom:1px solid #e0efeb;background:#f5fbfa}.detail-head h3{color:#154c45;font-size:1.05rem}.detail-head p{color:#5b8a82;font-size:.76rem;margin-top:2px}.detail-close{border:0;background:#1f6e68;color:white;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:1rem}.detail-body{overflow:auto;padding:14px}.detail-table{width:100%;border-collapse:collapse;font-size:.82rem}.detail-table th{position:sticky;top:0;background:#e7f5f2;color:#174b44;text-align:left;padding:10px;border-bottom:1px solid #cde5df;white-space:nowrap}.detail-table td{padding:9px 10px;border-bottom:1px solid #eef5f3;color:#1e3a3a;vertical-align:top}.detail-empty{padding:28px;text-align:center;color:#5b8a82;font-weight:700}
+    @media(max-width:768px){body{flex-direction:column}.sidebar{display:none}.mobile-bottom-nav{display:flex}.main{padding:1rem 1.2rem 5rem;height:auto}.stats-grid{grid-template-columns:repeat(2,1fr);gap:.8rem}.features-grid{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+<div class="sidebar"><div class="logo"><h2><i class="fas fa-building"></i> OrgConnect</h2></div><div class="nav-links">
+  <div class="nav-item active" data-dashboard="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</div><div class="nav-item" data-dashboard="employees"><i class="fas fa-users"></i> Employees</div><div class="nav-item" data-dashboard="attendance"><i class="fas fa-calendar-check"></i> Attendance</div><div class="nav-item" data-dashboard="leave"><i class="fas fa-umbrella-beach"></i> Leave</div><div class="nav-item" data-dashboard="overtime"><i class="fas fa-clock"></i> Overtime</div><div class="nav-item" data-dashboard="shiftswap"><i class="fas fa-exchange-alt"></i> Shift Swap</div><div class="nav-item" data-dashboard="notifications"><i class="fas fa-bell"></i> Notifications</div><div class="nav-item" data-dashboard="settings"><i class="fas fa-cog"></i> Settings</div>
+</div></div>
+<div class="main">
+  <div class="top-bar"><div class="greeting"><h3>👋 Admin Dashboard</h3><p>Complete HR & attendance management</p></div><div class="date-time"><div class="day" id="currentDay"></div><div class="time" id="currentTime"></div><div class="day" id="currentDate"></div></div></div>
+  <div class="punch-summary"><div class="punch-stats"><div class="punch-item detail-click" data-detail="present_today"><div class="punch-label">✅ Present / Working Today</div><div class="punch-value" id="punchedInCount">0</div></div><div class="punch-item detail-click" data-detail="punched_out"><div class="punch-label">🚪 Punched Out Today</div><div class="punch-value" id="punchedOutCount">0</div></div><div class="punch-item detail-click" data-detail="not_punched"><div class="punch-label">⭕ Not Punched Today</div><div class="punch-value" id="notPunchedCount">0</div></div></div><div class="punch-stats"><div class="punch-item detail-click" data-detail="all_attendance"><div class="punch-label">📆 Today's Attendance %</div><div class="punch-value" id="attendancePercent">0%</div></div></div></div>
+  <div class="stats-grid">
+    <div class="stat-card detail-click" data-detail="employees"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-number" id="totalEmp">0</div><div class="stat-label">Total Employees</div><div class="stat-sub">Owner/company excluded</div></div>
+    <div class="stat-card detail-click" data-detail="active_employees"><div class="stat-icon"><i class="fas fa-user-check"></i></div><div class="stat-number" id="activeEmp">0</div><div class="stat-label">Active Employees</div><div class="stat-sub">Current staff</div></div>
+    <div class="stat-card detail-click" data-detail="leave_today"><div class="stat-icon"><i class="fas fa-umbrella-beach"></i></div><div class="stat-number" id="leaveTotal">0</div><div class="stat-label">On Leave Today</div><div class="stat-sub">Today only</div></div>
+    <div class="stat-card detail-click" data-detail="overtime_today"><div class="stat-icon"><i class="fas fa-hourglass-half"></i></div><div class="stat-number" id="overtimeTotal">0</div><div class="stat-label">Overtime Today</div><div class="stat-sub" id="overtimeSub">0 hours</div></div>
+    <div class="stat-card detail-click" data-detail="shift_swap_today"><div class="stat-icon"><i class="fas fa-exchange-alt"></i></div><div class="stat-number" id="shiftSwapTotal">0</div><div class="stat-label">Shift Swap Today</div><div class="stat-sub">Today only</div></div>
+    <div class="stat-card detail-click" data-detail="absent_today"><div class="stat-icon"><i class="fas fa-calendar-times"></i></div><div class="stat-number" id="absentToday">0</div><div class="stat-label">Absent Today</div><div class="stat-sub">Today only</div></div>
+    <div class="stat-card detail-click" data-detail="late_today"><div class="stat-icon"><i class="fas fa-hourglass-start"></i></div><div class="stat-number" id="lateToday">0</div><div class="stat-label">Late Today</div><div class="stat-sub">Today only</div></div>
+    <div class="stat-card detail-click" data-detail="weekly_off"><div class="stat-icon"><i class="fas fa-calendar-week"></i></div><div class="stat-number" id="weeklyOff">0</div><div class="stat-label">Weekly Off Today</div><div class="stat-sub">Today only</div></div>
+  </div>
+  <div class="features-title">🚀 All Modules</div><div class="features-grid" id="allFeaturesGrid"></div>
+</div>
+<div class="mobile-bottom-nav"><div class="mobile-nav-item active" data-mobile="dashboard"><i class="fas fa-tachometer-alt"></i><span>Home</span></div><div class="mobile-nav-item" data-mobile="employees"><i class="fas fa-users"></i><span>Staff</span></div><div class="mobile-nav-item" data-mobile="attendance"><i class="fas fa-calendar-check"></i><span>Attend</span></div><div class="mobile-nav-item" data-mobile="leave"><i class="fas fa-umbrella-beach"></i><span>Leave</span></div><div class="mobile-nav-item" data-mobile="settings"><i class="fas fa-cog"></i><span>Settings</span></div></div>
+<div class="detail-modal" id="detailModal"><div class="detail-box"><div class="detail-head"><div><h3 id="detailTitle">Details</h3><p id="detailSubTitle"></p></div><button class="detail-close" id="detailClose" type="button">×</button></div><div class="detail-body" id="detailBody"></div></div></div>
+<script>
+const SUPABASE_URL="https://tovpcbzztvkiwamimrxt.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+function createMiniSupabaseClient(url,key,extraHeaders={}){const base=url.replace(/\/$/,"");const baseHeaders={apikey:key,Authorization:"Bearer "+key,"Content-Type":"application/json",...extraHeaders};function qs(filters={},select="*"){const p=new URLSearchParams();p.set("select",select);Object.entries(filters||{}).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=="")p.set(k,v)});return p.toString()}return{async rpc(fn,args){const res=await fetch(base+"/rest/v1/rpc/"+fn,{method:"POST",headers:baseHeaders,body:JSON.stringify(args||{})});const raw=await res.text();let data=null;try{data=raw?JSON.parse(raw):null}catch{data=raw}if(!res.ok)return{data:null,error:{message:(data&&(data.message||data.details||data.hint))||raw||res.statusText}};return{data,error:null}},async list(table,filters={},select="*"){const res=await fetch(base+"/rest/v1/"+table+"?"+qs(filters,select),{headers:baseHeaders});const raw=await res.text();let data=[];try{data=raw?JSON.parse(raw):[]}catch{data=[]}if(!res.ok)return{data:[],error:{message:(data&&(data.message||data.details||data.hint))||raw||res.statusText}};return{data:Array.isArray(data)?data:[],error:null}}}}
+function createOrgClient(orgId,orgCode){return createMiniSupabaseClient(SUPABASE_URL,SUPABASE_ANON_KEY,{"x-org-id":orgId||"","x-org-code":orgCode||""})}
+const $=id=>document.getElementById(id);let appState={session:null,org:null,user:null,features:{},enabledFeatures:[],stats:{},detailRows:{},favouriteKeys:[],notificationCounts:{},today:""};
+function showToast(msg,isErr=false){let old=document.querySelector(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.style.background=isErr?"#b91c1c":"#1a5e58";t.innerText=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),4500)}
+function getJsonAny(keys){for(const key of keys){try{const raw=sessionStorage.getItem(key)||localStorage.getItem(key);if(raw)return JSON.parse(raw)}catch(e){}}return null}
+function readSession(){const inlist=getJsonAny(["inlistSession"])||{};const empSession=getJsonAny(["inlistEmployeeSession"])||{};const cs=getJsonAny(["currentSession"])||{};const p=new URLSearchParams(location.search);return{orgId:p.get("org_id")||inlist.orgId||empSession.orgId||cs.orgId||cs.org_id||null,orgCode:p.get("org_code")||p.get("company_code")||inlist.orgCode||empSession.orgCode||cs.orgCode||cs.org_code||"",userId:p.get("user_id")||inlist.userId||cs.userId||"",branchId:p.get("branch_id")||inlist.branchId||empSession.branchId||cs.branchId||"",empId:p.get("emp_id")||empSession.empId||cs.empId||"",empCode:p.get("emp_code")||empSession.empCode||cs.empCode||"",role:p.get("role")||inlist.role||empSession.role||cs.role||"company",mode:p.get("mode")||cs.mode||"",email:p.get("email")||inlist.email||empSession.email||cs.email||"",mobile:p.get("mobile")||inlist.mobile||empSession.mobile||cs.mobile||""}}
+function normalizeFeatureKey(key){return String(key||"").trim().toLowerCase().replace(/\s+/g,"_").replace(/-/g,"_")}function isAdminRole(role){return ["admin","company","owner","hr","manager","developer","dev","operation","operations","finance"].includes(String(role||"").toLowerCase())}function hasFeature(key){return !!appState.features[normalizeFeatureKey(key)]}
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function updateDateTime(){const now=new Date();const days=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];$('currentDay').innerText=days[now.getDay()];$('currentTime').innerText=now.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});$('currentDate').innerText=now.toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"})}
+function setLocked(message){document.querySelector(".greeting h3").innerText="🔒 Admin Dashboard Locked";document.querySelector(".greeting p").innerText=message;$("allFeaturesGrid").innerHTML='<div style="grid-column:1/-1;background:white;border-radius:1.2rem;padding:1rem;color:#1e5a4c;">'+message+'</div>';document.querySelectorAll(".stat-number,.punch-value").forEach(el=>el.innerText="0")}function setLoading(message){document.querySelector(".greeting h3").innerText="⏳ Loading Dashboard...";document.querySelector(".greeting p").innerText=message||"Please wait";$("allFeaturesGrid").innerHTML='<div style="grid-column:1/-1;background:white;border-radius:1.2rem;padding:1rem;color:#1e5a4c;">Dashboard data load ho raha hai...</div>'}
+const FEATURE_SCREEN_MAP={
+  /* Admin Dashboard screen override:
+     Developer panel se feature_key same rahega.
+     Yahan admin dashboard apne hisab se admin page open karega.
+     Example: shift / daily_attendance => adminshift.html
+  */
+  feature_assignment:"feature.html",
+  feature_assign:"feature.html",
+  assign_feature:"feature.html",
+  assign_features:"feature.html",
+  feature_management:"feature.html",
+  features:"feature.html",
+  feature:"feature.html",
+
+  add_employee:"add_employee_supabase_connected.html",
+  employee_add:"add_employee_supabase_connected.html",
+  employee_management:"add_employee_supabase_connected.html",
+  employees:"add_employee_supabase_connected.html",
+  staff_management:"add_employee_supabase_connected.html",
+
+  /* Attendance / Shift */
+  shift:"adminshift.html",
+  shifts:"adminshift.html",
+  daily_shift:"adminshift.html",
+  daily_attendance:"adminshift.html",
+  attendance:"adminshift.html",
+  attendance_management:"adminshift.html",
+
+  /* Attendance Report */
+  attendance_report:"adminattendance.html",
+  attendance_reports:"adminattendance.html",
+  report_attendance:"adminattendance.html",
+
+  /* Geo / GPS */
+  geo_attendance:"geo_attendance.html",
+  gps_attendance:"geo_attendance.html",
+  geofence:"admingeo.html",
+
+  /* Leave */
+  leave:"adminleave.html",
+  leave_management:"adminleave.html",
+  leave_request:"adminleave.html",
+  leave_requests:"adminleave.html",
+
+  /* Overtime */
+  overtime:"adminovertime.html",
+  overtime_management:"adminovertime.html",
+  overtime_request:"adminovertime.html",
+  overtime_requests:"adminovertime.html",
+
+  /* Roster */
+  roster_management:"adminroster.html",
+  admin_roster:"adminroster.html",
+  shift_management:"adminroster.html",
+
+  /* Shift Change / Swap */
+  shift_change:"adminshiftchange.html",
+  shift_swap:"adminshiftchange.html",
+  shiftswap:"adminshiftchange.html",
+  shift_change_requests:"adminshiftchange.html",
+
+  /* QR */
+  qr_attendance:"qr_attendance.html",
+  qr_admin:"qr_attendance.html",
+
+  /* Document Upload / Documents */
+  document_upload:"admin_document_upload.html",
+  documents:"admin_document_upload.html",
+  document_management:"admin_document_upload.html",
+  upload_document:"admin_document_upload.html",
+  upload_documents:"admin_document_upload.html",
+  employee_documents:"admin_document_upload.html",
+  staff_documents:"admin_document_upload.html",
+
+  notifications:"notifications.html",
+  notification:"notifications.html",
+  announcements:"announcements.html",
+
+  reports:"reports.html",
+  analytics:"reports.html",
+
+  device_verification:"admindevice.html",
+  device_management:"admindevice.html",
+  devices:"admindevice.html",
+
+  holiday:"adminholidays.html",
+  holidays:"adminholidays.html",
+  settings:"settings.html",
+  branches:"branches.html",
+  payroll:"payroll.html",
+  expenses:"expenses.html"
+};
+const FEATURE_ICON_MAP={
+  feature_assignment:"fas fa-user-shield",
+  feature_management:"fas fa-user-shield",
+  add_employee:"fas fa-user-plus",
+  employee_management:"fas fa-users",
+  employees:"fas fa-users",
+  staff_management:"fas fa-users",
+
+  shift:"fas fa-calendar-check",
+  shifts:"fas fa-calendar-check",
+  daily_shift:"fas fa-calendar-check",
+  daily_attendance:"fas fa-calendar-check",
+  attendance:"fas fa-calendar-check",
+  attendance_management:"fas fa-calendar-check",
+  attendance_report:"fas fa-file-alt",
+  attendance_reports:"fas fa-file-alt",
+
+  geo_attendance:"fas fa-map-marker-alt",
+  gps_attendance:"fas fa-map-marker-alt",
+  geofence:"fas fa-map-marker-alt",
+
+  leave:"fas fa-umbrella-beach",
+  leave_management:"fas fa-umbrella-beach",
+
+  overtime:"fas fa-clock",
+  overtime_management:"fas fa-clock",
+
+  roster_management:"fas fa-calendar-alt",
+  shift_management:"fas fa-calendar-alt",
+
+  shift_change:"fas fa-exchange-alt",
+  shift_swap:"fas fa-exchange-alt",
+  shiftswap:"fas fa-exchange-alt",
+
+  qr_attendance:"fas fa-qrcode",
+  document_upload:"fas fa-file-upload",
+  documents:"fas fa-file-alt",
+  document_management:"fas fa-folder-open",
+  upload_document:"fas fa-file-upload",
+  upload_documents:"fas fa-file-upload",
+  employee_documents:"fas fa-folder-open",
+  staff_documents:"fas fa-folder-open",
+  employee_personal_details:"fas fa-id-card",
+  personal_details:"fas fa-id-card",
+  staff_personal_details:"fas fa-id-card",
+  notifications:"fas fa-bell",
+  announcements:"fas fa-bullhorn",
+  reports:"fas fa-file-alt",
+  analytics:"fas fa-chart-line",
+  device_management:"fas fa-microchip",
+  device_verification:"fas fa-microchip",
+  settings:"fas fa-cog",
+  holiday:"fas fa-calendar-day",
+  holidays:"fas fa-calendar-day"
+};
+const EMPLOYEE_ONLY_FEATURES=new Set(["roster","employee_roster","my_roster","shift_roster","qr_scan","scan_qr","employee_qr_scan"]);function shouldShowOnAdminDashboard(f){const key=normalizeFeatureKey(f.feature_key);if(EMPLOYEE_ONLY_FEATURES.has(key))return false;if(key==="roster")return false;if(key.includes("qr")&&key.includes("scan"))return false;return true}
+function prettyFeatureName(f){const n=String(f.feature_name||"").trim();return n||normalizeFeatureKey(f.feature_key).replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())}function adminizeScreenName(screen){
+  screen=String(screen||"").trim();
+  if(!screen)return "";
+
+  const parts=screen.split("?");
+  const file=parts[0];
+  const query=parts.length>1 ? "?"+parts.slice(1).join("?") : "";
+
+  if(file.includes("/") || file.startsWith("http"))return screen;
+  if(file.startsWith("admin") || file.startsWith("admin_"))return screen;
+
+  const dot=file.lastIndexOf(".");
+  const name=dot>=0 ? file.slice(0,dot) : file;
+  const ext=dot>=0 ? file.slice(dot) : ".html";
+
+  // jis file me underscore hai usme admin_ prefix lagega: document_upload.html => admin_document_upload.html
+  if(name.includes("_"))return "admin_"+name+ext+query;
+
+  // simple file ke liye admin prefix: leave.html => adminleave.html
+  return "admin"+name+ext+query;
+}
+function getAdminFeatureScreen(key,screenHint=""){
+  key=normalizeFeatureKey(key);
+
+  /* IMPORTANT:
+     Feature key database/dev panel me same rahega.
+     Admin Dashboard se jo bhi module open hoga uska admin page open hoga.
+     Example:
+     document_upload.html => admin_document_upload.html
+     shift.html => adminshift.html
+     leave.html => adminleave.html
+  */
+  const adminScreenMap={
+    shift:"adminshift.html",
+    shifts:"adminshift.html",
+    daily_shift:"adminshift.html",
+    daily_attendance:"adminshift.html",
+    attendance:"adminshift.html",
+    attendance_management:"adminshift.html",
+
+    attendance_report:"adminattendance.html",
+    attendance_reports:"adminattendance.html",
+    report_attendance:"adminattendance.html",
+
+    shift_change:"adminshiftchange.html",
+    shift_swap:"adminshiftchange.html",
+    shiftswap:"adminshiftchange.html",
+    shift_change_requests:"adminshiftchange.html",
+
+    roster_management:"adminroster.html",
+    admin_roster:"adminroster.html",
+    shift_management:"adminroster.html",
+
+    leave:"adminleave.html",
+    leave_management:"adminleave.html",
+    leave_request:"adminleave.html",
+    leave_requests:"adminleave.html",
+
+    overtime:"adminovertime.html",
+    overtime_management:"adminovertime.html",
+    overtime_request:"adminovertime.html",
+    overtime_requests:"adminovertime.html",
+
+    geo_attendance:"geo_attendance.html",
+    gps_attendance:"geo_attendance.html",
+    geofence:"admingeo.html",
+
+    qr_attendance:"qr_attendance.html",
+    qr_admin:"qr_attendance.html",
+
+    document_upload:"admin_document_upload.html",
+    documents:"admin_document_upload.html",
+    document_management:"admin_document_upload.html",
+    upload_document:"admin_document_upload.html",
+    upload_documents:"admin_document_upload.html",
+    employee_documents:"admin_document_upload.html",
+    staff_documents:"admin_document_upload.html",
+
+    employee_personal_details:"admin_employee_personal_details.html",
+    personal_details:"admin_employee_personal_details.html",
+    staff_personal_details:"admin_employee_personal_details.html",
+
+    device_management:"admindevice.html",
+    device_verification:"admindevice.html",
+    devices:"admindevice.html",
+
+    holiday:"adminholidays.html",
+    holidays:"adminholidays.html",
+
+    employee_management:"add_employee_supabase_connected.html",
+    employees:"add_employee_supabase_connected.html",
+    staff_management:"add_employee_supabase_connected.html",
+    add_employee:"add_employee_supabase_connected.html",
+
+    feature_assignment:"feature.html",
+    feature_management:"feature.html",
+    feature:"feature.html",
+    features:"feature.html",
+
+    reports:"reports.html",
+    analytics:"reports.html",
+    notifications:"notifications.html",
+    notification:"notifications.html",
+    announcements:"announcements.html",
+    settings:"settings.html",
+    branches:"branches.html",
+    payroll:"payroll.html",
+    expenses:"expenses.html"
+  };
+
+  if(adminScreenMap[key])return adminScreenMap[key];
+
+  // agar developer table me screen/link document_upload.html jaisa aa raha ho
+  if(screenHint)return adminizeScreenName(screenHint);
+
+  // generic fallback: unknown feature_key ko bhi admin page bana ke open karo
+  return adminizeScreenName(`${key}.html`);
+}
+function featureToModule(f){const key=normalizeFeatureKey(f.feature_key);const screenHint=f.screen||f.page||f.url||f.feature_url||f.file||f.filename||"";return{key,name:prettyFeatureName(f),icon:FEATURE_ICON_MAP[key]||"fas fa-th-large",screen:getAdminFeatureScreen(key,screenHint)}}
+function storagePrefix(){const s=appState.session||{};return "adminDash:"+(s.orgId||s.orgCode||"org")+":"}function loadFavs(){try{appState.favouriteKeys=JSON.parse(localStorage.getItem(storagePrefix()+"favourites")||"[]")}catch(e){appState.favouriteKeys=[]}}function saveFavs(){localStorage.setItem(storagePrefix()+"favourites",JSON.stringify(appState.favouriteKeys||[]))}function isFav(k){return(appState.favouriteKeys||[]).includes(normalizeFeatureKey(k))}function toggleFav(k){k=normalizeFeatureKey(k);const set=new Set(appState.favouriteKeys||[]);set.has(k)?set.delete(k):set.add(k);appState.favouriteKeys=[...set];saveFavs();renderEnabledModules()}
+function getOpenContextParams(){const s=appState.session||{},o=appState.org||{},u=appState.user||{};const p=new URLSearchParams();if(o.id||s.orgId)p.set("org_id",o.id||s.orgId);if(o.org_code||s.orgCode)p.set("org_code",o.org_code||s.orgCode);if(s.userId||u.id)p.set("user_id",s.userId||u.id);if(s.branchId||u.branch_id)p.set("branch_id",s.branchId||u.branch_id);if(s.empId)p.set("emp_id",s.empId);if(s.empCode)p.set("emp_code",s.empCode);const actualRole=u.role||s.role||"company";p.set("actual_role",actualRole);p.set("role","admin");p.set("mode","company");p.set("screen_type","admin");if(s.email||u.email)p.set("email",s.email||u.email);if(s.mobile||u.phone)p.set("mobile",s.mobile||u.phone);return p.toString()}
+function openScreen(screen){
+  /*
+    FINAL RULE:
+    Admin dashboard se jo bhi feature/screen open hoga, role check nahi hoga.
+    Har normal file ke aage admin prefix lagega.
+    Examples:
+      employee_personal_details.html => admin_employee_personal_details.html
+      document_upload.html => admin_document_upload.html
+      shift.html => adminshift.html
+    Agar file already admin/admin_ se start hai to wahi rahegi.
+  */
+  const target=adminizeScreenName(screen);
+  const qs=getOpenContextParams();
+  window.location.href=target+(target.includes("?")?"&":"?")+qs;
+}
+function openModule(m){
+  const key=normalizeFeatureKey(m.key||"");
+  const screen=getAdminFeatureScreen(key,m.screen||"");
+  if(!screen)return showToast((m.name||key)+" screen link add nahi hai.",true);
+  if(key)markSeen(key);
+  openScreen(screen);
+}
+function renderEnabledModules(){const grid=$("allFeaturesGrid");grid.innerHTML="";let modules=(appState.enabledFeatures||[]).filter(shouldShowOnAdminDashboard).map(featureToModule);if(!modules.length){grid.innerHTML='<div style="grid-column:1/-1;background:white;border-radius:1.2rem;padding:1rem;color:#1e5a4c;">Is company ke liye koi module enabled nahi hai. Developer panel se features enable karo.</div>';return}modules.sort((a,b)=>(isFav(b.key)-isFav(a.key))||a.name.localeCompare(b.name));const favs=modules.filter(m=>isFav(m.key)), rest=modules.filter(m=>!isFav(m.key));const draw=(title,list)=>{if(!list.length)return;const h=document.createElement("div");h.className="section-title";h.textContent=title;grid.appendChild(h);list.forEach(m=>{const btn=document.createElement("button");btn.className="feature-btn";btn.dataset.feature=m.key;const count=Number(appState.notificationCounts[m.key]||0)||0;btn.innerHTML=`<button type="button" class="fav-star ${isFav(m.key)?"on":""}" title="Favourite">★</button>${count?`<div class="badge">${count}</div>`:""}<i class="${m.icon}"></i><span>${m.name}</span>`;btn.querySelector(".fav-star").addEventListener("click",e=>{e.stopPropagation();toggleFav(m.key)});btn.addEventListener("click",()=>openModule(m));grid.appendChild(btn)})};draw("⭐ Favourite",favs);draw("All Modules",rest)}
+function markSeen(key){const now=Date.now();localStorage.setItem(storagePrefix()+"seen:"+normalizeFeatureKey(key),String(now));appState.notificationCounts[normalizeFeatureKey(key)]=0;renderEnabledModules()}function getSeen(key){return Number(localStorage.getItem(storagePrefix()+"seen:"+normalizeFeatureKey(key))||0)||0}
+async function loadRequestBadges(){appState.notificationCounts={};const s=appState.session||{},o=appState.org||{};const client=createOrgClient(s.orgId||o.id||"",s.orgCode||o.org_code||"");const orgId=o.id||s.orgId;const filters={};if(orgId)filters.org_id="eq."+orgId;const confs=[{feature:"leave_management",table:"leave_requests"},{feature:"overtime",table:"overtime_requests"},{feature:"shift_change",table:"shift_change_requests"},{feature:"device_management",table:"employee_devices"}];for(const c of confs){if(!hasFeature(c.feature))continue;const rows=(await client.list(c.table,filters,"id,created_at,status,employee_id,emp_code")).data||[];const seen=getSeen(c.feature);const count=rows.filter(r=>!["approved","rejected","cancelled","canceled"].includes(String(r.status||"").toLowerCase())&&(new Date(r.created_at||0).getTime()>seen)).length;if(count)appState.notificationCounts[c.feature]=count}}
+function applyFeatureVisibilityToNav(){document.querySelectorAll(".nav-item").forEach(item=>{const t=item.dataset.dashboard;if(t==="settings"){item.style.display="flex";return}item.style.display="flex"});document.querySelectorAll(".mobile-nav-item").forEach(item=>item.style.display="flex")}
+function anyFeature(keys){return keys.some(k=>hasFeature(k))}
+function handleNavigation(target){
+  const code=String(target||"").toLowerCase();
+
+  /* FIXED:
+     Employees / Staff button ko feature check se free kar diya hai.
+     Isse sidebar Employees aur mobile Staff dono hamesha employee page open karenge.
+     Pehle enabled_features me employees/employee_management na hone par button work nahi karta tha.
+  */
+  if(code==="employees" || code==="employee" || code==="staff" || code.includes("employee") || code.includes("staff")){
+    return openScreen("add_employee_supabase_connected.html");
+  }
+
+  if(code==="settings"||code.includes("setting"))return openScreen("settings.html");
+  if(code.includes("attendance"))return openScreen("adminshift.html");
+  if(code.includes("leave"))return openScreen("adminleave.html");
+  if(code.includes("overtime"))return openScreen("adminovertime.html");
+  if(code.includes("shift")||code.includes("shiftswap"))return openScreen("adminshiftchange.html");
+  if(code.includes("document")||code.includes("upload"))return openScreen("admin_document_upload.html");
+  if(code.includes("notification"))return openScreen("notifications.html");
+  showToast("Ye module is company ke liye enabled nahi hai.",true);
+}
+document.querySelectorAll(".nav-item").forEach(item=>item.addEventListener("click",()=>{document.querySelectorAll(".nav-item").forEach(i=>i.classList.remove("active"));item.classList.add("active");const t=item.dataset.dashboard||item.innerText.trim();if(t!=="dashboard")handleNavigation(t)}));document.querySelectorAll(".mobile-nav-item").forEach(item=>item.addEventListener("click",()=>{document.querySelectorAll(".mobile-nav-item").forEach(i=>i.classList.remove("active"));item.classList.add("active");const t=item.dataset.mobile||"dashboard";if(t!=="dashboard")handleNavigation(t)}));
+function norm(v){return String(v||"").toLowerCase().trim()}
+function rowEmpKey(row){
+  return String(row.employee_id||row.emp_id||row.id||row.emp_code||row.requester_employee_id||row.from_employee_id||"").trim().toLowerCase();
+}
+function empKeys(row){
+  return [row.employee_id,row.emp_id,row.id,row.emp_code,row.requester_employee_id,row.from_employee_id,row.partner_employee_id]
+    .map(v=>String(v||"").trim().toLowerCase())
+    .filter(Boolean);
+}
+function makeEmployeeKeySet(rows){
+  const set=new Set();
+  (rows||[]).forEach(r=>empKeys(r).forEach(k=>set.add(k)));
+  return set;
+}
+function belongsToEmployeeSet(row,set){
+  return empKeys(row).some(k=>set.has(k));
+}
+function isActiveEmployee(row){
+  const v=String(row.active).toLowerCase().trim();
+  return !(row.active===false || row.active===0 || v==="false" || v==="0" || v==="inactive");
+}
+function isRealEmployeeRow(row){
+  const empType=norm(row.employee_type||row.user_type||row.account_type);
+  const empCode=norm(row.emp_code);
+  const role=norm(row.role||row.employee_role);
+  const designation=norm(row.designation);
+  const department=norm(row.department);
+
+  /*
+    FINAL FILTER:
+    Dashboard me admin/owner/company/developer record nahi dikhega.
+    Baki normal staff/employee/hr/manager/operation/finance sab dikhenge.
+    Email/mobile/user_id se hide nahi karna, warna real employee galti se gayab ho jata hai.
+  */
+  const blockedExact = new Set([
+    "admin", "admin_user", "administrator",
+    "owner", "company", "company_admin",
+    "developer", "dev", "super_admin"
+  ]);
+
+  const blockedText = ["admin", "owner", "developer", "super admin", "company admin"];
+
+  if(blockedExact.has(empType))return false;
+  if(blockedExact.has(role))return false;
+  if(blockedExact.has(empCode))return false;
+  if(blockedText.some(x=>designation.includes(x)))return false;
+  if(blockedText.some(x=>department.includes(x)))return false;
+
+  return true;
+}
+function makeEmployeeIndex(rows){const m=new Map();(rows||[]).forEach(e=>{const name=e.full_name||e.employee_name||e.name||e.emp_name||e.emp_code||"Employee";[e.id,e.employee_id,e.emp_code].forEach(k=>{if(k)m.set(String(k).toLowerCase(),{...e,display_name:name})})});return m}function fmtDateTime(v){if(!v)return"-";try{return new Date(v).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}catch(e){return String(v)}}function cleanStatus(v){return String(v||"").replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())||"-"}
+function dateInRow(row,date){const keys=["attendance_date","late_date","overtime_date","request_date","swap_date","shift_date","roster_date","date","created_date"];for(const k of keys){if(row[k]&&String(row[k]).slice(0,10)===date)return true}const from=String(row.from_date||row.start_date||"").slice(0,10);const to=String(row.to_date||row.end_date||from||"").slice(0,10);if(from&&to&&from<=date&&date<=to)return true;const selected=row.selected_dates||row.dates||row.overtime_dates;if(Array.isArray(selected))return selected.map(x=>String(x).slice(0,10)).includes(date);if(typeof selected==="string"&&selected.includes(date))return true;return false}
+function enrichRow(row,idx,type){const emp=idx.get(rowEmpKey(row))||{};const name=row.employee_name||row.full_name||row.emp_name||emp.display_name||row.emp_code||"Employee";return{type,name,emp_code:row.emp_code||emp.emp_code||"-",department:row.department||emp.department||"-",designation:row.designation||emp.designation||"-",status:cleanStatus(row.status||row.leave_type||row.shift_name||type),punch_in:fmtDateTime(row.punch_in||row.in_time||row.check_in),punch_out:fmtDateTime(row.punch_out||row.out_time||row.check_out),hours:row.extra_hours||row.overtime_hours||row.worked_hours||row.total_hours||row.hours||"-",reason:row.reason||row.admin_remark||row.remark||row.remarks||row.notes||"-"}}
+async function safeList(client,table,filters,select="*"){try{const r=await client.list(table,filters,select);if(r.error){console.warn("Details skipped",table,r.error.message);return[]}return r.data||[]}catch(e){console.warn("Details failed",table,e.message||e);return[]}}
+function hasPunchIn(r){return!!(r.punch_in||r.in_time||r.check_in)}function hasPunchOut(r){return!!(r.punch_out||r.out_time||r.check_out)}function uniqueRows(rows){const seen=new Set();return(rows||[]).filter(r=>{const k=(r.name||"")+"|"+(r.emp_code||"")+"|"+(r.type||"");if(seen.has(k))return false;seen.add(k);return true})}
+async function refreshTodayDashboard(){const s=appState.session||{},o=appState.org||{};const date=todayISO();appState.today=date;const client=createOrgClient(s.orgId||o.id||"",s.orgCode||o.org_code||"");const orgId=o.id||s.orgId;const orgFilter={};if(orgId)orgFilter.org_id="eq."+orgId;const employees=(await safeList(client,"employees",orgFilter,"*")).filter(isRealEmployeeRow);const active=employees.filter(isActiveEmployee);const idx=makeEmployeeIndex(employees);const realKeys=makeEmployeeKeySet(employees);const activeKeys=makeEmployeeKeySet(active);const attFilters={attendance_date:"eq."+date};if(orgId)attFilters.org_id="eq."+orgId;const attRows=(await safeList(client,"attendance",attFilters,"*")).filter(r=>belongsToEmployeeSet(r,realKeys));const leaveRows=attRows.filter(r=>{const st=norm(r.status);const lt=norm(r.leave_type);return st==="leave"||st.includes("leave")||["cl","pl","paid","unpaid","c_off","coff","c-off"].includes(st)||["cl","pl","paid","unpaid","c_off","coff","c-off"].includes(lt)});const overtimeRows=(await safeList(client,"overtime_requests",orgFilter,"*")).filter(r=>dateInRow(r,date)&&belongsToEmployeeSet(r,realKeys));let shiftRows=(await safeList(client,"shift_change_requests",orgFilter,"*")).filter(r=>dateInRow(r,date));if(!shiftRows.length)shiftRows=(await safeList(client,"shift_swap_requests",orgFilter,"*")).filter(r=>dateInRow(r,date));shiftRows=shiftRows.filter(r=>{const k=rowEmpKey(r)||String(r.requester_employee_id||r.from_employee_id||r.emp_code||"").toLowerCase();return !k||belongsToEmployeeSet(r,realKeys)});const lateTableRows=(await safeList(client,"late_punches",orgFilter,"*")).filter(r=>dateInRow(r,date)&&belongsToEmployeeSet(r,realKeys));const rosterRows=(await safeList(client,"rosters",{...orgFilter,roster_date:"eq."+date},"*")).filter(r=>belongsToEmployeeSet(r,realKeys));
+const punchedIn=new Set(),punchedOut=new Set(),absent=new Set(),late=new Set(),weeklyOff=new Set();attRows.forEach(r=>{const k=rowEmpKey(r);const st=norm(r.status);if(hasPunchIn(r))punchedIn.add(k);if(hasPunchOut(r))punchedOut.add(k);if(st.includes("absent"))absent.add(k);if(st.includes("late"))late.add(k);if(st.includes("weekly")||st==="wo"||st.includes("off"))weeklyOff.add(k)});lateTableRows.forEach(r=>{const k=rowEmpKey(r)||String(r.employee_id||r.emp_code||"").toLowerCase();if(k)late.add(k)});rosterRows.forEach(r=>{const k=rowEmpKey(r);const st=norm(r.shift_name||r.status);if(k&&(st.includes("weekly")||st==="wo"||st.includes("off")))weeklyOff.add(k)});const leaveKeys=new Set(leaveRows.map(r=>rowEmpKey(r)||String(r.employee_id||r.emp_code||"").toLowerCase()).filter(Boolean));const notPunched=active.filter(e=>{const k=rowEmpKey(e);return k&&!punchedIn.has(k)&&!leaveKeys.has(k)&&!weeklyOff.has(k)});const overtimeEmployeeKeys=new Set(overtimeRows.map(r=>rowEmpKey(r)||String(r.employee_id||r.emp_code||"").toLowerCase()).filter(Boolean));const overtimeHours=overtimeRows.reduce((sum,r)=>sum+(Number(r.extra_hours||r.overtime_hours||r.total_hours||r.hours)||0),0);
+appState.stats={...appState.stats,total_employees:employees.length,active_employees:active.length,punched_in_today:punchedIn.size,punched_out_today:punchedOut.size,not_punched_today:notPunched.length,attendance_percent:active.length?Math.round((punchedIn.size/active.length)*100):0,absent_today:absent.size,late_today:late.size,weekly_off:weeklyOff.size,leaves_this_month:leaveRows.length,overtime_count:overtimeEmployeeKeys.size,overtime_hours:overtimeHours,shift_swaps_pending:shiftRows.length};appState.detailRows={employees:employees.map(r=>enrichRow(r,idx,"Employee")),active_employees:active.map(r=>enrichRow(r,idx,"Active employee")),all_attendance:attRows.map(r=>enrichRow(r,idx,"Attendance")),present_today:attRows.filter(r=>hasPunchIn(r)).map(r=>enrichRow(r,idx,"Present / working")),punched_out:attRows.filter(r=>hasPunchOut(r)).map(r=>enrichRow(r,idx,"Punched out")),not_punched:notPunched.map(r=>({...enrichRow(r,idx,"Not punched"),status:"Not punched"})),absent_today:attRows.filter(r=>absent.has(rowEmpKey(r))).map(r=>enrichRow(r,idx,"Absent")),late_today:uniqueRows([...attRows.filter(r=>late.has(rowEmpKey(r))).map(r=>enrichRow(r,idx,"Late")),...lateTableRows.map(r=>enrichRow(r,idx,"Late"))]),weekly_off:uniqueRows([...rosterRows.filter(r=>weeklyOff.has(rowEmpKey(r))).map(r=>enrichRow(r,idx,"Weekly off")),...attRows.filter(r=>weeklyOff.has(rowEmpKey(r))).map(r=>enrichRow(r,idx,"Weekly off"))]),leave_today:leaveRows.map(r=>enrichRow(r,idx,"Leave")),overtime_today:overtimeRows.map(r=>enrichRow(r,idx,"Overtime")),shift_swap_today:shiftRows.map(r=>enrichRow(r,idx,"Shift swap"))}}
+function renderStats(){const s=appState.stats||{};$('punchedInCount').innerText=s.punched_in_today??0;$('punchedOutCount').innerText=s.punched_out_today??0;$('notPunchedCount').innerText=s.not_punched_today??0;$('attendancePercent').innerText=(s.attendance_percent??0)+"%";$('totalEmp').innerText=s.total_employees??0;$('activeEmp').innerText=s.active_employees??0;$('leaveTotal').innerText=hasFeature("leave_management")?(s.leaves_this_month??0):"OFF";$('overtimeTotal').innerText=hasFeature("overtime")?(s.overtime_count??0):"OFF";$('overtimeSub').innerText=(Number(s.overtime_hours||0).toFixed(2).replace(/\.00$/,"")+" hours");$('shiftSwapTotal').innerText=hasFeature("shift_change")?(s.shift_swaps_pending??0):"OFF";$('absentToday').innerText=s.absent_today??0;$('lateToday').innerText=s.late_today??0;$('weeklyOff').innerText=s.weekly_off??0}
+const DETAIL_TITLES={employees:"Total employees",active_employees:"Active employees",all_attendance:"Today's attendance",present_today:"Present / working today",punched_out:"Punched out today",not_punched:"Not punched today",absent_today:"Absent today",late_today:"Late today",weekly_off:"Weekly off today",leave_today:"On leave today",overtime_today:"Overtime today",shift_swap_today:"Shift swap today"};function openDetail(key){const rows=(appState.detailRows&&appState.detailRows[key])||[];$('detailTitle').innerText=(DETAIL_TITLES[key]||"Details")+" ("+rows.length+")";$('detailSubTitle').innerText="Date: "+new Date(appState.today||todayISO()).toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"});if(!rows.length){$('detailBody').innerHTML='<div class="detail-empty">Aaj is card ka koi data nahi mila.</div>'}else{$('detailBody').innerHTML='<table class="detail-table"><thead><tr><th>Name</th><th>Emp Code</th><th>Department</th><th>Designation</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Hours</th><th>Reason/Remark</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.emp_code)}</td><td>${esc(r.department)}</td><td>${esc(r.designation)}</td><td>${esc(r.status)}</td><td>${esc(r.punch_in)}</td><td>${esc(r.punch_out)}</td><td>${esc(r.hours)}</td><td>${esc(r.reason)}</td></tr>`).join("")+'</tbody></table>'}$("detailModal").classList.add("show")}function esc(v){return String(v??"-").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]))}
+document.addEventListener("click",e=>{const c=e.target.closest(".detail-click");if(c&&c.dataset.detail)openDetail(c.dataset.detail)});$('detailClose').addEventListener('click',()=>$('detailModal').classList.remove('show'));$('detailModal').addEventListener('click',e=>{if(e.target.id==='detailModal')$('detailModal').classList.remove('show')});
+async function loadDashboardViaRpc(){const session=readSession();if(!session.orgId&&!session.orgCode){setLocked("URL/session me org_id ya org_code nahi mila.");return false}appState.session=session;const client=createOrgClient(session.orgId||"",session.orgCode||"");const {data,error}=await client.rpc("app_admin_dashboard_data",{p_org_id:session.orgId||null,p_org_code:session.orgCode||null,p_user_id:session.userId||null});if(error)throw new Error("app_admin_dashboard_data: "+error.message);if(!data||data.ok!==true)throw new Error((data&&data.message)||"Dashboard data not found");appState.org=data.org||{};appState.user=data.user||{};appState.stats=data.stats||{};appState.enabledFeatures=data.enabled_features||[];appState.features={};appState.enabledFeatures.forEach(f=>{appState.features[normalizeFeatureKey(f.feature_key)]=true});if(data.session)appState.session={...appState.session,...data.session};const who=appState.user.full_name||appState.user.email||appState.session.email||"User";document.querySelector(".greeting h3").innerText="👋 "+(appState.org.org_name||"Admin Dashboard");document.querySelector(".greeting p").innerText=who+" • ADMIN";return true}
+async function initDashboard(){try{appState.today=todayISO();updateDateTime();setInterval(updateDateTime,1000);setLoading("Supabase se aaj ka data fetch ho raha hai...");const ok=await loadDashboardViaRpc();if(!ok)return;loadFavs();applyFeatureVisibilityToNav();await refreshTodayDashboard();renderStats();await loadRequestBadges();renderEnabledModules()}catch(err){console.error(err);showToast(err.message||"Dashboard load failed",true);setLocked(err.message||"Dashboard load failed")}}
+initDashboard();
+</script>
+</body>
+</html>

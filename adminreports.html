@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Admin Reports</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}body{min-height:100vh;background:#eef7f5;color:#163634}.app{height:100vh;display:flex;flex-direction:column;max-width:1500px;margin:auto;background:white}.top{padding:14px 18px;background:#0f4a44;color:white;display:flex;justify-content:space-between;gap:10px;align-items:center}.top h2{font-size:20px}.top small{opacity:.9}.btns{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:12px;padding:9px 13px;font-weight:800;cursor:pointer;background:#e9f7f4;color:#143332}.top button{background:rgba(255,255,255,.18);color:white}.primary{background:#1f6e68!important;color:white!important}.filters{display:grid;grid-template-columns:160px 140px 140px minmax(180px,1fr) 160px 100px auto;gap:10px;padding:12px 18px;border-bottom:1px solid #dbece8;background:#f7fcfb}.fg label{display:block;font-size:11px;font-weight:900;color:#628b85;margin-bottom:4px}.fg input,.fg select{width:100%;border:1px solid #dbece8;border-radius:12px;padding:9px 10px;font-weight:700}.exports,.stats{display:flex;gap:8px;padding:10px 18px;border-bottom:1px solid #dbece8;overflow:auto}.exports button{white-space:nowrap}.excel{background:#dcfce7;color:#166534}.pdf{background:#fee2e2;color:#991b1b}.csv{background:#dbeafe;color:#1e40af}.stat{min-width:115px;border:1px solid #dbece8;border-radius:14px;padding:8px 10px;background:#fff}.stat b{display:block;font-size:20px;color:#1f6e68}.stat span{font-size:11px;font-weight:900;color:#628b85}.debug{display:none;margin:8px 18px;padding:10px 12px;border-radius:12px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-size:12px;font-weight:700}.tablebox{flex:1;min-height:0;overflow:auto;position:relative}.loader{display:none;position:absolute;inset:0;background:rgba(255,255,255,.75);z-index:5;align-items:center;justify-content:center;font-weight:900;color:#1f6e68}.loading .loader{display:flex}.table{width:100%;border-collapse:collapse;font-size:13px}.table th{position:sticky;top:0;background:#eaf6f3;text-align:left;padding:10px 12px;border-bottom:2px solid #dbece8;font-size:11px;text-transform:uppercase;white-space:nowrap;z-index:2}.table td{padding:9px 12px;border-bottom:1px solid #edf7f5;white-space:nowrap}.badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:900}.present{background:#dcfce7;color:#166534}.absent{background:#fee2e2;color:#991b1b}.late{background:#fef3c7;color:#92400e}.leave,.cl,.pl,.el,.paid,.unpaid{background:#dbeafe;color:#1e40af}.holiday,.weeklyoff,.weekly-off{background:#f3e8ff;color:#6d28d9}.empty{text-align:center;padding:40px;color:#628b85;font-weight:800}.foot{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 18px;border-top:1px solid #dbece8;background:#fff;font-size:13px;color:#628b85;font-weight:800}.pages{display:flex;gap:8px;align-items:center}.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f4a44;color:#fff;padding:10px 18px;border-radius:999px;z-index:99;font-weight:800;max-width:92%;text-align:center}.toast.err{background:#b91c1c}@media(max-width:900px){.app{height:100dvh}.top{padding:12px}.top h2{font-size:17px}.filters{grid-template-columns:1fr 1fr;padding:10px 12px}.fg.search{grid-column:1/-1}.exports,.stats{padding:9px 12px}.exports button span,.top button span{display:none}.table{min-width:900px}.foot{padding:10px 12px;position:sticky;bottom:0}.debug{margin:8px 12px}}@media(max-width:520px){.filters{grid-template-columns:1fr}.btns{justify-content:flex-end}.stat{min-width:100px}.top{align-items:flex-start}}
+</style>
+</head>
+<body>
+<div class="app">
+ <div class="top"><div><h2>Reports Dashboard</h2><small id="ctx">Supabase RPC live data</small></div><div class="btns"><button id="backBtn">← <span>Back</span></button><button id="refreshBtn">↻ <span>Refresh</span></button></div></div>
+ <div class="filters">
+  <div class="fg"><label>REPORT</label><select id="report"><option value="attendance">Attendance</option><option value="employees">Employees</option><option value="roster">Roster</option><option value="late">Late</option><option value="misspunch">Miss Punch</option><option value="holiday">Holiday</option><option value="punch">Punch In/Out</option></select></div>
+  <div class="fg"><label>FROM</label><input type="date" id="from"></div><div class="fg"><label>TO</label><input type="date" id="to"></div>
+  <div class="fg search"><label>SEARCH</label><input id="search" placeholder="name / emp code / mobile / email"></div>
+  <div class="fg"><label>DEPT</label><select id="dept"><option value="all">All</option></select></div>
+  <div class="fg"><label>LIMIT</label><select id="limit"><option>25</option><option selected>50</option><option>100</option><option>200</option></select></div>
+  <div class="fg"><label>&nbsp;</label><button class="primary" id="applyBtn">Apply</button></div>
+ </div>
+ <div class="exports"><button class="excel" id="excelBtn">Excel</button><button class="pdf" id="pdfBtn">PDF</button><button class="csv" id="csvBtn">CSV</button><button id="resetBtn">Reset</button></div>
+ <div class="stats"><div class="stat"><span>Total</span><b id="stTotal">0</b></div><div class="stat"><span>Present</span><b id="stPresent">0</b></div><div class="stat"><span>Absent</span><b id="stAbsent">0</b></div><div class="stat"><span>Late</span><b id="stLate">0</b></div><div class="stat"><span>Leave/Holiday</span><b id="stLeave">0</b></div><div class="stat"><span>Miss Punch</span><b id="stMiss">0</b></div></div>
+ <div class="debug" id="debug"></div>
+ <div class="tablebox" id="box"><div class="loader">Loading...</div><table class="table"><thead id="thead"></thead><tbody id="tbody"></tbody></table><div id="empty" class="empty" style="display:none">No data found</div></div>
+ <div class="foot"><span id="info">Showing 0</span><div class="pages"><button id="prev">‹</button><span id="pageNo">1</span><button id="next">›</button></div></div>
+</div>
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const qs=new URLSearchParams(location.search);
+const CTX={org_id:qs.get('org_id')||'',org_code:qs.get('org_code')||'',branch_id:qs.get('branch_id')||'',user_id:qs.get('user_id')||'',emp_id:qs.get('emp_id')||'',role:(qs.get('role')||'').toLowerCase(),mode:(qs.get('mode')||'').toLowerCase(),return_page:qs.get('return_page')||'admin.html'};
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{global:{headers:{'x-org-id':CTX.org_id,'x-org-code':CTX.org_code,'x-branch-id':CTX.branch_id,'x-user-id':CTX.user_id}},auth:{persistSession:false,autoRefreshToken:false}});
+const $=id=>document.getElementById(id);let page=1,items=[],total=0,stats={};
+const COLS={attendance:[['date','Date'],['emp_code','Emp Code'],['employee_name','Employee'],['department','Dept'],['designation','Designation'],['punch_in','Punch In'],['punch_out','Punch Out'],['status','Status'],['working_hours','Hours'],['late_minutes','Late Min'],['leave_type','Leave Type']],employees:[['emp_code','Emp Code'],['employee_name','Employee'],['department','Dept'],['designation','Designation'],['mobile','Mobile'],['email','Email'],['active','Active'],['created_at','Created']],roster:[['date','Date'],['emp_code','Emp Code'],['employee_name','Employee'],['department','Dept'],['designation','Designation'],['shift_name','Shift'],['shift_start','Start'],['shift_end','End']],late:[['date','Date'],['emp_code','Emp Code'],['employee_name','Employee'],['department','Dept'],['roster_start','Roster Start'],['actual_punch_in','Actual In'],['late_minutes','Late Min'],['remarks','Remarks']],misspunch:[['date','Date'],['emp_code','Emp Code'],['employee_name','Employee'],['department','Dept'],['punch_in','Punch In'],['punch_out','Punch Out'],['status','Status'],['remarks','Remarks']],holiday:[['date','Date'],['title','Holiday'],['description','Description'],['type','Type'],['branch_id','Branch']],punch:[['date','Date'],['emp_code','Emp Code'],['employee_name','Employee'],['department','Dept'],['punch_in','Punch In'],['punch_out','Punch Out'],['in_distance','In Dist'],['out_distance','Out Dist'],['working_hours','Hours']]};
+function today(){return new Date().toISOString().slice(0,10)}function monthStart(){let d=new Date();d.setDate(1);return d.toISOString().slice(0,10)}function esc(v){return(v===null||v===undefined||v==='')?'—':String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}function fmtDate(v){if(!v)return'—';let d=new Date(String(v).slice(0,10)+'T00:00:00');return isNaN(d)?esc(v):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}function fmtTime(v){if(!v)return'—';let d=new Date(v);if(!isNaN(d))return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});return String(v).slice(0,5)}function toast(m,e){document.querySelector('.toast')?.remove();let t=document.createElement('div');t.className='toast'+(e?' err':'');t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),3500)}function load(on){$('box').classList.toggle('loading',!!on)}function rtype(){return $('report').value}function lim(){return parseInt($('limit').value||'50',10)}function debug(m){$('debug').style.display=m?'block':'none';$('debug').textContent=m||''}
+function args(offset=0,limit=lim()){return{p_org_id:CTX.org_id||null,p_org_code:CTX.org_code||null,p_branch_id:CTX.branch_id||null,p_report:rtype(),p_from:$('from').value||null,p_to:$('to').value||null,p_search:$('search').value.trim()||null,p_department:$('dept').value==='all'?null:$('dept').value,p_limit:limit,p_offset:offset}}
+async function loadData(){load(true);debug('');try{let {data,error}=await sb.rpc('admin_reports_data_fast',args((page-1)*lim(),lim()));if(error)throw error;items=data?.items||[];total=Number(data?.total||0);stats=data?.stats||{};render();if(!items.length){debug('RPC chal raha hai, lekin rows 0 aaye. Report='+rtype()+', org_id='+CTX.org_id+', branch='+CTX.branch_id+', date='+$('from').value+' to '+$('to').value+'. Reset dabakar all date/search clear karke test karein.')} }catch(e){console.error('RPC failed',e);debug('RPC admin_reports_data_fast missing/failed: '+(e.message||e));await directFallback()}finally{load(false)}}
+async function directFallback(){try{let table=rtype()==='employees'?'employees':rtype()==='roster'?'rosters':rtype()==='holiday'?'org_holidays':rtype()==='late'?'late_punches':'attendance';let q=sb.from(table).select('*',{count:'exact'}).limit(lim());if(CTX.org_id)q=q.eq('org_id',CTX.org_id);let res=await q;if(res.error)throw res.error;items=(res.data||[]).map(normalize);total=res.count||items.length;stats={total};render();debug('Direct fallback se '+items.length+' rows aaye. Best fix: SQL file run karke RPC create karein.')}catch(e){items=[];total=0;stats={};render();debug('Direct fallback bhi fail/zero: '+(e.message||e)+'. RLS/policy ke liye SQL RPC run karna zaroori hai.')}}
+function normalize(x){let r={...x};r.date=x.attendance_date||x.roster_date||x.holiday_date||x.created_at;r.employee_name=x.employee_name||x.full_name||x.name;r.punch_in=x.punch_in_time||x.punch_in;r.punch_out=x.punch_out_time||x.punch_out;r.in_distance=x.punch_in_distance_meters;r.out_distance=x.punch_out_distance_meters;return r}
+function cell(k,row){let v=row[k];if(k==='date'||k==='created_at')return fmtDate(v);if(['punch_in','punch_out','shift_start','shift_end','roster_start','actual_punch_in'].includes(k))return fmtTime(v);if(k==='active')return v?'Yes':'No';if(k==='status'){let c=String(v||'').toLowerCase().replace(/\s+/g,'');return'<span class="badge '+esc(c)+'">'+esc(v)+'</span>'}return esc(v)}
+function render(){let cols=COLS[rtype()]||COLS.attendance;$('thead').innerHTML='<tr>'+cols.map(c=>'<th>'+c[1]+'</th>').join('')+'</tr>';$('tbody').innerHTML=items.map(x=>normalize(x)).map(row=>'<tr>'+cols.map(c=>'<td>'+cell(c[0],row)+'</td>').join('')+'</tr>').join('');$('empty').style.display=items.length?'none':'block';let from=(page-1)*lim()+1,to=Math.min(page*lim(),total);$('info').textContent=total?'Showing '+from+'-'+to+' of '+total.toLocaleString('en-IN'):'Showing 0';$('pageNo').textContent=page;$('prev').disabled=page<=1;$('next').disabled=page*lim()>=total;$('ctx').textContent=(CTX.org_code||CTX.org_id||'Org')+' · '+rtype()+' · '+total.toLocaleString('en-IN')+' records';setStats()}
+function setStats(){let s=stats||{};$('stTotal').textContent=(s.total||total||0).toLocaleString('en-IN');$('stPresent').textContent=s.present||0;$('stAbsent').textContent=s.absent||0;$('stLate').textContent=s.late||0;$('stLeave').textContent=s.leave_holiday||0;$('stMiss').textContent=s.misspunch||0}
+async function loadDepartments(){try{let q=sb.from('employees').select('department').not('department','is',null).limit(1000);if(CTX.org_id)q=q.eq('org_id',CTX.org_id);let {data}=await q;let arr=[...new Set((data||[]).map(x=>x.department).filter(Boolean))].sort();$('dept').innerHTML='<option value="all">All</option>'+arr.map(d=>'<option>'+esc(d)+'</option>').join('')}catch(e){}}
+async function fetchAll(max){let out=[],off=0;while(out.length<max){let {data,error}=await sb.rpc('admin_reports_data_fast',args(off,1000));if(error)throw error;let a=data?.items||[];if(!a.length)break;out=out.concat(a);if(a.length<1000)break;off+=1000}return out}
+function exportData(data){let cols=COLS[rtype()]||COLS.attendance;return{h:cols.map(c=>c[1]),b:data.map(x=>{let row=normalize(x);return cols.map(c=>String(cell(c[0],row)).replace(/<[^>]*>/g,''))})}}
+function getDateRangeForExcel(){
+ let start=$('from').value||monthStart(), end=$('to').value||today();
+ let a=[], d=new Date(start+'T00:00:00'), e=new Date(end+'T00:00:00');
+ if(isNaN(d)||isNaN(e)||d>e){d=new Date(monthStart()+'T00:00:00');e=new Date(today()+'T00:00:00')}
+ while(d<=e){a.push(new Date(d));d.setDate(d.getDate()+1)}
+ return a;
+}
+function excelDateSerial(d){return Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(1899,11,30))/86400000)}
+function ymd(d){return d.toISOString().slice(0,10)}
+function cleanExcelText(v){return (v===null||v===undefined||v==='')?'':String(v).replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').trim()}
+function statusCodeForExcel(r){
+ let st=String(r.status||'').toLowerCase().trim();
+ let lt=String(r.leave_type||'').toUpperCase().trim();
+ if(lt==='CASUAL')lt='CL'; if(lt==='PAID LEAVE')lt='PL'; if(lt==='EARNED LEAVE')lt='EL';
+ if(['CL','PL','EL','SL','ML'].includes(lt))return lt;
+ if(st.includes('weekly'))return 'WO';
+ if(st.includes('holiday'))return 'H';
+ if(st.includes('absent'))return 'A';
+ if(st.includes('leave')||st==='paid'||st==='unpaid')return lt||'L';
+ if(st.includes('miss'))return 'MP';
+ if(st.includes('late')||r.is_late||Number(r.late_minutes||0)>0)return 'L';
+ if(st.includes('present')||r.punch_in||r.punch_out)return 'P';
+ return '-';
+}
+function shiftCodeForExcel(r){
+ let s=String(r.shift_name||r.shift||r.roster_shift||'').toLowerCase();
+ if(!s && (r.punch_in||r.punch_out)) return '-';
+ if(s.includes('night'))return 'N';
+ if(s.includes('evening'))return 'E';
+ if(s.includes('morning'))return 'M';
+ if(s.includes('general'))return 'G';
+ if(s.includes('08')&&s.includes('20'))return 'M+E';
+ if(s.includes('14')&&s.includes('08'))return 'E+N';
+ if(s.includes('20')&&s.includes('14'))return 'N+M';
+ return s ? s.toUpperCase().slice(0,6) : '-';
+}
+function hoursForExcel(r){
+ let h=r.working_hours??r.worked_hours??r.worked_minutes;
+ if(h===null||h===undefined||h==='') return '';
+ if(String(h).includes(':'))return String(h);
+ if(Number(h)>24 && (r.worked_minutes!==undefined || String(h).length>2)) return +(Number(h)/60).toFixed(2);
+ return isNaN(Number(h))?String(h):Number(h);
+}
+async function fetchAttendanceForExcel(max=80000){
+ let out=[],off=0;
+ while(out.length<max){
+  let a=args(off,1000); a.p_report='attendance';
+  let {data,error}=await sb.rpc('admin_reports_data_fast',a);
+  if(error)throw error;
+  let arr=data?.items||[];
+  if(!arr.length)break;
+  out=out.concat(arr);
+  if(arr.length<1000)break;
+  off+=1000;
+ }
+ if(!out.length && (rtype()==='attendance'||rtype()==='punch'||rtype()==='misspunch') && items.length) out=items;
+ return out.slice(0,max);
+}
+async function fetchRosterForExcel(max=80000){
+ let out=[],off=0;
+ try{
+  while(out.length<max){
+   let a=args(off,1000); a.p_report='roster';
+   let {data,error}=await sb.rpc('admin_reports_data_fast',a);
+   if(error)throw error;
+   let arr=data?.items||[];
+   if(!arr.length)break;
+   out=out.concat(arr);
+   if(arr.length<1000)break;
+   off+=1000;
+  }
+ }catch(e){console.warn('Roster RPC failed, direct roster fallback',e)}
+ if(!out.length){
+  try{
+   let q=sb.from('rosters').select('*').limit(max);
+   if(CTX.org_id)q=q.eq('org_id',CTX.org_id);
+   if(CTX.branch_id)q=q.eq('branch_id',CTX.branch_id);
+   if($('from').value)q=q.gte('roster_date',$('from').value);
+   if($('to').value)q=q.lte('roster_date',$('to').value);
+   if($('dept').value!=='all')q=q.eq('department',$('dept').value);
+   q=q.order('roster_date',{ascending:true});
+   let {data,error}=await q;
+   if(error)throw error;
+   out=data||[];
+   if(!out.length && CTX.branch_id){
+    let q2=sb.from('rosters').select('*').limit(max);
+    if(CTX.org_id)q2=q2.eq('org_id',CTX.org_id);
+    if($('from').value)q2=q2.gte('roster_date',$('from').value);
+    if($('to').value)q2=q2.lte('roster_date',$('to').value);
+    if($('dept').value!=='all')q2=q2.eq('department',$('dept').value);
+    q2=q2.order('roster_date',{ascending:true});
+    let res2=await q2;
+    if(!res2.error)out=res2.data||[];
+   }
+  }catch(e){console.warn('Roster direct fallback failed',e)}
+ }
+ console.log('Excel roster rows:',out.length);
+ return out.slice(0,max);
+}
+function rosterTextForExcel(r){
+ if(!r)return '-';
+ const name=cleanExcelText(r.shift_name||r.shift||r.roster_shift||'');
+ const st=cleanExcelText(r.shift_start||r.roster_start||'');
+ const en=cleanExcelText(r.shift_end||r.roster_end||'');
+ if(name && st && en)return name+' ('+String(st).slice(0,5)+'-'+String(en).slice(0,5)+')';
+ if(name)return name;
+ if(st||en)return String(st).slice(0,5)+'-'+String(en).slice(0,5);
+ return '-';
+}
+function getEmpKeyForExcel(r){
+ const code=cleanExcelText(r.emp_code||r.employee_code||'');
+ const eid=cleanExcelText(r.employee_id||'');
+ const id=cleanExcelText(r.id||'');
+ const name=cleanExcelText(r.employee_name||r.full_name||r.name||'');
+ return code || eid || id || name || String(Math.random());
+}
+function empKeysForRow(r){
+ const keys=[];
+ ['emp_code','employee_code','employee_id','id'].forEach(k=>{ const v=cleanExcelText(r[k]||''); if(v && !keys.includes(v)) keys.push(v); });
+ const n=cleanExcelText(r.employee_name||r.full_name||r.name||''); if(n && !keys.includes(n)) keys.push(n);
+ return keys;
+}
+async function fetchEmployeesForExcel(max=50000){
+ let out=[];
+ try{
+  let q=sb.from('employees').select('id,emp_code,full_name,department,designation,mobile,email,active').limit(max);
+  if(CTX.org_id)q=q.eq('org_id',CTX.org_id);
+  if(CTX.branch_id)q=q.eq('branch_id',CTX.branch_id);
+  if($('dept').value!=='all')q=q.eq('department',$('dept').value);
+  const {data,error}=await q;
+  if(error)throw error;
+  out=data||[];
+ }catch(e){console.warn('Employee map fetch failed',e)}
+ return out;
+}
+function attachEmployeeInfo(row, empIndex){
+ const r={...row};
+ const possible=[r.employee_id,r.id,r.emp_code,r.employee_code].map(x=>cleanExcelText(x||'')).filter(Boolean);
+ let e=null;
+ for(const k of possible){ if(empIndex.has(k)){ e=empIndex.get(k); break; } }
+ if(e){
+  r.employee_id=r.employee_id||e.id;
+  r.emp_code=r.emp_code||e.emp_code;
+  r.employee_name=r.employee_name||e.full_name;
+  r.department=r.department||e.department;
+  r.designation=r.designation||e.designation;
+ }
+ return r;
+}
+function buildAttendanceMatrixWorkbook(data, rosterData, empData){
+ const dates=getDateRangeForExcel();
+ const empIndex=new Map();
+ (empData||[]).forEach(e=>{
+  if(e.id)empIndex.set(cleanExcelText(e.id),e);
+  if(e.emp_code)empIndex.set(cleanExcelText(e.emp_code),e);
+ });
+ const empMap=new Map();
+ (data||[]).map(normalize).map(r=>attachEmployeeInfo(r,empIndex)).forEach(r=>{
+  const code=cleanExcelText(r.emp_code||r.employee_code||'');
+  const name=cleanExcelText(r.employee_name||r.full_name||'');
+  const key=getEmpKeyForExcel(r);
+  if(!empMap.has(key))empMap.set(key,{name:name||'Unknown',code:code,att:{},roster:{}});
+  const emp=empMap.get(key);
+  if(!emp.name && name)emp.name=name; if(!emp.code && code)emp.code=code;
+  const dk=String(r.date||r.attendance_date||r.created_at||'').slice(0,10);
+  if(dk)emp.att[dk]=r;
+  empKeysForRow(r).forEach(k=>{ if(k && !empMap.has(k)) empMap.set(k,emp); });
+ });
+ (rosterData||[]).map(normalize).map(r=>attachEmployeeInfo(r,empIndex)).forEach(r=>{
+  r.date=r.roster_date||r.date||r.created_at;
+  const code=cleanExcelText(r.emp_code||r.employee_code||'');
+  const name=cleanExcelText(r.employee_name||r.full_name||'');
+  let key=getEmpKeyForExcel(r);
+  for(const k of empKeysForRow(r)){ if(empMap.has(k)){ key=k; break; } }
+  if(!empMap.has(key))empMap.set(key,{name:name||'Unknown',code:code,att:{},roster:{}});
+  const emp=empMap.get(key);
+  if(!emp.name && name)emp.name=name; if(!emp.code && code)emp.code=code;
+  const dk=String(r.roster_date||r.date||r.created_at||'').slice(0,10);
+  if(dk)emp.roster[dk]=r;
+  empKeysForRow(r).forEach(k=>{ if(k && !empMap.has(k)) empMap.set(k,emp); });
+ });
+ const aoa=[];
+ const first=['DATE','ROW'];
+ dates.forEach(d=>first.push(excelDateSerial(d)));
+ aoa.push(first);
+ const second=['EMP NAME','EMP CODE'];
+ dates.forEach(()=>second.push(''));
+ aoa.push(second);
+ [...new Set(empMap.values())].sort((a,b)=>(a.code||a.name).localeCompare(b.code||b.name)).forEach(emp=>{
+  const rowStatus=[emp.name,emp.code], rowRoster=['','Roster'], rowHours=['','Hours'];
+  dates.forEach(d=>{
+   const dk=ymd(d), r=emp.att[dk], rr=emp.roster[dk];
+   rowStatus.push(r?statusCodeForExcel(r):'-');
+   rowRoster.push(rosterTextForExcel(rr||r));
+   rowHours.push(r?hoursForExcel(r):'');
+  });
+  aoa.push(rowStatus,rowRoster,rowHours);
+ });
+ if(empMap.size===0){
+  aoa.push(['No data found','']);
+ }
+ const ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws['!cols']=[{wch:26},{wch:14},...dates.map(()=>({wch:9}))];
+ ws['!freeze']={xSplit:2,ySplit:2};
+ ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:1,c:0},e:{r:Math.max(1,aoa.length-1),c:aoa[0].length-1}})};
+ const range=XLSX.utils.decode_range(ws['!ref']);
+ const border={top:{style:'thin',color:{rgb:'999999'}},bottom:{style:'thin',color:{rgb:'999999'}},left:{style:'thin',color:{rgb:'999999'}},right:{style:'thin',color:{rgb:'999999'}}};
+ for(let R=range.s.r;R<=range.e.r;R++){
+  for(let C=range.s.c;C<=range.e.c;C++){
+   const addr=XLSX.utils.encode_cell({r:R,c:C});
+   if(!ws[addr])ws[addr]={t:'s',v:''};
+   ws[addr].s={border,alignment:{horizontal:'center',vertical:'center'},font:{name:'Arial',sz:10}};
+   if(R<2)ws[addr].s={...ws[addr].s,fill:{fgColor:{rgb:'D9EAD3'}},font:{name:'Arial',sz:10,bold:true},alignment:{horizontal:'center',vertical:'center'}};
+   if(C<2)ws[addr].s={...ws[addr].s,alignment:{horizontal:C===0?'left':'center',vertical:'center'},font:{name:'Arial',sz:10,bold:R<2}};
+   if(R>=2 && C>=2){
+    const v=String(ws[addr].v||'').toUpperCase();
+    if(v==='P')ws[addr].s.fill={fgColor:{rgb:'D9EAD3'}};
+    else if(v==='A')ws[addr].s.fill={fgColor:{rgb:'F4CCCC'}};
+    else if(['L','CL','PL','EL','SL','ML'].includes(v))ws[addr].s.fill={fgColor:{rgb:'CFE2F3'}};
+    else if(['WO','H'].includes(v))ws[addr].s.fill={fgColor:{rgb:'FFF2CC'}};
+    else if(v==='MP')ws[addr].s.fill={fgColor:{rgb:'FCE5CD'}};
+   }
+  }
+ }
+ for(let i=0;i<dates.length;i++){
+  const addr=XLSX.utils.encode_cell({r:0,c:i+2});
+  if(ws[addr]){ws[addr].t='n';ws[addr].z='d-mmm';}
+ }
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,'Attendance Register');
+ return wb;
+}
+async function normalExcel(){let d=await fetchAll(50000),e=exportData(d),ws=XLSX.utils.aoa_to_sheet([e.h,...e.b]),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Report');XLSX.writeFile(wb,rtype()+'_report_'+today()+'.xlsx')}
+async function excel(){load(true);try{if(rtype()==='attendance'||rtype()==='punch'||rtype()==='misspunch'){let data=await fetchAttendanceForExcel(80000);let roster=await fetchRosterForExcel(80000);let empData=await fetchEmployeesForExcel(50000);let wb=buildAttendanceMatrixWorkbook(data,roster,empData);XLSX.writeFile(wb,'attendance_report_'+today()+'.xlsx');toast('Attendance Excel register with roster download ho gaya')}else{await normalExcel();toast('Excel download ho gaya')}}catch(e){console.error(e);toast(e.message||'Excel export failed',true)}finally{load(false)}}
+async function csv(){load(true);try{let d=await fetchAll(50000),e=exportData(d),txt=[e.h,...e.b].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv'}));a.download=rtype()+'_report_'+today()+'.csv';a.click();URL.revokeObjectURL(a.href);toast('CSV download ho gaya')}catch(e){toast(e.message,true)}finally{load(false)}}
+async function pdf(){load(true);try{let d=await fetchAll(5000),e=exportData(d),{jsPDF}=window.jspdf,doc=new jsPDF('landscape','pt','a4');doc.text(rtype().toUpperCase()+' REPORT',40,35);doc.autoTable({head:[e.h],body:e.b,startY:55,styles:{fontSize:7},headStyles:{fillColor:[31,110,104]}});doc.save(rtype()+'_report_'+today()+'.pdf');toast('PDF download ho gaya')}catch(e){toast(e.message,true)}finally{load(false)}}
+function defaults(){ $('from').value=monthStart();$('to').value=today();$('search').value='';$('dept').value='all'}
+function bind(){$('applyBtn').onclick=()=>{page=1;loadData()};$('refreshBtn').onclick=()=>loadData();$('resetBtn').onclick=()=>{defaults();page=1;loadData()};$('report').onchange=()=>{page=1;loadData()};$('limit').onchange=()=>{page=1;loadData()};$('prev').onclick=()=>{if(page>1){page--;loadData()}};$('next').onclick=()=>{if(page*lim()<total){page++;loadData()}};$('search').onkeydown=e=>{if(e.key==='Enter'){page=1;loadData()}};$('excelBtn').onclick=excel;$('csvBtn').onclick=csv;$('pdfBtn').onclick=pdf;$('backBtn').onclick=()=>{location.href=CTX.return_page+location.search}}
+document.addEventListener('DOMContentLoaded',async()=>{bind();defaults();await loadDepartments();await loadData()});
+</script>
+</body>
+</html>

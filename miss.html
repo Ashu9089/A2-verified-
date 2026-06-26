@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Miss Punch Request</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI','Inter',system-ui,sans-serif}
+body{background:linear-gradient(145deg,#eef2f9,#dce5f0);min-height:100vh;padding:30px 20px;display:flex;justify-content:center;align-items:center}
+.misspunch-card{max-width:950px;width:100%;background:#fff;border-radius:2rem;box-shadow:0 20px 35px -12px rgba(0,0,0,.2);overflow:hidden}
+.header-bar{background:#0b2b26;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.back-action{background:rgba(255,255,255,.12);padding:8px 20px;border-radius:40px;color:white;font-weight:500;cursor:pointer;font-size:.9rem}
+.emp-info-right{background:#1e3a35;padding:8px 24px;border-radius:40px;color:#f1f5f9;font-size:.9rem;font-weight:500}
+.emp-info-right strong{color:#ffd966}
+.form-container{padding:28px 32px 24px}
+.field{margin-bottom:24px;display:flex;flex-direction:column;gap:8px}
+.row-split{display:flex;gap:24px;flex-wrap:wrap}.row-split .field{flex:1}
+label{font-weight:600;color:#1e2f3e;font-size:.85rem}
+input,select,textarea{border:1px solid #cbdae9;border-radius:1.25rem;padding:12px 18px;font-size:.9rem;background:#fff;outline:none;width:100%}
+.status-box,.shift-box{border-radius:1.1rem;padding:12px 16px;font-weight:700;font-size:.86rem;margin-bottom:20px}
+.status-box{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
+.status-box.ok{background:#ecfdf5;border-color:#bbf7d0;color:#166534}
+.status-box.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.shift-box{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+.shift-box.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.punch-badge{background:#e6f4ea;padding:6px 14px;border-radius:24px;font-size:.8rem;font-weight:500;color:#1f5e3a;width:fit-content}
+.upload-area{border:1px dashed #8aaec0;background:#fafdff;border-radius:1.2rem;padding:12px 16px}
+button.submit-miss{background:#1b4d3e;color:white;border:none;border-radius:3rem;padding:14px;font-weight:bold;font-size:1rem;width:100%;cursor:pointer;margin-top:20px}
+button.submit-miss:disabled{opacity:.6;cursor:not-allowed}
+.history-section{background:#f4f9fc;border-radius:1.5rem;margin:0 32px 32px;padding:1.2rem 1.5rem}
+.history-title{font-weight:700;font-size:1.2rem;color:#1a3e35;margin-bottom:16px}
+.miss-list{display:flex;flex-direction:column;gap:14px}
+.miss-item{background:white;border-radius:1.2rem;padding:14px 18px;border-left:6px solid #e67e22;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.toast-msg{position:fixed;bottom:20px;left:20px;background:#1f5e3a;color:white;padding:12px 24px;border-radius:40px;font-weight:500;z-index:1200}
+@media(max-width:680px){.form-container{padding:20px}.header-bar{flex-direction:column;align-items:flex-start}.history-section{margin:0 20px 24px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="misspunch-card">
+  <div class="header-bar">
+    <div class="back-action" id="backMissBtn">← Back</div>
+    <div class="emp-info-right" id="empHeaderMissPunch">Loading...</div>
+  </div>
+
+  <div class="form-container">
+    <div class="field">
+      <label>📅 Date of Missed Punch</label>
+      <input type="date" id="missDate">
+    </div>
+
+    <div id="attendanceStatusBox" class="status-box">Attendance check hoga.</div>
+    <div id="shiftStatusBox" class="shift-box">Roster shift check hoga.</div>
+
+    <div class="row-split">
+      <div class="field">
+        <label>⏰ Actual / Correction In-Time</label>
+        <input type="time" id="missInTime" step="60">
+        <div class="punch-badge" id="inHint">Actual in-time daal sakte ho</div>
+      </div>
+      <div class="field">
+        <label>⏰ Actual / Correction Out-Time</label>
+        <input type="time" id="missOutTime" step="60">
+        <div class="punch-badge" id="outHint">Actual out-time daal sakte ho</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>🧑‍💼 Reporting Person / Senior</label>
+      <select id="reportingPerson"><option value="">Loading senior list...</option></select>
+    </div>
+
+    <div class="field">
+      <label>📝 Reason</label>
+      <textarea rows="3" id="missReason" placeholder="Reason likho..."></textarea>
+    </div>
+
+    <div class="field upload-area">
+      <label>📎 Supporting Document Name</label>
+      <input type="file" id="missDoc" accept=".pdf,.jpg,.jpeg,.png,.docx">
+    </div>
+
+    <button class="submit-miss" id="submitMissBtn">📌 Submit Miss Punch Request</button>
+  </div>
+
+  <div class="history-section">
+    <div class="history-title">⏳ Previous Miss Punch Requests</div>
+    <div id="missHistoryList" class="miss-list"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+
+const sb = initSupabase();
+
+function initSupabase(){
+  if(!window.supabase || !window.supabase.createClient){
+    throw new Error('Supabase library load nahi hui.');
+  }
+
+  if(window.__MISS_PUNCH_SB__){
+    return window.__MISS_PUNCH_SB__;
+  }
+
+  window.__MISS_PUNCH_SB__ = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
+    {
+      auth:{
+        persistSession:false,
+        autoRefreshToken:false,
+        detectSessionInUrl:false
+      }
+    }
+  );
+
+  return window.__MISS_PUNCH_SB__;
+}
+
+const $=id=>document.getElementById(id);
+const state={org:null,employee:null,seniors:[],attendance:null,roster:null,shift:null,history:[],missAllowed:false,missingIn:false,missingOut:false,statusMiss:false,session:{}};
+
+function uuidLike(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||''));}
+function safeJson(key){try{return JSON.parse(localStorage.getItem(key)||sessionStorage.getItem(key)||'{}')||{}}catch{return{}}}
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function empName(e){return e?.full_name||e?.name||e?.emp_name||'Unnamed'}
+function time5(v){if(!v)return ''; const s=String(v); return s.includes('T')?s.slice(11,16):s.slice(0,5)}
+function toYMDLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function today(){return toYMDLocal(new Date())}
+function showToast(message,isError=false){let old=document.querySelector('.toast-msg');if(old)old.remove();const toast=document.createElement('div');toast.className='toast-msg';toast.style.background=isError?'#b91c1c':'#1f5e3a';toast.innerText=message;document.body.appendChild(toast);setTimeout(()=>toast.remove(),3500)}
+function setStatusBox(msg,type='info'){const box=$('attendanceStatusBox');box.className='status-box';if(type==='ok')box.classList.add('ok');if(type==='err')box.classList.add('err');box.textContent=msg}
+function setShiftBox(msg,isErr=false){const box=$('shiftStatusBox');box.className='shift-box'+(isErr?' err':'');box.textContent=msg}
+
+function readSession(){
+  const p=new URLSearchParams(location.search);
+  const cs=safeJson('currentSession');
+  const ce=safeJson('currentEmployee');
+  const el=safeJson('inlist_employee_login_v2');
+  const mix={...cs,...ce,...el};
+  return{
+    org_id:(p.get('org_id')||mix.org_id||mix.orgId||localStorage.getItem('org_id')||localStorage.getItem('orgId')||'').trim(),
+    org_code:(p.get('org_code')||p.get('company_code')||mix.org_code||mix.orgCode||mix.companyCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||localStorage.getItem('current_org_code')||'').toUpperCase().trim(),
+    emp_id:(p.get('emp_id')||p.get('employee_id')||mix.emp_id||mix.empId||mix.employee_id||mix.employeeId||mix.id||localStorage.getItem('emp_id')||localStorage.getItem('employee_id')||'').trim(),
+    emp_code:(p.get('emp_code')||p.get('employee_code')||p.get('emp')||mix.emp_code||mix.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||localStorage.getItem('current_emp_code')||'').toUpperCase().trim(),
+    email:(p.get('email')||mix.email||'').trim(),
+    mobile:(p.get('mobile')||mix.mobile||mix.phone||'').trim(),
+    return_page:p.get('return_page')||'empattandance.html'
+  };
+}
+
+function getInitialMissDate(){
+  const p=new URLSearchParams(location.search);
+  const picked=p.get('date')||p.get('attendance_date')||p.get('request_date')||p.get('miss_date')||sessionStorage.getItem('selectedAttendanceDate')||localStorage.getItem('missPunchDate')||'';
+  return /^\d{4}-\d{2}-\d{2}$/.test(picked)?picked:today();
+}
+
+function normalizeRow(row){return row && typeof row==='object'?row:{}}
+function readPunchIn(row){row=normalizeRow(row);return row.punch_in||row.punch_in_time||row.in_time||row.check_in||row.check_in_time||row.actual_in_time||null}
+function readPunchOut(row){row=normalizeRow(row);return row.punch_out||row.punch_out_time||row.out_time||row.check_out||row.check_out_time||row.actual_out_time||null}
+function readAttendanceStatus(row){row=normalizeRow(row);return String(row.status||row.attendance_status||row.day_status||'').toLowerCase()}
+function normalizeShiftRow(row){row=normalizeRow(row);if(!Object.keys(row).length)return null;return{id:row.shift_id||row.id||null,name:row.shift_name||row.name||row.shift_type||'Assigned Shift',start:row.shift_start||row.shift_start_time||row.start_time||row.in_time||null,end:row.shift_end||row.shift_end_time||row.end_time||row.out_time||null,grace:row.grace_minutes||row.grace||0}}
+
+function setEmployeeHeader(){
+  const e=state.employee||{};
+  $('empHeaderMissPunch').innerHTML=`<strong>${esc(empName(e))}</strong> | ID: ${esc(e.emp_code||state.session.emp_code||'-')} | Dept: ${esc(e.department||'-')}`;
+}
+
+async function rpcScreen(missDate){
+  const s=state.session;
+  const payload={
+    p_org_id:uuidLike(s.org_id)?s.org_id:null,
+    p_org_code:s.org_code||null,
+    p_emp_id:uuidLike(s.emp_id)?s.emp_id:null,
+    p_emp_code:s.emp_code||null,
+    p_email:s.email||null,
+    p_mobile:s.mobile||null,
+    p_miss_date:missDate
+  };
+  const {data,error}=await sb.rpc('app_miss_punch_screen_data',payload);
+  if(error)throw error;
+  const out=Array.isArray(data)?(data[0]||{}):(data||{});
+  if(out.error)throw new Error(out.error);
+  return out;
+}
+
+async function loadScreen(){
+  try{
+    state.session=readSession();
+    const missDate=$('missDate').value || getInitialMissDate();
+    $('missDate').value=missDate;
+    $('missDate').max=today();
+
+    if(!state.session.org_id && !state.session.org_code)throw new Error('ORG_NOT_FOUND: URL me org_id/org_code nahi mila.');
+    if(!state.session.emp_id && !state.session.emp_code && !state.session.email && !state.session.mobile)throw new Error('EMPLOYEE_NOT_FOUND: URL me emp_id/emp_code nahi mila.');
+
+    setStatusBox('Attendance check ho raha hai...');
+    setShiftBox('Roster shift check ho raha hai...');
+
+    const res=await rpcScreen(missDate);
+    state.org=res.org||null;
+    state.employee=res.employee||null;
+    state.seniors=res.seniors||[];
+    state.attendance=res.attendance||null;
+    state.roster=res.roster||null;
+    state.shift=normalizeShiftRow(state.roster);
+    state.history=res.history||[];
+
+    if(!state.org)throw new Error('ORG_NOT_FOUND');
+    if(!state.employee)throw new Error('EMPLOYEE_NOT_FOUND');
+
+    if(state.org.id)localStorage.setItem('org_id',state.org.id);
+    if(state.org.org_code)localStorage.setItem('org_code',state.org.org_code);
+    if(state.employee.id)localStorage.setItem('emp_id',state.employee.id);
+    if(state.employee.emp_code)localStorage.setItem('emp_code',state.employee.emp_code);
+
+    setEmployeeHeader();
+    renderSeniors();
+    renderAttendanceCheck();
+    renderShiftCheck();
+    renderHistory();
+  }catch(err){
+    console.error('Miss punch load error:',err);
+    showToast(err.message||'Load failed',true);
+    $('empHeaderMissPunch').innerHTML='Session Error';
+    setStatusBox(err.message||'Data load failed','err');
+    setShiftBox('RPC SQL run/check karo: app_miss_punch_screen_data',true);
+    $('missHistoryList').innerHTML=`<div style="padding:12px;background:#fee2e2;border-radius:1rem;line-height:1.5">${esc(err.message||err)}</div>`;
+  }
+}
+
+function renderSeniors(){
+  const rows=state.seniors||[];
+  $('reportingPerson').innerHTML='<option value="">Select reporting person</option>'+rows.map(s=>`<option value="${esc(s.id)}">${esc(empName(s))} (${esc(s.emp_code||'-')}) - ${esc(s.designation||s.role||s.emp_role||'Senior')}</option>`).join('');
+}
+
+function renderAttendanceCheck(){
+  const row=state.attendance;
+  state.missAllowed=false;state.missingIn=false;state.missingOut=false;state.statusMiss=false;
+  if(!row){setStatusBox('Is date par attendance record/miss punch nahi mila. Request send nahi hogi.','err');return;}
+  const status=readAttendanceStatus(row);
+  const pin=readPunchIn(row), pout=readPunchOut(row);
+  state.missingIn=!pin; state.missingOut=!pout;
+  state.statusMiss=status.includes('miss')||status.includes('missing')||status.includes('miss_punch');
+  if(state.statusMiss||state.missingIn||state.missingOut){
+    state.missAllowed=true;
+    const parts=[];if(state.statusMiss)parts.push(`status: ${status||'miss_punch'}`);if(state.missingIn)parts.push('IN punch missing');if(state.missingOut)parts.push('OUT punch missing');
+    setStatusBox(`Miss punch found: ${parts.join(', ')}. Attendance IN: ${time5(pin)||'—'} | OUT: ${time5(pout)||'—'}`,'ok');
+  }else{
+    setStatusBox(`Is date me miss punch nahi hai. IN: ${time5(pin)} | OUT: ${time5(pout)} | Status: ${status||'present'}`,'err');
+  }
+}
+
+function renderShiftCheck(){
+  if(!state.roster){setShiftBox('rosters table me is employee/date ka roster nahi mila.',true);return;}
+  if(!state.shift?.start || !state.shift?.end){setShiftBox('Roster mila, lekin shift_start/shift_end empty hai.',true);return;}
+  $('inHint').textContent=`Roster start: ${time5(state.shift.start)} | Actual time allowed`;
+  $('outHint').textContent=`Roster end: ${time5(state.shift.end)} | Actual time allowed`;
+  setShiftBox(`Us din roster shift: ${state.shift.name} | Scheduled: ${time5(state.shift.start)} - ${time5(state.shift.end)} | Actual time fix nahi hai`);
+}
+
+function formatDateYMD(dateStr){return dateStr?new Date(dateStr+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):''}
+function renderHistory(){
+  const rows=state.history||[];
+  if(!rows.length){$('missHistoryList').innerHTML='<div style="padding:12px;background:#fef9e6;border-radius:1rem;text-align:center;">📭 No previous miss punch requests found.</div>';return;}
+  $('missHistoryList').innerHTML=rows.map(req=>`
+    <div class="miss-item">
+      <div><strong>📆 ${formatDateYMD(req.request_date)}</strong> &nbsp; ${req.missed_in_time?`IN: ${time5(req.missed_in_time)}`:''} ${req.missed_in_time&&req.missed_out_time?' | ':''} ${req.missed_out_time?`OUT: ${time5(req.missed_out_time)}`:''}</div>
+      <div>🕘 Shift: ${esc(req.shift_name||'—')} ${req.shift_start_time?`(${time5(req.shift_start_time)} - ${time5(req.shift_end_time)})`:''}</div>
+      <div>📝 ${esc(String(req.reason||'').substring(0,90))}</div>
+      <div>🧑‍💼 Reporting: ${esc(req.reporting_person_name||'—')} &nbsp; 🏷️ Status: <span style="background:#eef2fa;padding:2px 12px;border-radius:30px;">${esc(req.status||'pending')}</span></div>
+      <div style="font-size:.7rem;color:#4b6a7c;">🕒 requested: ${req.created_at?new Date(req.created_at).toLocaleString('en-IN'):'—'}</div>
+    </div>`).join('');
+}
+
+async function submitMissPunch(e){
+  e.preventDefault();
+  const missDate=$('missDate').value;
+  const inTime=$('missInTime').value;
+  const outTime=$('missOutTime').value;
+  const reason=$('missReason').value.trim();
+  const seniorId=$('reportingPerson').value;
+  const fileName=$('missDoc').files.length?$('missDoc').files[0].name:null;
+
+  if(!missDate)return showToast('Miss punch date select karo.',true);
+  if(!inTime&&!outTime)return showToast('In-time ya Out-time me se ek time do.',true);
+  if(!seniorId)return showToast('Reporting person / senior select karo.',true);
+  if(!reason)return showToast('Reason likhna zaroori hai.',true);
+
+  await loadScreen();
+  if(!state.missAllowed)return showToast('Is date me miss punch nahi hua, request send nahi hogi.',true);
+  if(!state.shift?.start || !state.shift?.end)return showToast('Is date ka roster/shift nahi mila.',true);
+  if(!state.statusMiss){
+    if(inTime&&!state.missingIn)return showToast('Is date ka IN punch already present hai.',true);
+    if(outTime&&!state.missingOut)return showToast('Is date ka OUT punch already present hai.',true);
+  }
+
+  const senior=state.seniors.find(s=>String(s.id)===String(seniorId));
+  $('submitMissBtn').disabled=true;$('submitMissBtn').innerText='Submitting...';
+  try{
+    const {data,error}=await sb.rpc('app_submit_miss_punch_request_v2',{
+      p_org_id:state.org.id,
+      p_employee_id:state.employee.id,
+      p_request_date:missDate,
+      p_missed_in_time:inTime||null,
+      p_missed_out_time:outTime||null,
+      p_reason:reason,
+      p_reporting_person_id:senior?.id||null,
+      p_attachment_name:fileName,
+      p_shift_id:state.shift.id||null,
+      p_shift_name:state.shift.name||null,
+      p_shift_start_time:state.shift.start||null,
+      p_shift_end_time:state.shift.end||null
+    });
+    if(error)throw error;
+    const out=Array.isArray(data)?(data[0]||{}):(data||{});
+    if(out.error)throw new Error(out.error);
+    showToast('✅ Miss punch request admin ko send ho gayi.');
+    $('missInTime').value='';$('missOutTime').value='';$('missReason').value='';$('missDoc').value='';$('reportingPerson').value='';
+    await loadScreen();
+  }catch(err){
+    console.error('submit error:',err);
+    showToast(err.message||'Submit failed',true);
+  }finally{
+    $('submitMissBtn').disabled=false;$('submitMissBtn').innerText='📌 Submit Miss Punch Request';
+  }
+}
+
+function initMissPunch(){
+  $('missDate').value=getInitialMissDate();
+  $('missDate').max=today();
+  $('missDate').addEventListener('change',()=>{sessionStorage.setItem('selectedAttendanceDate',$('missDate').value);loadScreen();});
+  $('submitMissBtn').addEventListener('click',submitMissPunch);
+  $('backMissBtn').addEventListener('click',()=>history.back());
+  loadScreen();
+}
+initMissPunch();
+</script>
+</body>
+</html>

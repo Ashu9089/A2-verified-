@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Attendance Management · OrgConnect</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        /* ── reset & base ── */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: radial-gradient(ellipse at 20% 30%, #0f2f2c, #051c1a);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        .attendance-card {
+            width: 100%;
+            max-width: 1440px;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(12px);
+            border-radius: 2.4rem;
+            padding: 1.8rem 2rem 1.8rem;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(220, 235, 231, 0.5);
+            max-height: 98vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── header ── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.2rem;
+            flex-shrink: 0;
+        }
+
+
+        .header-left-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 260px;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 999px;
+            background: #1f6e68;
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+            box-shadow: 0 8px 18px rgba(31, 110, 104, 0.22);
+        }
+        .back-btn:hover {
+            background: #0f4a44;
+            transform: translateY(-1px);
+        }
+        .back-btn i {
+            font-size: 0.78rem;
+        }
+
+        .header .left h2 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #1e3a3a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header .left h2 i {
+            color: #1f6e68;
+        }
+        .header .left .sub {
+            font-size: 0.75rem;
+            color: #5b8a82;
+        }
+        .header .right {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .header .right button {
+            padding: 0.4rem 1.2rem;
+            border-radius: 2rem;
+            border: none;
+            font-weight: 600;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: #1f6e68;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0f4a44;
+            transform: scale(1.02);
+        }
+        .btn-outline {
+            background: transparent;
+            color: #1f6e68;
+            border: 2px solid #1f6e68 !important;
+        }
+        .btn-outline:hover {
+            background: #1f6e68;
+            color: white;
+        }
+        .btn-success {
+            background: #e0f2ed;
+            color: #0f7b5c;
+        }
+        .btn-success:hover {
+            background: #c0e8df;
+        }
+        .btn-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .btn-danger:hover {
+            background: #fecaca;
+        }
+
+        /* ── date & stats bar ── */
+        .date-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: #f6fbfa;
+            border-radius: 1.2rem;
+            border: 1px solid #e0efeb;
+            margin-bottom: 1rem;
+            flex-shrink: 0;
+        }
+        .date-bar .nav-date {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .date-bar .nav-date button {
+            background: white;
+            border: 1px solid #e0efeb;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1e3a3a;
+        }
+        .date-bar .nav-date button:hover {
+            background: #1f6e68;
+            color: white;
+            border-color: #1f6e68;
+        }
+        .date-bar .nav-date .date-display {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #1e3a3a;
+            min-width: 140px;
+            text-align: center;
+        }
+        .date-bar .nav-date .date-display small {
+            font-weight: 400;
+            color: #5b8a82;
+            font-size: 0.7rem;
+            display: block;
+        }
+        .date-bar .date-stats {
+            display: flex;
+            gap: 1.2rem;
+            flex-wrap: wrap;
+            margin-left: auto;
+        }
+        .date-bar .date-stats .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            color: #1e3a3a;
+        }
+        .date-bar .date-stats .stat .num {
+            font-weight: 800;
+            color: #1f6e68;
+        }
+        .date-bar .date-stats .stat .num.present {
+            color: #0f7b5c;
+        }
+        .date-bar .date-stats .stat .num.absent {
+            color: #991b1b;
+        }
+        .date-bar .date-stats .stat .num.late {
+            color: #92400e;
+        }
+        .date-bar .date-stats .stat .num.leave {
+            color: #1e40af;
+        }
+
+        /* ── filter bar ── */
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .filters .search-wrap {
+            flex: 1;
+            min-width: 160px;
+            position: relative;
+        }
+        .filters .search-wrap input {
+            width: 100%;
+            padding: 0.4rem 1rem 0.4rem 2.2rem;
+            border-radius: 2rem;
+            border: 1px solid #e0efeb;
+            background: white;
+            font-size: 0.78rem;
+            outline: none;
+            transition: 0.2s;
+        }
+        .filters .search-wrap input:focus {
+            border-color: #1f6e68;
+            box-shadow: 0 0 0 3px rgba(31, 110, 104, 0.1);
+        }
+        .filters .search-wrap i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #5b8a82;
+            font-size: 0.8rem;
+        }
+        .filters select {
+            padding: 0.4rem 1rem;
+            border-radius: 2rem;
+            border: 1px solid #e0efeb;
+            background: white;
+            font-size: 0.78rem;
+            outline: none;
+            cursor: pointer;
+            min-width: 120px;
+        }
+        .filters select:focus {
+            border-color: #1f6e68;
+        }
+        .filters .filter-actions {
+            display: flex;
+            gap: 0.4rem;
+        }
+        .filters .filter-actions button {
+            padding: 0.3rem 1rem;
+            border-radius: 2rem;
+            border: none;
+            font-weight: 600;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .filters .filter-actions .btn-apply {
+            background: #1f6e68;
+            color: white;
+        }
+        .filters .filter-actions .btn-apply:hover {
+            background: #0f4a44;
+        }
+        .filters .filter-actions .btn-reset {
+            background: #f0f8f6;
+            color: #1e3a3a;
+        }
+        .filters .filter-actions .btn-reset:hover {
+            background: #e0efeb;
+        }
+
+        /* ── table container ── */
+        .table-wrap {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            border-radius: 1.2rem;
+            border: 1px solid #e0efeb;
+            background: white;
+        }
+        .table-wrap table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+        .table-wrap thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .table-wrap thead th {
+            background: #f0f8f6;
+            color: #1e3a3a;
+            font-weight: 700;
+            padding: 0.4rem 0.8rem;
+            text-align: left;
+            border-bottom: 2px solid #e0efeb;
+            white-space: nowrap;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .table-wrap thead th:first-child {
+            width: 36px;
+        }
+        .table-wrap thead th .checkbox-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .table-wrap thead th .checkbox-wrap input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #1f6e68;
+            cursor: pointer;
+        }
+        .table-wrap tbody tr {
+            border-bottom: 1px solid #f0f8f6;
+            transition: 0.15s;
+        }
+        .table-wrap tbody tr:hover {
+            background: #f9fdfc;
+        }
+        .table-wrap tbody tr.selected {
+            background: #e0f2ed;
+        }
+        .table-wrap td {
+            padding: 0.35rem 0.8rem;
+            vertical-align: middle;
+            color: #1e3a3a;
+        }
+        .table-wrap td .checkbox-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .table-wrap td .checkbox-wrap input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #1f6e68;
+            cursor: pointer;
+        }
+        .table-wrap td .emp-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #1f6e68;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+        .table-wrap td .emp-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .table-wrap td .emp-info .details .name {
+            font-weight: 600;
+            color: #1e3a3a;
+        }
+        .table-wrap td .emp-info .details .code {
+            font-size: 0.6rem;
+            color: #5b8a82;
+        }
+        .table-wrap td .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            padding: 2px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 2px solid transparent;
+        }
+        .status-badge.present {
+            background: #e0f2ed;
+            color: #0f7b5c;
+        }
+        .status-badge.present:hover {
+            background: #c0e8df;
+        }
+        .status-badge.absent {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status-badge.absent:hover {
+            background: #fecaca;
+        }
+        .status-badge.late {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-badge.late:hover {
+            background: #fde68a;
+        }
+        .status-badge.leave {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .status-badge.leave:hover {
+            background: #bbdefb;
+        }
+        .status-badge.holiday {
+            background: #f3e8ff;
+            color: #6d28d9;
+        }
+        .status-badge.holiday:hover {
+            background: #e9d5ff;
+        }
+        .status-badge.weeklyoff {
+            background: #e8eaf6;
+            color: #283593;
+        }
+        .status-badge.weeklyoff:hover {
+            background: #c5cae9;
+        }
+        .table-wrap td .status-badge .dropdown-arrow {
+            font-size: 0.5rem;
+            margin-left: 2px;
+        }
+        .table-wrap td .punch-time {
+            font-size: 0.7rem;
+            color: #5b8a82;
+        }
+        .table-wrap td .punch-time .in {
+            color: #0f7b5c;
+        }
+        .table-wrap td .punch-time .out {
+            color: #991b1b;
+        }
+        .table-wrap td .actions {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+        }
+        .table-wrap td .actions button {
+            background: transparent;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 999px;
+            cursor: pointer;
+            color: #5b8a82;
+            transition: 0.2s;
+            font-size: 0.7rem;
+        }
+        .table-wrap td .actions button:hover {
+            background: #e7f5f2;
+            color: #1f6e68;
+        }
+        .table-wrap td .actions button.danger:hover {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .table-wrap .empty-state {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: #5b8a82;
+        }
+        .table-wrap .empty-state i {
+            font-size: 2.5rem;
+            color: #dcebe7;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        /* ── pagination ── */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0.2rem 0;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            color: #5b8a82;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .pagination .page-btns {
+            display: flex;
+            gap: 4px;
+        }
+        .pagination .page-btns button {
+            padding: 0.15rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid #e0efeb;
+            background: white;
+            cursor: pointer;
+            font-size: 0.7rem;
+            transition: 0.2s;
+            color: #1e3a3a;
+        }
+        .pagination .page-btns button:hover {
+            background: #e7f5f2;
+            border-color: #1f6e68;
+        }
+        .pagination .page-btns button.active {
+            background: #1f6e68;
+            color: white;
+            border-color: #1f6e68;
+        }
+        .pagination .page-btns button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* ── status dropdown modal ── */
+        .status-dropdown {
+            position: absolute;
+            background: white;
+            border: 1px solid #e0efeb;
+            border-radius: 1rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            padding: 0.3rem;
+            display: none;
+            z-index: 100;
+            min-width: 120px;
+        }
+        .status-dropdown.show {
+            display: block;
+        }
+        .status-dropdown .opt {
+            padding: 0.3rem 0.8rem;
+            border-radius: 0.8rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dropdown .opt:hover {
+            background: #f0f8f6;
+        }
+        .status-dropdown .opt i {
+            font-size: 0.6rem;
+        }
+        .status-dropdown .opt.present {
+            color: #0f7b5c;
+        }
+        .status-dropdown .opt.absent {
+            color: #991b1b;
+        }
+        .status-dropdown .opt.late {
+            color: #92400e;
+        }
+        .status-dropdown .opt.leave {
+            color: #1e40af;
+        }
+        .status-dropdown .opt.holiday {
+            color: #6d28d9;
+        }
+        .status-dropdown .opt.weeklyoff {
+            color: #283593;
+        }
+
+        /* ── modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+            padding: 1.5rem;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+        .modal-box {
+            background: white;
+            border-radius: 2rem;
+            padding: 2rem;
+            max-width: 480px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .modal-box h3 {
+            font-size: 1.1rem;
+            color: #1e3a3a;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-box .sub {
+            font-size: 0.78rem;
+            color: #5b8a82;
+            margin-bottom: 1rem;
+        }
+        .modal-box .form-group {
+            margin-bottom: 0.8rem;
+        }
+        .modal-box .form-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #1e3a3a;
+            display: block;
+            margin-bottom: 3px;
+        }
+        .modal-box .form-group input,
+        .modal-box .form-group select,
+        .modal-box .form-group textarea {
+            width: 100%;
+            padding: 0.5rem 0.8rem;
+            border-radius: 1rem;
+            border: 1px solid #e0efeb;
+            font-size: 0.8rem;
+            outline: none;
+            transition: 0.2s;
+            background: white;
+        }
+        .modal-box .form-group input:focus,
+        .modal-box .form-group select:focus {
+            border-color: #1f6e68;
+            box-shadow: 0 0 0 3px rgba(31, 110, 104, 0.1);
+        }
+        .modal-box .modal-actions {
+            display: flex;
+            gap: 0.6rem;
+            margin-top: 1rem;
+            justify-content: flex-end;
+        }
+        .modal-box .modal-actions button {
+            padding: 0.4rem 1.4rem;
+            border-radius: 2rem;
+            border: none;
+            font-weight: 600;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .modal-box .modal-actions .btn-cancel {
+            background: #f0f8f6;
+            color: #1e3a3a;
+        }
+        .modal-box .modal-actions .btn-cancel:hover {
+            background: #e0efeb;
+        }
+        .modal-box .modal-actions .btn-submit {
+            background: #1f6e68;
+            color: white;
+        }
+        .modal-box .modal-actions .btn-submit:hover {
+            background: #0f4a44;
+        }
+
+        /* ── toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a5e58;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.20);
+            z-index: 9999;
+            max-width: 90%;
+            text-align: center;
+            backdrop-filter: blur(4px);
+        }
+        .toast.error {
+            background: #b91c1c;
+        }
+
+        .date-lock-note {
+            margin-left: 6px;
+            font-weight: 700;
+            color: #b45309;
+        }
+        .date-lock-note.ok {
+            color: #0f7b5c;
+        }
+        .locked-control,
+        .actions button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed !important;
+        }
+
+        /* ── responsive ── */
+        @media (max-width: 860px) {
+            .attendance-card {
+                padding: 1rem;
+                max-height: none;
+            }
+            .date-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            .date-bar .date-stats {
+                margin-left: 0;
+                justify-content: space-between;
+            }
+            .date-bar .nav-date {
+                justify-content: center;
+            }
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filters .search-wrap {
+                min-width: unset;
+            }
+            .filters .filter-actions {
+                justify-content: flex-end;
+            }
+
+            .header-left-wrap {
+                width: 100%;
+                align-items: flex-start;
+            }
+            .back-btn {
+                padding: 7px 12px;
+                font-size: 0.7rem;
+            }
+
+            .header .left h2 {
+                font-size: 1.1rem;
+            }
+            .table-wrap {
+                font-size: 0.7rem;
+                overflow-x: auto;
+            }
+            .table-wrap td,
+            .table-wrap th {
+                padding: 0.3rem 0.5rem;
+                white-space: nowrap;
+            }
+            .table-wrap td .emp-info .details .code {
+                display: none;
+            }
+        }
+        @media (max-width: 480px) {
+            .attendance-card {
+                padding: 0.8rem;
+                border-radius: 1.2rem;
+            }
+            .date-bar .date-stats {
+                flex-wrap: wrap;
+                gap: 0.3rem;
+            }
+            .date-bar .date-stats .stat {
+                font-size: 0.65rem;
+            }
+            .header .right button {
+                font-size: 0.65rem;
+                padding: 0.2rem 0.8rem;
+            }
+            .table-wrap td .status-badge {
+                font-size: 0.5rem;
+                padding: 1px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="attendance-card">
+        <!-- header -->
+        <div class="header">
+            <div class="header-left-wrap">
+                <button class="back-btn" id="backBtn" type="button" title="Back">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Back</span>
+                </button>
+                <div class="left">
+                    <h2><i class="fas fa-calendar-check"></i> Attendance Management</h2>
+                    <div class="sub"><i class="fas fa-building"></i> Manage daily attendance for all employees</div>
+                </div>
+            </div>
+            <div class="right">
+                <button class="btn-outline" id="refreshBtn"><i class="fas fa-sync"></i> Refresh</button>
+                <button class="btn-primary" id="bulkUpdateBtn"><i class="fas fa-edit"></i> Bulk Update</button>
+                <button class="btn-success" id="exportBtn"><i class="fas fa-file-excel"></i> Export</button>
+            </div>
+        </div>
+
+        <!-- date bar -->
+        <div class="date-bar" id="dateBar">
+            <div class="nav-date">
+                <button id="prevDate"><i class="fas fa-chevron-left"></i></button>
+                <div class="date-display" id="dateDisplay">
+                    <span id="selectedDateText">Today</span>
+                    <small id="selectedDateSub">Monday, 26 June 2026</small>
+                </div>
+                <button id="nextDate"><i class="fas fa-chevron-right"></i></button>
+                <button id="todayBtn" style="background:#1f6e68;color:white;border:none;border-radius:999px;padding:0.2rem 0.8rem;font-size:0.65rem;font-weight:600;cursor:pointer;">Today</button>
+            </div>
+            <div class="date-stats" id="dateStats">
+                <div class="stat"><i class="fas fa-users"></i> Total: <span class="num" id="statTotal">0</span></div>
+                <div class="stat"><i class="fas fa-check-circle" style="color:#0f7b5c;"></i> Present: <span class="num present" id="statPresent">0</span></div>
+                <div class="stat"><i class="fas fa-times-circle" style="color:#991b1b;"></i> Absent: <span class="num absent" id="statAbsent">0</span></div>
+                <div class="stat"><i class="fas fa-hourglass-start" style="color:#92400e;"></i> Late: <span class="num late" id="statLate">0</span></div>
+                <div class="stat"><i class="fas fa-umbrella-beach" style="color:#1e40af;"></i> Leave: <span class="num leave" id="statLeave">0</span></div>
+            </div>
+        </div>
+
+        <!-- filters -->
+        <div class="filters" id="filtersBar">
+            <div class="search-wrap">
+                <i class="fas fa-search"></i>
+                <input type="text" id="empSearch" placeholder="Search by name, ID, department..." />
+            </div>
+            <select id="deptFilter">
+                <option value="all">All Departments</option>
+                <option value="engineering">Engineering</option>
+                <option value="design">Design</option>
+                <option value="hr">HR</option>
+                <option value="sales">Sales</option>
+                <option value="finance">Finance</option>
+            </select>
+            <select id="statusFilter">
+                <option value="all">All Status</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+                <option value="leave">Leave</option>
+                <option value="holiday">Holiday</option>
+                <option value="weeklyoff">Weekly Off</option>
+            </select>
+            <div class="filter-actions">
+                <button class="btn-apply" id="applyFilters"><i class="fas fa-filter"></i> Apply</button>
+                <button class="btn-reset" id="resetFilters"><i class="fas fa-undo"></i> Reset</button>
+            </div>
+        </div>
+
+        <!-- table -->
+        <div class="table-wrap" id="tableWrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th><div class="checkbox-wrap"><input type="checkbox" id="selectAll" /></div></th>
+                        <th style="min-width:180px;">Employee</th>
+                        <th style="min-width:100px;">Department</th>
+                        <th style="min-width:90px;">Status</th>
+                        <th style="min-width:130px;">Punch In</th>
+                        <th style="min-width:130px;">Punch Out</th>
+                        <th style="min-width:70px;">Hours</th>
+                        <th style="min-width:120px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- rows -->
+                </tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <i class="fas fa-calendar-day"></i>
+                <div style="font-weight:600;color:#1e3a3a;">No attendance records</div>
+                <div style="font-size:0.78rem;">No employees found for this date or filter.</div>
+            </div>
+        </div>
+
+        <!-- pagination -->
+        <div class="pagination">
+            <span id="paginationInfo">Showing 0 of 0</span>
+            <div class="page-btns" id="pageBtns">
+                <button id="prevPage" disabled><i class="fas fa-chevron-left"></i></button>
+                <button class="active" data-page="1">1</button>
+                <button id="nextPage"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Dropdown (inline) -->
+    <div class="status-dropdown" id="statusDropdown">
+        <div class="opt present" data-status="present"><i class="fas fa-check-circle"></i> Present</div>
+        <div class="opt absent" data-status="absent"><i class="fas fa-times-circle"></i> Absent</div>
+        <div class="opt late" data-status="late"><i class="fas fa-hourglass-start"></i> Late</div>
+        <div class="opt leave" data-status="leave"><i class="fas fa-umbrella-beach"></i> Leave</div>
+        <div class="opt holiday" data-status="holiday"><i class="fas fa-calendar-day"></i> Holiday</div>
+        <div class="opt weeklyoff" data-status="weeklyoff"><i class="fas fa-calendar-week"></i> Weekly Off</div>
+    </div>
+
+    <!-- Punch Modal -->
+    <div class="modal-overlay" id="punchModal">
+        <div class="modal-box">
+            <h3><i class="fas fa-clock" style="color:#1f6e68;"></i> <span id="punchModalTitle">Update Punch</span></h3>
+            <div class="sub" id="punchModalSub">Update punch time for <strong id="punchEmpName">Employee</strong></div>
+            <div class="form-group">
+                <label>Punch In Time</label>
+                <input type="datetime-local" id="punchInTime" />
+            </div>
+            <div class="form-group">
+                <label>Punch Out Time</label>
+                <input type="datetime-local" id="punchOutTime" />
+            </div>
+            <div class="form-group">
+                <label>Remark (optional)</label>
+                <input type="text" id="punchRemark" placeholder="e.g. Late due to traffic" />
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="punchCancel">Cancel</button>
+                <button class="btn-submit" id="punchSave">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        /*
+          Supabase connected version - attendance_status_check compatible
+          DB allowed status values based on your constraint:
+          present, punched_in, absent, leave, holiday, coff, c_off, week_off, half_day, miss_punch
+
+          UI can still show: Present, Absent, Late, Leave, Holiday, Weekly Off.
+          Save mapping:
+          - present  -> present
+          - late     -> present  (late should be handled by is_late/late_minutes if DB has those columns)
+          - absent   -> absent
+          - leave    -> leave
+          - holiday  -> holiday
+          - weeklyoff-> week_off
+
+          worked_hours / working_hours are NOT inserted or updated because your DB raised generated-column errors.
+        */
+
+        // ── SUPABASE CONFIG ──
+        const SUPABASE_URL = 'https://tovpcbzztvkiwamimrxt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+
+        // ── URL / CONTEXT ──
+        function qp(name, fallback = '') {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name) || fallback;
+        }
+        function buildHeaders() {
+            try {
+                return {
+                    'x-org-id': qp('org_id'),
+                    'x-org-code': qp('org_code')
+                };
+            } catch { return {}; }
+        }
+        function getCtx() {
+            return {
+                org_id: qp('org_id'),
+                org_code: qp('org_code'),
+                branch_id: qp('branch_id'),
+                user_id: qp('user_id') || qp('emp_id'),
+                user_name: qp('name') || qp('email') || 'Admin',
+                emp_code: qp('emp_code') || '',
+                role: qp('role') || 'admin'
+            };
+        }
+
+        function goBack() {
+            const params = new URLSearchParams(window.location.search);
+            const returnPage = params.get('return_page') || params.get('back') || '';
+
+            if (returnPage) {
+                params.delete('return_page');
+                params.delete('back');
+                const qs = params.toString();
+                window.location.href = returnPage + (qs ? (returnPage.includes('?') ? '&' : '?') + qs : '');
+                return;
+            }
+
+            if (document.referrer && document.referrer !== window.location.href) {
+                window.location.href = document.referrer;
+                return;
+            }
+
+            const ctx = getCtx();
+            const qs = params.toString();
+            let fallback = 'admin.html';
+            if ((ctx.role || '').toLowerCase() === 'developer' || (ctx.role || '').toLowerCase() === 'dev') fallback = 'dev.html';
+            window.location.href = fallback + (qs ? '?' + qs : '');
+        }
+
+
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            global: { headers: buildHeaders() },
+            auth: { persistSession: true, autoRefreshToken: true }
+        });
+
+        const PAGE_SIZE = 50;
+        const EDIT_PAST_DAYS = 7; // aaj se pichhle 7 din tak update allowed; future locked
+        const UI_STATUSES = ['present', 'absent', 'late', 'leave', 'holiday', 'weeklyoff'];
+        const DB_STATUS = {
+            present: 'present',
+            absent: 'absent',
+            late: 'present',
+            leave: 'leave',
+            holiday: 'holiday',
+            weeklyoff: 'week_off'
+        };
+        const STATUS_ICONS = {
+            present: 'fa-check-circle', absent: 'fa-times-circle', late: 'fa-hourglass-start',
+            leave: 'fa-umbrella-beach', holiday: 'fa-calendar-day', weeklyoff: 'fa-calendar-week'
+        };
+        const STATUS_LABELS = {
+            present: 'Present', absent: 'Absent', late: 'Late', leave: 'Leave',
+            holiday: 'Holiday', weeklyoff: 'Weekly Off'
+        };
+
+        // ── STATE ──
+        let attendanceData = [];
+        let currentPage = 1;
+        let totalRows = 0;
+        let selectedDate = todayLocalDate();
+        let selectedIds = new Set();
+        let punchModalEmpId = null;
+        let departmentCache = [];
+        let lastFilters = { search: '', dept: 'all', status: 'all' };
+        let loading = false;
+        let editPermission = { edit_enabled: true, previous_days: 7, allow_future: false, locked: false, loaded: false };
+
+        // ── HELPERS ──
+        function esc(str) {
+            if (str === null || str === undefined || str === '') return '—';
+            return String(str).replace(/[&<>\"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m] || m));
+        }
+        function pad(n) { return String(n).padStart(2, '0'); }
+        function todayLocalDate() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+        function toYMD(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+        function formatDate(d) { return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
+        function getDayName(d) { return d.toLocaleDateString('en-IN', { weekday: 'long' }); }
+        function timeOnly(value) {
+            if (!value) return '—';
+            const d = new Date(value);
+            if (isNaN(d)) return String(value).slice(0, 5) || '—';
+            return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        }
+        function toDatetimeLocal(value, defaultHour) {
+            const base = value ? new Date(value) : new Date(selectedDate);
+            if (!value) base.setHours(defaultHour, 0, 0, 0);
+            return `${base.getFullYear()}-${pad(base.getMonth()+1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
+        }
+        function makeDateTimeIso(hour, minute = 0) {
+            const d = new Date(selectedDate);
+            d.setHours(hour, minute, 0, 0);
+            return d.toISOString();
+        }
+        function normalizePunchDateTime(value) {
+            if (!value) return null;
+            if (value instanceof Date && !isNaN(value)) return value.toISOString();
+            const raw = String(value).trim();
+            if (!raw || raw === '—') return null;
+            // Supabase me kabhi punch_in_time sirf "09:00:00" aata hai. Timestamptz column ko full date-time chahiye.
+            const timeOnlyMatch = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+            if (timeOnlyMatch) {
+                const d = new Date(selectedDate);
+                d.setHours(Number(timeOnlyMatch[1]), Number(timeOnlyMatch[2]), Number(timeOnlyMatch[3] || 0), 0);
+                return d.toISOString();
+            }
+            const d = new Date(raw);
+            return isNaN(d) ? null : d.toISOString();
+        }
+        function defaultPunchForStatus(status, record = {}) {
+            const st = normalizeStatus(status);
+            if (st === 'present') {
+                return {
+                    pin: normalizePunchDateTime(record.punchIn) || makeDateTimeIso(9, 0),
+                    pout: normalizePunchDateTime(record.punchOut) || makeDateTimeIso(18, 0)
+                };
+            }
+            if (st === 'late') {
+                return {
+                    pin: normalizePunchDateTime(record.punchIn) || makeDateTimeIso(10, 0),
+                    pout: normalizePunchDateTime(record.punchOut) || makeDateTimeIso(18, 0)
+                };
+            }
+            return { pin: null, pout: null };
+        }
+        function localInputToIso(v) {
+            return normalizePunchDateTime(v);
+        }
+        function calcHours(pin, pout) {
+            if (!pin || !pout) return '—';
+            const a = new Date(pin), b = new Date(pout);
+            if (isNaN(a) || isNaN(b) || b <= a) return '—';
+            return ((b - a) / 3600000).toFixed(1);
+        }
+        function normalizeStatus(s) {
+            s = String(s || 'absent').toLowerCase().replace(/[_\s-]/g, '');
+            if (s === 'weekoff' || s === 'weeklyoff' || s === 'wo') return 'weeklyoff';
+            if (s === 'week_off') return 'weeklyoff';
+            if (s === 'paidleave' || s === 'unpaidleave' || s === 'cl' || s === 'pl' || s === 'el') return 'leave';
+            if (s === 'punchedin') return 'present';
+            if (s === 'halfday') return 'present';
+            if (s === 'misspunch') return 'absent';
+            if (s === 'coff' || s === 'coff' || s === 'coff') return 'weeklyoff';
+            if (s === 'coff' || s === 'coff' || s === 'coff' || s === 'c_off') return 'weeklyoff';
+            if (s === 'p') return 'present';
+            if (s === 'a') return 'absent';
+            return UI_STATUSES.includes(s) ? s : 'absent';
+        }
+        function toDbStatus(uiStatus) {
+            const st = normalizeStatus(uiStatus);
+            return DB_STATUS[st] || 'absent';
+        }
+        function showToast(msg, isErr = false) {
+            const old = document.querySelector('.toast'); if (old) old.remove();
+            const t = document.createElement('div');
+            t.className = 'toast' + (isErr ? ' error' : '');
+            t.innerText = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 4000);
+        }
+        function setLoading(v) {
+            loading = v;
+            const tbody = document.getElementById('tableBody');
+            if (v) tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><i class="fas fa-spinner fa-spin"></i><div>Loading live Supabase data...</div></td></tr>`;
+        }
+        function readFilters() {
+            return {
+                search: document.getElementById('empSearch').value.trim().toLowerCase(),
+                dept: document.getElementById('deptFilter').value,
+                status: document.getElementById('statusFilter').value
+            };
+        }
+        function startOfDayLocal(d) {
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        }
+        function selectedDateAgeDays() {
+            const today = startOfDayLocal(todayLocalDate());
+            const sel = startOfDayLocal(selectedDate);
+            return Math.round((today - sel) / 86400000);
+        }
+        function permissionSummary() {
+            const days = Number(editPermission.previous_days || EDIT_PAST_DAYS);
+            const pastText = days >= 999999 ? 'Lifetime' : `${days} days`;
+            const enabledText = (editPermission.edit_enabled === false || editPermission.locked === true) ? 'Locked' : 'Enabled';
+            const futureText = editPermission.allow_future ? 'Future allowed' : 'Future blocked';
+            return `${enabledText} • Past: ${pastText} • ${futureText}`;
+        }
+        function getEditRule() {
+            const age = selectedDateAgeDays();
+            const days = Number(editPermission.previous_days || EDIT_PAST_DAYS);
+            if (editPermission.loaded && (editPermission.edit_enabled === false || editPermission.locked === true)) {
+                return { allowed: false, reason: `Developer ne attendance edit feature lock kiya hai. ${permissionSummary()}` };
+            }
+            if (age < 0 && !editPermission.allow_future) {
+                return { allowed: false, reason: `Future date locked. ${permissionSummary()}` };
+            }
+            if (age > days) {
+                return { allowed: false, reason: `Sirf aaj se pichhle ${days >= 999999 ? 'lifetime' : days + ' din'} tak attendance update allowed hai. ${permissionSummary()}` };
+            }
+            return { allowed: true, reason: `Update allowed. ${permissionSummary()}` };
+        }
+        function canEditSelectedDate() {
+            return getEditRule().allowed;
+        }
+        function requireEditAllowed() {
+            const rule = getEditRule();
+            if (!rule.allowed) {
+                showToast(rule.reason, true);
+                throw new Error(rule.reason);
+            }
+            return true;
+        }
+        function updateDateLockUi() {
+            const rule = getEditRule();
+            const sub = document.getElementById('selectedDateSub');
+            const age = selectedDateAgeDays();
+            const msg = rule.allowed ? `${age < 0 ? 'Future date' : (age === 0 ? 'Today' : age + ' day old')} • ${permissionSummary()}` : rule.reason;
+            sub.innerHTML = `${esc(getDayName(selectedDate))} <span class="date-lock-note ${rule.allowed ? 'ok' : ''}">• ${esc(msg)}</span>`;
+            const dis = !rule.allowed;
+            document.getElementById('bulkUpdateBtn').disabled = dis;
+            document.getElementById('bulkUpdateBtn').classList.toggle('locked-control', dis);
+            const selAll = document.getElementById('selectAll');
+            if (selAll) { selAll.disabled = dis; selAll.title = dis ? rule.reason : ''; }
+        }
+
+        // ── DATA MAPPING ──
+        function mapRow(r) {
+            const employeeId = r.employee_id || r.emp_id || r.id;
+            const empName = r.employee_name || r.full_name || r.name || 'Employee';
+            const punchIn = normalizePunchDateTime(r.punch_in || r.punch_in_time || null);
+            const punchOut = normalizePunchDateTime(r.punch_out || r.punch_out_time || null);
+            const isLate = r.is_late === true || Number(r.late_minutes || 0) > 0;
+            let st = normalizeStatus(r.status || (punchIn ? 'present' : 'absent'));
+            if (isLate && st === 'present') st = 'late';
+
+            return {
+                id: r.attendance_id || r.att_id || `${employeeId}_${toYMD(selectedDate)}`,
+                attendanceId: r.attendance_id || r.att_id || r.id_attendance || r.attendance_row_id || r.id || null,
+                employeeId,
+                employee: empName,
+                empCode: r.emp_code || '',
+                department: r.department || '—',
+                designation: r.designation || '',
+                date: r.attendance_date || toYMD(selectedDate),
+                dateFormatted: formatDate(selectedDate),
+                day: getDayName(selectedDate),
+                status: st,
+                punchIn,
+                punchInFormatted: timeOnly(punchIn),
+                punchOut,
+                punchOutFormatted: timeOnly(punchOut),
+                hours: r.worked_hours || r.working_hours || calcHours(punchIn, punchOut),
+                remark: r.admin_note || r.note || r.remarks || ''
+            };
+        }
+
+        // ── DEVELOPER PERMISSION LOAD ──
+        async function loadEditPermission() {
+            const ctx = getCtx();
+            editPermission = { edit_enabled: true, previous_days: 7, allow_future: false, locked: false, loaded: false };
+            if (!ctx.org_id) return editPermission;
+            try {
+                const { data, error } = await sb.rpc('app_get_attendance_edit_permission', {
+                    p_org_id: ctx.org_id,
+                    p_branch_id: ctx.branch_id || null
+                });
+                if (!error && data && data.length) {
+                    const p = data[0];
+                    editPermission = {
+                        edit_enabled: p.edit_enabled !== false,
+                        previous_days: Number(p.previous_days ?? p.previous_days_limit ?? 7),
+                        allow_future: p.allow_future === true,
+                        locked: p.locked === true || p.feature_locked === true,
+                        loaded: true
+                    };
+                }
+            } catch (e) {
+                console.warn('permission load skipped:', e);
+            }
+            return editPermission;
+        }
+
+        // ── LOAD DATA ──
+        async function loadAttendance() {
+            const ctx = getCtx();
+            if (!ctx.org_id) { showToast('org_id URL me missing hai.', true); return; }
+            setLoading(true);
+            selectedIds.clear();
+            lastFilters = readFilters();
+            try {
+                await loadEditPermission();
+                await loadDepartments();
+                await loadStats();
+                await loadPageRpcFirst();
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'Attendance load failed', true);
+            } finally {
+                setLoading(false);
+                render();
+            }
+        }
+
+        async function enrichLateFlags(rows) {
+            const ctx = getCtx();
+            if (!rows.length) return rows;
+            const ids = rows.map(r => r.employeeId).filter(Boolean);
+            if (!ids.length) return rows;
+            try {
+                const { data, error } = await sb.from('attendance')
+                    .select('id, employee_id, status, punch_in, punch_out, punch_in_time, punch_out_time, is_late, late_minutes, admin_note, note, remarks')
+                    .eq('org_id', ctx.org_id)
+                    .eq('attendance_date', toYMD(selectedDate))
+                    .in('employee_id', ids);
+                if (error || !data) return rows;
+                const attMap = new Map(data.map(a => [String(a.employee_id), a]));
+                return rows.map(r => {
+                    const a = attMap.get(String(r.employeeId));
+                    if (!a) return r;
+                    const pin = normalizePunchDateTime(a.punch_in || a.punch_in_time || r.punchIn);
+                    const pout = normalizePunchDateTime(a.punch_out || a.punch_out_time || r.punchOut);
+                    const isLate = a.is_late === true || Number(a.late_minutes || 0) > 0;
+                    return {
+                        ...r,
+                        attendanceId: a.id || r.attendanceId,
+                        status: isLate ? 'late' : normalizeStatus(a.status || r.status),
+                        punchIn: pin,
+                        punchInFormatted: timeOnly(pin),
+                        punchOut: pout,
+                        punchOutFormatted: timeOnly(pout),
+                        hours: calcHours(pin, pout),
+                        remark: a.admin_note || a.note || a.remarks || r.remark || ''
+                    };
+                });
+            } catch (e) {
+                console.warn('late flag enrich skipped:', e);
+                return rows;
+            }
+        }
+
+        async function loadPageRpcFirst() {
+            const ctx = getCtx();
+            const from = (currentPage - 1) * PAGE_SIZE;
+            const params = {
+                p_org_id: ctx.org_id,
+                p_branch_id: ctx.branch_id || null,
+                p_attendance_date: toYMD(selectedDate),
+                p_search: lastFilters.search || null,
+                p_department: lastFilters.dept === 'all' ? null : lastFilters.dept,
+                p_status: lastFilters.status === 'all' ? null : toDbStatus(lastFilters.status),
+                p_limit: PAGE_SIZE,
+                p_offset: from
+            };
+            const { data, error } = await sb.rpc('admin_attendance_day_page', params);
+            if (!error && Array.isArray(data)) {
+                let rows = data.map(mapRow);
+                rows = await enrichLateFlags(rows);
+                if (lastFilters.status !== 'all') rows = rows.filter(r => r.status === normalizeStatus(lastFilters.status));
+                attendanceData = rows;
+                totalRows = data[0]?.total_count ? Number(data[0].total_count) : attendanceData.length;
+                return;
+            }
+            console.warn('RPC admin_attendance_day_page fallback:', error);
+            await loadPageDirect();
+        }
+
+        async function loadPageDirect() {
+            const ctx = getCtx();
+            const dateStr = toYMD(selectedDate);
+            const from = (currentPage - 1) * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            let empQ = sb.from('employees')
+                .select('id, emp_code, full_name, department, designation, branch_id, active', { count: 'exact' })
+                .eq('org_id', ctx.org_id)
+                .eq('active', true)
+                .order('emp_code', { ascending: true })
+                .range(from, to);
+            if (ctx.branch_id) empQ = empQ.eq('branch_id', ctx.branch_id);
+            if (lastFilters.search) {
+                const s = `%${lastFilters.search}%`;
+                empQ = empQ.or(`full_name.ilike.${s},emp_code.ilike.${s},department.ilike.${s}`);
+            }
+            if (lastFilters.dept !== 'all') empQ = empQ.eq('department', lastFilters.dept);
+
+            const empRes = await empQ;
+            if (empRes.error) throw empRes.error;
+            const emps = empRes.data || [];
+            totalRows = empRes.count || emps.length;
+            const empIds = emps.map(e => e.id);
+
+            let att = [];
+            if (empIds.length) {
+                const attRes = await sb.from('attendance')
+                    .select('id, employee_id, attendance_date, status, punch_in, punch_out, punch_in_time, punch_out_time, worked_hours, working_hours, is_late, late_minutes, admin_note, note, remarks, leave_type')
+                    .eq('org_id', ctx.org_id)
+                    .eq('attendance_date', dateStr)
+                    .in('employee_id', empIds);
+                if (!attRes.error) att = attRes.data || [];
+            }
+            const attMap = new Map(att.map(a => [a.employee_id, a]));
+            let rows = emps.map(e => mapRow({ ...e, ...(attMap.get(e.id) || {}), attendance_id: attMap.get(e.id)?.id || null, employee_id: e.id, employee_name: e.full_name }));
+            if (lastFilters.status !== 'all') rows = rows.filter(r => r.status === normalizeStatus(lastFilters.status));
+            attendanceData = rows;
+        }
+
+        async function loadStats() {
+            const ctx = getCtx();
+            const params = { p_org_id: ctx.org_id, p_branch_id: ctx.branch_id || null, p_attendance_date: toYMD(selectedDate) };
+            const { data, error } = await sb.rpc('admin_attendance_day_stats', params);
+            if (!error && data && data.length) {
+                const s = data[0];
+                document.getElementById('statTotal').textContent = s.total || 0;
+                document.getElementById('statPresent').textContent = s.present || 0;
+                document.getElementById('statAbsent').textContent = s.absent || 0;
+                document.getElementById('statLate').textContent = s.late || 0;
+                document.getElementById('statLeave').textContent = s.leave || 0;
+            }
+        }
+
+        async function loadDepartments() {
+            if (departmentCache.length) return;
+            const ctx = getCtx();
+            let q = sb.from('employees').select('department').eq('org_id', ctx.org_id).eq('active', true).not('department', 'is', null).limit(1000);
+            if (ctx.branch_id) q = q.eq('branch_id', ctx.branch_id);
+            const { data, error } = await q;
+            if (error) return;
+            departmentCache = [...new Set((data || []).map(x => x.department).filter(Boolean))].sort();
+            const dept = document.getElementById('deptFilter');
+            dept.innerHTML = '<option value="all">All Departments</option>' + departmentCache.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+        }
+
+        // ── RENDER ──
+        function render() {
+            document.getElementById('selectedDateText').textContent = formatDate(selectedDate);
+            updateDateLockUi();
+            renderTable(attendanceData);
+            renderPagination();
+            updateStatsFromPage();
+        }
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            const empty = document.getElementById('emptyState');
+            if (loading) return;
+            if (!data.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+            empty.style.display = 'none';
+            tbody.innerHTML = data.map(row => {
+                const checked = selectedIds.has(String(row.employeeId)) ? 'checked' : '';
+                const initials = String(row.employee || 'E').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+                const locked = !canEditSelectedDate();
+                const disabledAttr = locked ? 'disabled' : '';
+                const lockTitle = locked ? getEditRule().reason : '';
+                return `
+                    <tr class="${checked ? 'selected' : ''}" data-id="${row.employeeId}">
+                        <td><div class="checkbox-wrap"><input type="checkbox" class="row-checkbox" data-id="${row.employeeId}" ${checked} ${disabledAttr} title="${esc(lockTitle)}" /></div></td>
+                        <td><div class="emp-info"><div class="emp-avatar">${esc(initials)}</div><div class="details"><div class="name">${esc(row.employee)}</div><div class="code">${esc(row.empCode)}</div></div></div></td>
+                        <td>${esc(row.department)}</td>
+                        <td><span class="status-badge ${row.status} ${locked ? 'locked-control' : ''}" data-status="${row.status}" data-id="${row.employeeId}" title="${esc(lockTitle)}"><i class="fas ${STATUS_ICONS[row.status] || 'fa-circle'}"></i> ${STATUS_LABELS[row.status] || row.status}<span class="dropdown-arrow"><i class="fas fa-chevron-down"></i></span></span></td>
+                        <td><span class="punch-time"><span class="in">${esc(row.punchInFormatted)}</span></span></td>
+                        <td><span class="punch-time"><span class="out">${esc(row.punchOutFormatted)}</span></span></td>
+                        <td>${esc(row.hours)}</td>
+                        <td><div class="actions"><button class="punch-btn" data-id="${row.employeeId}" title="${locked ? esc(lockTitle) : 'Edit Punch'}" ${disabledAttr}><i class="fas fa-clock"></i></button><button class="remark-btn" data-id="${row.employeeId}" title="${locked ? esc(lockTitle) : 'Remark'}" ${disabledAttr}><i class="fas fa-comment"></i></button><button class="delete-btn danger" data-id="${row.employeeId}" title="${locked ? esc(lockTitle) : 'Clear'}" ${disabledAttr}><i class="fas fa-times"></i></button></div></td>
+                    </tr>`;
+            }).join('');
+        }
+        function renderPagination() {
+            const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+            if (currentPage > totalPages) currentPage = totalPages;
+            const start = totalRows ? ((currentPage - 1) * PAGE_SIZE + 1) : 0;
+            const end = Math.min(currentPage * PAGE_SIZE, totalRows || attendanceData.length);
+            document.getElementById('paginationInfo').textContent = `Showing ${start}–${end} of ${totalRows || attendanceData.length}`;
+            const pageBtns = document.getElementById('pageBtns');
+            let html = `<button id="prevPage" ${currentPage <= 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>`;
+            const maxShow = 5;
+            let sp = Math.max(1, currentPage - Math.floor(maxShow/2));
+            let ep = Math.min(totalPages, sp + maxShow - 1);
+            if (ep - sp < maxShow - 1) sp = Math.max(1, ep - maxShow + 1);
+            for (let p = sp; p <= ep; p++) html += `<button class="${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+            html += `<button id="nextPage" ${currentPage >= totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`;
+            pageBtns.innerHTML = html;
+            pageBtns.querySelectorAll('[data-page]').forEach(b => b.onclick = () => { currentPage = Number(b.dataset.page); loadAttendance(); });
+            document.getElementById('prevPage').onclick = () => { if (currentPage > 1) { currentPage--; loadAttendance(); } };
+            document.getElementById('nextPage').onclick = () => { if (currentPage < totalPages) { currentPage++; loadAttendance(); } };
+        }
+        function updateStatsFromPage() {
+            document.getElementById('statTotal').textContent = totalRows || attendanceData.length;
+            document.getElementById('statPresent').textContent = attendanceData.filter(d => d.status === 'present').length;
+            document.getElementById('statAbsent').textContent = attendanceData.filter(d => d.status === 'absent').length;
+            document.getElementById('statLate').textContent = attendanceData.filter(d => d.status === 'late').length;
+            document.getElementById('statLeave').textContent = attendanceData.filter(d => d.status === 'leave').length;
+        }
+
+        // ── SAVE / UPDATE ──
+        async function saveAttendance(record, patch = {}) {
+            requireEditAllowed();
+            const ctx = getCtx();
+            const status = normalizeStatus(patch.status ?? record.status);
+            const defaults = defaultPunchForStatus(status, record);
+            const pin = normalizePunchDateTime(patch.punchIn !== undefined ? patch.punchIn : defaults.pin);
+            const pout = normalizePunchDateTime(patch.punchOut !== undefined ? patch.punchOut : defaults.pout);
+            const note = patch.remark ?? record.remark ?? '';
+            const dbStatus = toDbStatus(status);
+            const isLate = status === 'late';
+            const lateMinutes = isLate && pin ? Math.max(1, Math.round((new Date(pin) - new Date(makeDateTimeIso(9, 0))) / 60000)) : 0;
+
+            const payload = {
+                p_org_id: ctx.org_id,
+                p_employee_id: record.employeeId,
+                p_attendance_date: toYMD(selectedDate),
+                p_status: dbStatus,
+                p_punch_in: pin,
+                p_punch_out: pout,
+                p_location: 'Admin Manual',
+                p_admin_note: note,
+                p_source: 'manual_admin',
+                p_updated_by_user_id: ctx.user_id || null,
+                p_updated_by_name: ctx.user_name || 'Admin',
+                p_updated_by_emp_code: ctx.emp_code || null,
+                p_leave_type: status === 'leave' ? 'Leave' : null
+            };
+
+            const { data, error } = await sb.rpc('app_admin_save_attendance_manual', payload);
+
+            if (!error && (!data || data.ok !== false)) {
+                // RPC status me late ko present save karta hai; is_late direct update se preserve hota hai.
+                try {
+                    await saveAttendanceFallback(record, { status, dbStatus, pin, pout, note, isLate, lateMinutes, rpcAlreadySaved: true });
+                } catch (flagErr) {
+                    console.warn('late flag/time post-update skipped:', flagErr);
+                }
+                return true;
+            }
+
+            console.warn('save rpc fallback:', error || data);
+            return await saveAttendanceFallback(record, { status, dbStatus, pin, pout, note, isLate, lateMinutes });
+        }
+
+        async function saveAttendanceFallback(record, v) {
+            const ctx = getCtx();
+            const base = {
+                org_id: ctx.org_id,
+                branch_id: ctx.branch_id || null,
+                employee_id: record.employeeId,
+                org_code: ctx.org_code || null,
+                emp_code: record.empCode || null,
+                employee_name: record.employee,
+                department: record.department === '—' ? null : record.department,
+                designation: record.designation || null,
+                attendance_date: toYMD(selectedDate),
+                status: v.dbStatus || toDbStatus(v.status),
+                punch_in: normalizePunchDateTime(v.pin) || null,
+                punch_out: normalizePunchDateTime(v.pout) || null,
+                // punch_in_time/punch_out_time direct update nahi kar rahe, kyunki tumhare DB me ye timestamptz/check mismatch de raha tha.
+                is_late: !!v.isLate,
+                late_minutes: v.isLate ? (v.lateMinutes || 1) : 0,
+                admin_note: v.note || null,
+                remarks: v.note || null,
+                note: v.note || null,
+                source: 'manual_admin',
+                attendance_source: 'manual_admin',
+                updated_by_user_id: ctx.user_id || null,
+                updated_by_name: ctx.user_name || 'Admin',
+                updated_by_emp_code: ctx.emp_code || null,
+                updated_at: new Date().toISOString()
+            };
+            Object.keys(base).forEach(k => base[k] === undefined && delete base[k]);
+
+            async function updateById(id) {
+                const { error } = await sb.from('attendance').update(base).eq('id', id).eq('org_id', ctx.org_id);
+                if (error) throw error;
+                return true;
+            }
+
+            if (record.attendanceId) return await updateById(record.attendanceId);
+
+            const { data: existing, error: findError } = await sb.from('attendance')
+                .select('id')
+                .eq('org_id', ctx.org_id)
+                .eq('employee_id', record.employeeId)
+                .eq('attendance_date', toYMD(selectedDate))
+                .maybeSingle();
+            if (findError) throw findError;
+
+            if (existing?.id) return await updateById(existing.id);
+
+            if (v.rpcAlreadySaved) return true;
+
+            const { error } = await sb.from('attendance').insert({
+                ...base,
+                created_at: new Date().toISOString(),
+                created_by: ctx.user_id || null
+            });
+            if (error) throw error;
+            return true;
+        }
+
+        async function changeStatus(empId, newStatus) {
+            const record = attendanceData.find(d => String(d.employeeId) === String(empId));
+            if (!record) return;
+            const st = normalizeStatus(newStatus);
+            const def = defaultPunchForStatus(st, record);
+            try {
+                await saveAttendance(record, { status: st, punchIn: def.pin, punchOut: def.pout });
+                showToast(`✅ ${record.employee} marked as ${STATUS_LABELS[st]}`);
+                await loadAttendance();
+            } catch (err) { console.error(err); showToast(err.message || 'Status update failed', true); }
+        }
+        async function clearAttendance(empId) {
+            const record = attendanceData.find(d => String(d.employeeId) === String(empId));
+            if (!record) return;
+            try {
+                await saveAttendance(record, { status: 'absent', punchIn: null, punchOut: null, remark: 'Cleared by admin' });
+                showToast(`🗑️ Attendance cleared for ${record.employee}`);
+                await loadAttendance();
+            } catch (err) { showToast(err.message || 'Clear failed', true); }
+        }
+
+        // ── MODAL ──
+        function openPunchModal(empId) {
+            if (!canEditSelectedDate()) { showToast(getEditRule().reason, true); return; }
+            const record = attendanceData.find(d => String(d.employeeId) === String(empId));
+            if (!record) return;
+            punchModalEmpId = empId;
+            document.getElementById('punchEmpName').textContent = record.employee;
+            document.getElementById('punchModalTitle').textContent = `Update Punch - ${record.employee}`;
+            document.getElementById('punchModalSub').textContent = `Date: ${record.dateFormatted}`;
+            document.getElementById('punchInTime').value = toDatetimeLocal(record.punchIn, 9);
+            document.getElementById('punchOutTime').value = toDatetimeLocal(record.punchOut, 18);
+            document.getElementById('punchRemark').value = record.remark || '';
+            document.getElementById('punchModal').classList.add('show');
+        }
+        async function savePunchModal() {
+            const record = attendanceData.find(d => String(d.employeeId) === String(punchModalEmpId));
+            if (!record) return;
+            const pin = localInputToIso(document.getElementById('punchInTime').value);
+            const pout = localInputToIso(document.getElementById('punchOutTime').value);
+            if (pin && pout && new Date(pout) <= new Date(pin)) { showToast('Punch out punch in ke baad hona chahiye.', true); return; }
+            try {
+                await saveAttendance(record, { status: pin ? (record.status === 'late' ? 'late' : 'present') : 'absent', punchIn: pin, punchOut: pout, remark: document.getElementById('punchRemark').value.trim() });
+                document.getElementById('punchModal').classList.remove('show');
+                showToast(`✅ Punch updated for ${record.employee}`);
+                await loadAttendance();
+            } catch (err) { console.error(err); showToast(err.message || 'Punch save failed', true); }
+        }
+
+        // ── EXPORT CURRENT FILTER ──
+        async function exportCsv() {
+            showToast('Export prepare ho raha hai...');
+            const oldPage = currentPage;
+            let all = [];
+            try {
+                const pages = Math.min(Math.ceil((totalRows || PAGE_SIZE) / PAGE_SIZE), 200);
+                for (let p = 1; p <= pages; p++) {
+                    currentPage = p;
+                    await loadPageRpcFirst();
+                    all = all.concat(attendanceData);
+                }
+                currentPage = oldPage;
+                if (!all.length) { showToast('No data to export.', true); return; }
+                const header = ['Employee','Emp Code','Department','Date','Status','Punch In','Punch Out','Hours','Remark'];
+                const csv = [header.join(',')].concat(all.map(d => [d.employee,d.empCode,d.department,d.date,STATUS_LABELS[d.status] || d.status,d.punchInFormatted,d.punchOutFormatted,d.hours,d.remark]
+                    .map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','))).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `attendance_${toYMD(selectedDate)}.csv`; a.click(); URL.revokeObjectURL(url);
+                showToast('📊 Attendance exported successfully!');
+                await loadAttendance();
+            } catch (err) { currentPage = oldPage; showToast(err.message || 'Export failed', true); await loadAttendance(); }
+        }
+
+        // ── EVENTS ──
+        document.getElementById('tableWrap').addEventListener('click', function(e) {
+            const badge = e.target.closest('.status-badge');
+            if (badge && badge.dataset.id) {
+                e.stopPropagation();
+                if (!canEditSelectedDate()) { showToast(getEditRule().reason, true); return; }
+                const rect = badge.getBoundingClientRect();
+                const dropdown = document.getElementById('statusDropdown');
+                dropdown.style.left = rect.left + 'px'; dropdown.style.top = (rect.bottom + 4) + 'px';
+                dropdown.dataset.empId = badge.dataset.id; dropdown.classList.toggle('show'); return;
+            }
+            const punchBtn = e.target.closest('.punch-btn'); if (punchBtn) return openPunchModal(punchBtn.dataset.id);
+            const deleteBtn = e.target.closest('.delete-btn'); if (deleteBtn) { const r = attendanceData.find(d => String(d.employeeId) === String(deleteBtn.dataset.id)); if (r && confirm(`Clear attendance for ${r.employee}?`)) clearAttendance(deleteBtn.dataset.id); return; }
+            const remarkBtn = e.target.closest('.remark-btn'); if (remarkBtn) { const r = attendanceData.find(d => String(d.employeeId) === String(remarkBtn.dataset.id)); if (!r) return; const remark = prompt(`Enter remark for ${r.employee}:`, r.remark || ''); if (remark !== null) saveAttendance(r, { remark }).then(loadAttendance).catch(err => showToast(err.message || 'Remark failed', true)); }
+        });
+        document.querySelectorAll('.status-dropdown .opt').forEach(opt => opt.addEventListener('click', function() { const empId = document.getElementById('statusDropdown').dataset.empId; document.getElementById('statusDropdown').classList.remove('show'); if (empId) changeStatus(empId, this.dataset.status); }));
+        document.getElementById('tableWrap').addEventListener('change', function(e) {
+            if (e.target.classList.contains('row-checkbox')) { const id = String(e.target.dataset.id); e.target.checked ? selectedIds.add(id) : selectedIds.delete(id); renderTable(attendanceData); }
+            if (e.target.id === 'selectAll') { attendanceData.forEach(d => e.target.checked ? selectedIds.add(String(d.employeeId)) : selectedIds.delete(String(d.employeeId))); renderTable(attendanceData); }
+        });
+        document.getElementById('prevDate').onclick = () => { selectedDate.setDate(selectedDate.getDate() - 1); currentPage = 1; loadAttendance(); };
+        document.getElementById('nextDate').onclick = () => { selectedDate.setDate(selectedDate.getDate() + 1); currentPage = 1; loadAttendance(); };
+        document.getElementById('todayBtn').onclick = () => { selectedDate = todayLocalDate(); currentPage = 1; loadAttendance(); };
+        document.getElementById('applyFilters').onclick = () => { currentPage = 1; loadAttendance(); };
+        document.getElementById('resetFilters').onclick = () => { document.getElementById('empSearch').value = ''; document.getElementById('deptFilter').value = 'all'; document.getElementById('statusFilter').value = 'all'; currentPage = 1; loadAttendance(); };
+        document.getElementById('empSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { currentPage = 1; loadAttendance(); } });
+        document.getElementById('punchCancel').onclick = () => document.getElementById('punchModal').classList.remove('show');
+        document.getElementById('punchModal').onclick = e => { if (e.target.id === 'punchModal') e.currentTarget.classList.remove('show'); };
+        document.getElementById('punchSave').onclick = savePunchModal;
+        document.getElementById('bulkUpdateBtn').onclick = async function() {
+            if (!canEditSelectedDate()) return showToast(getEditRule().reason, true);
+            if (!selectedIds.size) return showToast('Please select at least one employee.', true);
+            const status = prompt('Selected employees ke liye status likho: present, absent, late, leave, holiday, weeklyoff');
+            const st = normalizeStatus(status);
+            if (!status || !UI_STATUSES.includes(st)) return showToast('Invalid status.', true);
+            const ids = [...selectedIds];
+            for (const id of ids) { const r = attendanceData.find(d => String(d.employeeId) === String(id)); if (r) { const def = defaultPunchForStatus(st, r); await saveAttendance(r, { status: st, punchIn: def.pin, punchOut: def.pout }); } }
+            selectedIds.clear(); showToast(`✅ Bulk update completed: ${ids.length} employees`); await loadAttendance();
+        };
+        document.getElementById('exportBtn').onclick = exportCsv;
+        document.getElementById('refreshBtn').onclick = loadAttendance;
+        document.getElementById('backBtn').onclick = goBack;
+        document.addEventListener('click', e => { const dd = document.getElementById('statusDropdown'); if (dd.classList.contains('show') && !e.target.closest('.status-dropdown') && !e.target.closest('.status-badge')) dd.classList.remove('show'); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('punchModal').classList.remove('show'); document.getElementById('statusDropdown').classList.remove('show'); } });
+        document.addEventListener('DOMContentLoaded', loadAttendance);
+    </script>
+
+
+</body>
+</html>

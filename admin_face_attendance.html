@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Face Register · OrgConnect</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+    body{background:radial-gradient(ellipse at 20% 30%,#0f2f2c,#051c1a);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .face-card{width:100%;max-width:1440px;background:rgba(255,255,255,.97);backdrop-filter:blur(14px);border-radius:2.4rem;box-shadow:0 30px 90px rgba(0,0,0,.45);border:1px solid rgba(220,235,231,.4);max-height:98vh;display:flex;flex-direction:column;overflow:hidden}
+    .face-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem .8rem;border-bottom:1px solid #eef5f3;flex-shrink:0;flex-wrap:wrap;gap:.8rem}
+    .face-header .left{display:flex;align-items:center;gap:12px}
+    .back-btn{background:#f0f8f6;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;color:#1e3a3a;font-size:.9rem}
+    .back-btn:hover{background:#e0efeb}
+    .face-header h2{font-size:1.3rem;font-weight:800;color:#1e3a3a;display:flex;align-items:center;gap:10px}
+    .face-header h2 i{color:#1f6e68}
+    .face-header .sub{font-size:.7rem;color:#5b8a82;margin-top:2px}
+    .face-header .right{display:flex;gap:.6rem;flex-wrap:wrap}
+    button{font-family:inherit}
+    .face-header .right button{padding:.4rem 1.4rem;border-radius:2rem;border:none;font-weight:600;font-size:.75rem;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:6px}
+    .btn-primary{background:#1f6e68;color:#fff}
+    .btn-primary:hover{background:#0f4a44;transform:scale(1.02)}
+    .btn-outline{background:transparent;color:#1f6e68;border:2px solid #1f6e68!important}
+    .btn-outline:hover{background:#1f6e68;color:#fff}
+    .btn-danger{background:#fee2e2;color:#991b1b}
+    .btn-danger:hover{background:#fecaca}
+    .btn-warning{background:#fef3c7;color:#92400e}
+    .btn-warning:hover{background:#fde68a}
+    .face-body{display:flex;flex:1;min-height:0;overflow:hidden;gap:1.2rem;padding:1.2rem 2rem 1.5rem}
+    .face-left{width:340px;background:#f6fbfa;border-radius:1.6rem;border:1px solid #e0efeb;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+    .search-box{padding:.8rem 1rem;border-bottom:1px solid #e0efeb;display:flex;gap:.4rem;flex-wrap:wrap}
+    .search-wrap{flex:1;min-width:120px;position:relative}
+    .search-wrap input{width:100%;padding:.4rem 1rem .4rem 2.2rem;border-radius:2rem;border:1px solid #e0efeb;font-size:.78rem;outline:none;transition:.2s;background:#fff}
+    .search-wrap input:focus{border-color:#1f6e68;box-shadow:0 0 0 3px rgba(31,110,104,.1)}
+    .search-wrap i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#5b8a82;font-size:.75rem}
+    .filter-group{display:flex;gap:.3rem}
+    .filter-group button{padding:.3rem .8rem;border-radius:2rem;border:1px solid #e0efeb;background:#fff;font-size:.65rem;font-weight:600;cursor:pointer;transition:.2s;color:#5b8a82}
+    .filter-group button:hover{background:#e7f5f2}
+    .filter-group button.active{background:#1f6e68;color:#fff;border-color:#1f6e68}
+    .emp-list{flex:1;overflow-y:auto;padding:.4rem}
+    .emp-list::-webkit-scrollbar{width:3px}
+    .emp-list::-webkit-scrollbar-thumb{background:#b8d5ce;border-radius:9px}
+    .emp-item{display:flex;align-items:center;gap:.8rem;padding:.5rem .8rem;border-radius:1.2rem;cursor:pointer;transition:.15s;margin-bottom:2px;border:2px solid transparent}
+    .emp-item:hover{background:#e7f5f2}
+    .emp-item.active{background:#1f6e68;color:#fff;border-color:#1f6e68}
+    .avatar{width:40px;height:40px;border-radius:50%;background:#1f6e68;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+    .emp-item.active .avatar{background:rgba(255,255,255,.2)}
+    .emp-item .info{flex:1;min-width:0}
+    .emp-item .name{font-weight:600;font-size:.82rem;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .emp-item .dept{font-size:.6rem;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .status-badge-sm{font-size:.55rem;font-weight:700;padding:1px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+    .done{background:#e0f2ed;color:#0f7b5c}
+    .pending{background:#fef3c7;color:#92400e}
+    .failed{background:#fee2e2;color:#991b1b}
+    .notregistered{background:#f3f4f6;color:#6b7280}
+    .footer-stats{padding:.6rem 1rem;border-top:1px solid #e0efeb;font-size:.65rem;color:#5b8a82;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.3rem}
+    .stat-item{display:flex;align-items:center;gap:4px}
+    .num{font-weight:700;color:#1e3a3a}.num.green{color:#0f7b5c}.num.yellow{color:#92400e}.num.red{color:#991b1b}
+    .face-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:1rem}
+    .camera-box{background:#0f2f2c;border-radius:1.6rem;border:1px solid #e0efeb;overflow:hidden;position:relative;min-height:340px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a3a35,#0a1a18)}
+    #videoPreview,#canvasPreview{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:cover;display:none;position:absolute;inset:0}
+    .camera-placeholder{text-align:center;color:rgba(255,255,255,.3);z-index:1}
+    .camera-placeholder i{font-size:4rem;display:block;margin-bottom:.5rem}
+    .camera-placeholder .text{font-size:.85rem;font-weight:500;color:rgba(255,255,255,.6)}
+    .camera-placeholder .sub{font-size:.65rem;opacity:.5}
+    .preview-img{width:160px;height:180px;border-radius:1.2rem;object-fit:cover;border:3px solid rgba(255,255,255,.2);margin-bottom:.5rem;background:rgba(255,255,255,.05)}
+    .face-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:180px;height:220px;border:2px dashed rgba(255,255,255,.2);border-radius:1.2rem;pointer-events:none;animation:pulse-border 2s ease-in-out infinite;z-index:1}
+    @keyframes pulse-border{0%,100%{border-color:rgba(255,255,255,.15);box-shadow:0 0 30px rgba(31,110,104,0)}50%{border-color:rgba(31,110,104,.5);box-shadow:0 0 40px rgba(31,110,104,.15)}}
+    .camera-controls{position:absolute;bottom:1.2rem;left:50%;transform:translateX(-50%);display:flex;gap:.8rem;z-index:2}
+    .camera-controls button{padding:.5rem 1.6rem;border-radius:2rem;border:none;font-weight:700;font-size:.8rem;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:8px}
+    .btn-capture{background:#1f6e68;color:#fff}.btn-capture:hover{background:#0f4a44;transform:scale(1.04)}.btn-capture:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .btn-cancel{background:rgba(255,255,255,.15);color:#fff;backdrop-filter:blur(4px)}.btn-cancel:hover{background:rgba(255,255,255,.25)}
+    .btn-done{background:#0f7b5c;color:#fff}.btn-done:hover{background:#0a5e46;transform:scale(1.04)}.btn-done:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .camera-status{position:absolute;top:1rem;right:1rem;padding:.2rem 1rem;border-radius:999px;font-size:.6rem;font-weight:700;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);color:rgba(255,255,255,.7);z-index:2;display:flex;align-items:center;gap:6px}
+    .dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pulse-dot 1.5s ease-in-out infinite}.dot.yellow{background:#f59e0b}.dot.green{background:#4ade80}.dot.red{background:#ef4444}
+    @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+    .emp-details{background:#f9fdfc;border-radius:1.6rem;border:1px solid #e0efeb;padding:.8rem 1.2rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;flex-shrink:0}
+    .emp-details .left{display:flex;align-items:center;gap:1rem}
+    .avatar-lg{width:48px;height:48px;border-radius:50%;background:#1f6e68;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0;position:relative}
+    .status-ring{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;border:2px solid white}.status-ring.done{background:#0f7b5c}.status-ring.pending{background:#f59e0b}.status-ring.failed{background:#ef4444}.status-ring.notregistered{background:#d1d5db}
+    .emp-details .name{font-weight:700;font-size:.95rem;color:#1e3a3a}.emp-details .meta{font-size:.7rem;color:#5b8a82}
+    .emp-details .right{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+    .status-badge{padding:.2rem 1rem;border-radius:999px;font-size:.65rem;font-weight:700}
+    .emp-details .right button{padding:.25rem 1rem;border-radius:2rem;border:none;font-weight:600;font-size:.65rem;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:4px}
+    .btn-sm-primary{background:#1f6e68;color:#fff}.btn-sm-primary:hover{background:#0f4a44}
+    .btn-sm-danger{background:#fee2e2;color:#991b1b}.btn-sm-danger:hover{background:#fecaca}
+    .btn-sm-outline{background:transparent;border:1px solid #e0efeb;color:#5b8a82}.btn-sm-outline:hover{background:#e7f5f2}
+    .btn-sm-warning{background:#fef3c7;color:#92400e}.btn-sm-warning:hover{background:#fde68a}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a5e58;color:#fff;padding:10px 24px;border-radius:40px;font-size:.82rem;font-weight:500;box-shadow:0 8px 28px rgba(0,0,0,.20);z-index:9999;max-width:90%;text-align:center;backdrop-filter:blur(4px)}
+    .toast.error{background:#b91c1c}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:5000;padding:1.5rem}
+    .modal-overlay.show{display:flex}
+    .modal-box{background:#fff;border-radius:2rem;padding:2rem;max-width:480px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.4);animation:fadeUp .25s ease}
+    .modal-box.preview{max-width:520px}@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .modal-box h3{font-size:1.1rem;color:#1e3a3a;display:flex;align-items:center;gap:10px}.modal-box h3 i{color:#1f6e68}
+    .modal-box .sub{font-size:.8rem;color:#5b8a82;margin:4px 0 1rem}.modal-body{text-align:center;padding:.5rem 0}
+    .face-preview{width:200px;height:220px;border-radius:1.2rem;object-fit:cover;border:3px solid #e0efeb;margin:0 auto;background:#f0f8f6}
+    .face-preview-placeholder{width:200px;height:220px;border-radius:1.2rem;border:2px dashed #e0efeb;display:flex;align-items:center;justify-content:center;color:#b8d5ce;font-size:3rem;margin:0 auto}
+    .emp-info{margin-top:.8rem;font-size:.85rem;color:#1e3a3a}.emp-info strong{color:#1f6e68}
+    .modal-actions{display:flex;gap:.6rem;margin-top:1.2rem;justify-content:flex-end}
+    .modal-actions button{padding:.4rem 1.6rem;border-radius:2rem;border:none;font-weight:600;font-size:.78rem;cursor:pointer;transition:.2s}
+    .modal-actions .btn-cancel{background:#f0f8f6;color:#1e3a3a}.modal-actions .btn-cancel:hover{background:#e0efeb}
+    .modal-actions .btn-confirm{background:#1f6e68;color:#fff}.modal-actions .btn-confirm:hover{background:#0f4a44}
+    .modal-actions .btn-danger{background:#b91c1c;color:#fff}.modal-actions .btn-danger:hover{background:#991b1b}
+    @media(max-width:860px){.face-body{flex-direction:column;padding:1rem}.face-left{width:100%;max-height:240px}.face-card{max-height:none;border-radius:1.6rem}.face-header{padding:.8rem 1.2rem}.face-header h2{font-size:1.1rem}.camera-box{min-height:260px}.face-overlay{width:140px;height:180px}.emp-details{flex-direction:column;align-items:stretch}.emp-details .right{justify-content:center}.search-box{flex-direction:column}.filter-group{justify-content:center}}
+    @media(max-width:480px){body{padding:.6rem}.face-card{border-radius:1.2rem}.face-header .right button{font-size:.6rem;padding:.25rem .7rem}.face-body{padding:.8rem}.camera-controls{gap:.4rem}.camera-controls button{padding:.3rem .8rem;font-size:.65rem}.face-overlay{width:100px;height:140px}.emp-details .left{flex-direction:column;text-align:center}}
+  </style>
+</head>
+
+<body>
+  <div class="face-card">
+    <div class="face-header">
+      <div class="left">
+        <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i></button>
+        <div>
+          <h2><i class="fas fa-user-circle"></i> Face Register</h2>
+          <div class="sub">Supabase se employee face register, view aur remove</div>
+        </div>
+      </div>
+      <div class="right">
+        <button class="btn-outline" id="exportBtn"><i class="fas fa-file-excel"></i> Export</button>
+        <button class="btn-primary" id="refreshBtn"><i class="fas fa-sync"></i> Refresh</button>
+      </div>
+    </div>
+
+    <div class="face-body">
+      <div class="face-left">
+        <div class="search-box">
+          <div class="search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" id="empSearch" placeholder="Search name, dept, email..." />
+          </div>
+          <div class="filter-group">
+            <button class="active" data-filter="all">All</button>
+            <button data-filter="done">Done</button>
+            <button data-filter="pending">Pending</button>
+            <button data-filter="notregistered">Not Reg</button>
+          </div>
+        </div>
+        <div class="emp-list" id="empList"></div>
+        <div class="footer-stats" id="footerStats"></div>
+      </div>
+
+      <div class="face-right">
+        <div class="camera-box" id="cameraBox">
+          <video id="videoPreview" autoplay playsinline muted></video>
+          <canvas id="canvasPreview"></canvas>
+
+          <div class="camera-placeholder" id="cameraPlaceholder">
+            <i class="fas fa-camera"></i>
+            <div class="text">Camera Ready</div>
+            <div class="sub">Select employee and click Register</div>
+          </div>
+
+          <div class="face-overlay" id="faceOverlay"></div>
+
+          <div class="camera-status" id="cameraStatus">
+            <span class="dot"></span> Ready
+          </div>
+
+          <div class="camera-controls">
+            <button class="btn-cancel" id="cancelCaptureBtn" style="display:none;"><i class="fas fa-times"></i> Cancel</button>
+            <button class="btn-capture" id="captureBtn"><i class="fas fa-camera"></i> Capture</button>
+            <button class="btn-done" id="registerBtn" style="display:none;"><i class="fas fa-check"></i> Register Face</button>
+          </div>
+        </div>
+
+        <div class="emp-details" id="empDetails">
+          <div class="left">
+            <div class="avatar-lg" id="detailAvatar">
+              --
+              <span class="status-ring notregistered" id="detailStatusRing"></span>
+            </div>
+            <div class="info">
+              <div class="name" id="detailName">Select an employee</div>
+              <div class="meta" id="detailMeta">Click on a person from the list</div>
+            </div>
+          </div>
+          <div class="right" id="detailActions">
+            <span class="status-badge notregistered" id="detailStatusBadge">Not Registered</span>
+            <button class="btn-sm-primary" id="registerFaceBtn"><i class="fas fa-camera"></i> Register</button>
+            <button class="btn-sm-warning" id="reRegisterBtn" style="display:none;"><i class="fas fa-sync"></i> Re-register</button>
+            <button class="btn-sm-outline" id="viewFaceBtn" style="display:none;"><i class="fas fa-eye"></i> View</button>
+            <button class="btn-sm-danger" id="removeFaceBtn" style="display:none;"><i class="fas fa-trash"></i> Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="viewModal">
+    <div class="modal-box preview">
+      <h3><i class="fas fa-user-circle"></i> Registered Face</h3>
+      <div class="sub" id="viewSub">Employee face data</div>
+      <div class="modal-body">
+        <img class="face-preview" id="viewFaceImage" src="" alt="Face" style="display:none;" />
+        <div class="face-preview-placeholder" id="viewPlaceholder"><i class="fas fa-user"></i></div>
+        <div class="emp-info" id="viewInfo">
+          <strong id="viewName">Name</strong> · <span id="viewDept">Department</span><br />
+          <span style="font-size:.7rem;color:#5b8a82;">Registered: <span id="viewDate">N/A</span></span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="viewClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+      <h3 id="confirmTitle"><i class="fas fa-exclamation-triangle" style="color:#991b1b;"></i> Confirm</h3>
+      <div class="sub" id="confirmSub">Are you sure?</div>
+      <p style="font-size:.85rem;color:#1e3a3a;" id="confirmMsg">This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="confirmCancel">Cancel</button>
+        <button class="btn-danger" id="confirmAction">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  REQUIRED SUPABASE SETUP
+
+  1) Table:
+
+  create table if not exists public.employee_face_registration (
+    id uuid primary key default gen_random_uuid(),
+    org_id uuid not null,
+    branch_id uuid null,
+    employee_id uuid not null references public.employees(id) on delete cascade,
+    face_image_url text null,
+    face_storage_path text null,
+    face_status text not null default 'notregistered',
+    registered boolean not null default false,
+    registered_at timestamptz null,
+    registered_by uuid null,
+    updated_at timestamptz default now(),
+    unique(org_id, employee_id)
+  );
+
+  2) Storage bucket name:
+     employee-face
+
+  3) Recommended RLS policy simple testing ke liye:
+     alter table public.employee_face_registration enable row level security;
+
+     create policy "face select" on public.employee_face_registration
+     for select using (true);
+
+     create policy "face insert" on public.employee_face_registration
+     for insert with check (true);
+
+     create policy "face update" on public.employee_face_registration
+     for update using (true) with check (true);
+
+     create policy "face delete" on public.employee_face_registration
+     for delete using (true);
+*/
+
+// ─────────────────────────────────────────────────────────────
+// SUPABASE CONFIG
+// ─────────────────────────────────────────────────────────────
+// Apna anon key yaha paste karo.
+// Agar kisi common config.js me window.SUPABASE_URL / window.SUPABASE_ANON_KEY already hai,
+// to woh automatically use hoga.
+const SUPABASE_URL = window.SUPABASE_URL || 'https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const FACE_BUCKET = 'employee-face';
+
+let sb = null;
+try {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        'x-org-id': getParam('org_id') || '',
+        'x-org-code': getParam('org_code') || ''
+      }
+    }
+  });
+} catch (err) {
+  console.error(err);
+}
+
+// ─────────────────────────────────────────────────────────────
+// URL CONTEXT
+// ─────────────────────────────────────────────────────────────
+const ORG_ID = getParam('org_id');
+const ORG_CODE = getParam('org_code');
+const BRANCH_ID = getParam('branch_id');
+const USER_ID = getParam('user_id');
+const USER_NAME = getParam('name') || getParam('email') || 'Admin';
+const RETURN_PAGE = getParam('return_page');
+
+let EMPLOYEES = [];
+let selectedEmpId = null;
+let capturedBlob = null;
+let capturedDataUrl = null;
+let currentFilter = 'all';
+let cameraStream = null;
+let isCameraOpen = false;
+
+const STATUS_LABELS = {
+  registered: 'Done ✓',
+  pending: 'Pending',
+  failed: 'Failed',
+  notregistered: 'Not Reg'
+};
+const STATUS_CLASSES = {
+  registered: 'done',
+  pending: 'pending',
+  failed: 'failed',
+  notregistered: 'notregistered'
+};
+const STATUS_FULL = {
+  registered: 'Registered ✓',
+  pending: 'Pending',
+  failed: 'Failed',
+  notregistered: 'Not Registered'
+};
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+function getParam(name) {
+  return new URLSearchParams(location.search).get(name);
+}
+
+function esc(str) {
+  if (str === null || str === undefined || str === '') return '—';
+  return String(str).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+}
+
+function cleanText(str) {
+  return (str || '').toString().trim();
+}
+
+function getInitials(name) {
+  name = cleanText(name);
+  if (!name) return '--';
+  return name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+function showToast(msg, isErr = false) {
+  const old = document.querySelector('.toast');
+  if (old) old.remove();
+  const t = document.createElement('div');
+  t.className = 'toast' + (isErr ? ' error' : '');
+  t.innerText = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function assertSupabaseReady() {
+  if (!sb) {
+    showToast('Supabase client load nahi hua. CDN ya config check karo.', true);
+    return false;
+  }
+  if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
+    showToast('SUPABASE_ANON_KEY paste karo, tab data fetch hoga.', true);
+    return false;
+  }
+  if (!ORG_ID) {
+    showToast('URL me org_id missing hai.', true);
+    return false;
+  }
+  return true;
+}
+
+function normalizeFaceStatus(row) {
+  const st = (row.face_status || '').toLowerCase();
+  if (st === 'registered' || row.registered === true || row.face_image_url) return 'registered';
+  if (st === 'pending') return 'pending';
+  if (st === 'failed') return 'failed';
+  return 'notregistered';
+}
+
+function isOwnerCompanyRow(e) {
+  const id = String(e.id || '');
+  const empCode = String(e.emp_code || '').toLowerCase().trim();
+  const name = String(e.full_name || '').toLowerCase().trim();
+  const email = String(e.email || '').toLowerCase().trim();
+  const mobile = String(e.mobile || '').trim();
+  const employeeType = String(e.employee_type || '').toLowerCase().trim();
+  const urlEmail = String(getParam('email') || '').toLowerCase().trim();
+  const urlMobile = String(getParam('mobile') || '').trim();
+
+  // Jo current owner/company user URL se screen open kar raha hai, usko list me mat dikhao.
+  if (USER_ID && id === String(USER_ID)) return true;
+
+  // Company/owner placeholder rows ko hide karo.
+  if (employeeType === 'owner' || employeeType === 'company_owner' || employeeType === 'company') return true;
+  if (empCode === 'owner' || empCode === 'company' || empCode === 'admin-owner') return true;
+  if (name === 'owner' || name === 'company' || name.includes('company owner') || name.includes('owner company')) return true;
+
+  // Agar owner ki email/mobile employees table me company/admin placeholder row ke roop me save hai to hide karo.
+  const sameLoginEmail = email && urlEmail && email === urlEmail;
+  const sameLoginMobile = mobile && urlMobile && mobile === urlMobile;
+  if ((sameLoginEmail || sameLoginMobile) && (employeeType.includes('admin') || employeeType.includes('owner') || employeeType.includes('company') || name.includes('owner') || name.includes('company'))) {
+    return true;
+  }
+
+  return false;
+}
+
+function getStatusBadge(status) {
+  const label = STATUS_LABELS[status] || status;
+  const cls = STATUS_CLASSES[status] || 'notregistered';
+  return `<span class="status-badge-sm ${cls}">${label}</span>`;
+}
+
+function getStatusBadgeFull(status) {
+  const label = STATUS_FULL[status] || status;
+  const cls = STATUS_CLASSES[status] || 'notregistered';
+  return `<span class="status-badge ${cls}" id="detailStatusBadge">${label}</span>`;
+}
+
+function getStatusRing(status) {
+  const cls = STATUS_CLASSES[status] || 'notregistered';
+  return `<span class="status-ring ${cls}"></span>`;
+}
+
+function setCameraStatus(text, color = '') {
+  document.getElementById('cameraStatus').innerHTML = `<span class="dot ${color}"></span> ${esc(text)}`;
+}
+
+function setLoadingList(msg) {
+  document.getElementById('empList').innerHTML =
+    `<div style="padding:1.5rem;text-align:center;color:#5b8a82;font-size:.8rem;">
+      <i class="fas fa-spinner fa-spin" style="display:block;font-size:1.5rem;margin-bottom:.4rem;"></i>${esc(msg)}
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// DATA LOAD FROM SUPABASE
+// ─────────────────────────────────────────────────────────────
+async function loadEmployeesFromSupabase() {
+  if (!assertSupabaseReady()) return;
+
+  setLoadingList('Loading employees...');
+
+  try {
+    // 400 error fix:
+    // Pehle full columns try hota hai. Agar kisi DB me org_code/profile_pic_url/designation
+    // column missing ho, to automatic minimal select fallback chalega.
+    let empRows = [];
+    let empErr = null;
+
+    const employeeSelects = [
+      // Tumhare employees table me org_code aur role column nahi hai, isliye yaha use nahi kiya gaya.
+      'id,org_id,branch_id,emp_code,full_name,email,mobile,department,designation,employee_type,profile_pic_url,active',
+      'id,org_id,branch_id,emp_code,full_name,email,mobile,department,designation,employee_type,active',
+      'id,org_id,branch_id,emp_code,full_name,email,mobile,department,designation,active',
+      'id,org_id,branch_id,emp_code,full_name,email,mobile,department,active',
+      'id,org_id,branch_id,emp_code,full_name,email,mobile,active',
+      'id,org_id,branch_id,emp_code,full_name,active'
+    ];
+
+    for (const sel of employeeSelects) {
+      let q = sb
+        .from('employees')
+        .select(sel)
+        .eq('org_id', ORG_ID)
+        .order('full_name', { ascending: true });
+
+      // active column agar available hai tab filter safe hai. Agar active missing hua to fallback select me bhi error aayega.
+      if (sel.includes('active')) q = q.eq('active', true);
+      if (BRANCH_ID && sel.includes('branch_id')) q = q.eq('branch_id', BRANCH_ID);
+
+      const res = await q;
+      if (!res.error) {
+        empRows = res.data || [];
+        empErr = null;
+        break;
+      }
+      empErr = res.error;
+      console.warn('employees select fallback failed:', sel, res.error);
+    }
+
+    if (empErr) throw empErr;
+
+    const employeeOnlyRows = (empRows || []).filter(e => !isOwnerCompanyRow(e));
+    const empIds = employeeOnlyRows.map(e => e.id).filter(Boolean);
+    let faceRows = [];
+
+    if (empIds.length) {
+      // Face table/columns mismatch hone par page crash nahi karega.
+      const faceSelects = [
+        'id,org_id,branch_id,employee_id,face_image_url,face_storage_path,face_status,registered,registered_at,updated_at',
+        'id,org_id,branch_id,employee_id,face_image_url,face_status,registered,registered_at,updated_at',
+        'id,org_id,employee_id,face_image_url,registered,registered_at',
+        'id,employee_id,face_image_url,registered,registered_at'
+      ];
+
+      for (const sel of faceSelects) {
+        let fq = sb
+          .from('employee_face_registration')
+          .select(sel)
+          .in('employee_id', empIds);
+
+        if (sel.includes('org_id')) fq = fq.eq('org_id', ORG_ID);
+
+        const fres = await fq;
+        if (!fres.error) {
+          faceRows = fres.data || [];
+          break;
+        }
+        console.warn('face select fallback failed:', sel, fres.error);
+      }
+    }
+
+    const faceMap = new Map(faceRows.map(f => [f.employee_id, f]));
+
+    EMPLOYEES = employeeOnlyRows.map(e => {
+      const f = faceMap.get(e.id) || {};
+      const status = normalizeFaceStatus(f);
+      return {
+        id: e.id,
+        org_id: e.org_id || ORG_ID,
+        org_code: e.org_code || ORG_CODE || '',
+        branch_id: e.branch_id || BRANCH_ID || null,
+        emp_code: e.emp_code || '',
+        name: e.full_name || e.emp_code || e.email || 'Unnamed',
+        dept: e.department || e.designation || '—',
+        designation: e.designation || '',
+        email: e.email || '',
+        mobile: e.mobile || '',
+        employee_type: e.employee_type || '',
+        profile_pic_url: e.profile_pic_url || '',
+        faceRowId: f.id || null,
+        faceStatus: status,
+        registeredAt: f.registered_at ? String(f.registered_at).slice(0, 10) : null,
+        faceImage: f.face_image_url || null,
+        faceStoragePath: f.face_storage_path || null
+      };
+    });
+
+    renderEmployeeList();
+    if (EMPLOYEES.length) {
+      const still = EMPLOYEES.find(e => e.id === selectedEmpId);
+      selectEmployee(still ? still.id : EMPLOYEES[0].id);
+    } else {
+      selectedEmpId = null;
+      clearDetails();
+      showToast('Is org/branch me active employee nahi mila.', true);
+    }
+  } catch (err) {
+    console.error('loadEmployeesFromSupabase full error:', JSON.stringify(err, null, 2));
+    console.error('loadEmployeesFromSupabase object:', err);
+    setLoadingList('Employees load failed');
+    showToast((err && (err.message || err.details || err.hint || err.code)) || 'Employees load failed', true);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────
+function getFilteredEmployees() {
+  const search = document.getElementById('empSearch').value.toLowerCase().trim();
+  let filtered = EMPLOYEES.slice();
+
+  if (search) {
+    filtered = filtered.filter(e =>
+      String(e.name).toLowerCase().includes(search) ||
+      String(e.dept).toLowerCase().includes(search) ||
+      String(e.designation).toLowerCase().includes(search) ||
+      String(e.email).toLowerCase().includes(search) ||
+      String(e.emp_code).toLowerCase().includes(search)
+    );
+  }
+
+  if (currentFilter === 'done') {
+    filtered = filtered.filter(e => e.faceStatus === 'registered');
+  } else if (currentFilter === 'pending') {
+    filtered = filtered.filter(e => e.faceStatus === 'pending');
+  } else if (currentFilter === 'notregistered') {
+    filtered = filtered.filter(e => e.faceStatus === 'notregistered' || e.faceStatus === 'failed');
+  }
+
+  return filtered;
+}
+
+function renderEmployeeList() {
+  const container = document.getElementById('empList');
+  const filtered = getFilteredEmployees();
+
+  const total = EMPLOYEES.length;
+  const registered = EMPLOYEES.filter(e => e.faceStatus === 'registered').length;
+  const pending = EMPLOYEES.filter(e => e.faceStatus === 'pending').length;
+  const notReg = EMPLOYEES.filter(e => e.faceStatus === 'notregistered' || e.faceStatus === 'failed').length;
+
+  document.getElementById('footerStats').innerHTML = `
+    <span class="stat-item">👤 Total: <span class="num">${total}</span></span>
+    <span class="stat-item">✅ Done: <span class="num green">${registered}</span></span>
+    <span class="stat-item">⏳ Pending: <span class="num yellow">${pending}</span></span>
+    <span class="stat-item">❌ Not Reg: <span class="num red">${notReg}</span></span>
+  `;
+
+  if (filtered.length === 0) {
+    container.innerHTML =
+      '<div style="padding:1.5rem;text-align:center;color:#5b8a82;font-size:.8rem;"><i class="fas fa-search" style="display:block;font-size:1.5rem;margin-bottom:.4rem;"></i>No employees found</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(emp => {
+    const active = emp.id === selectedEmpId ? 'active' : '';
+    return `
+      <div class="emp-item ${active}" data-id="${esc(emp.id)}">
+        <div class="avatar">${esc(getInitials(emp.name))}</div>
+        <div class="info">
+          <div class="name">${esc(emp.name)}</div>
+          <div class="dept">${esc(emp.emp_code)} · ${esc(emp.dept)}</div>
+        </div>
+        ${getStatusBadge(emp.faceStatus)}
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.emp-item').forEach(el => {
+    el.addEventListener('click', () => selectEmployee(el.dataset.id));
+  });
+}
+
+function clearDetails() {
+  document.getElementById('detailAvatar').innerHTML = `-- ${getStatusRing('notregistered')}`;
+  document.getElementById('detailName').textContent = 'No employee found';
+  document.getElementById('detailMeta').textContent = 'Check org_id / branch_id / employees table';
+  document.getElementById('detailStatusBadge').outerHTML = getStatusBadgeFull('notregistered');
+  document.getElementById('registerFaceBtn').style.display = 'none';
+  document.getElementById('reRegisterBtn').style.display = 'none';
+  document.getElementById('viewFaceBtn').style.display = 'none';
+  document.getElementById('removeFaceBtn').style.display = 'none';
+}
+
+function selectEmployee(id) {
+  selectedEmpId = id;
+  const emp = EMPLOYEES.find(e => e.id === id);
+  if (!emp) return;
+
+  stopCamera();
+  capturedBlob = null;
+  capturedDataUrl = null;
+  renderEmployeeList();
+
+  document.getElementById('detailAvatar').innerHTML = `${esc(getInitials(emp.name))}${getStatusRing(emp.faceStatus)}`;
+  document.getElementById('detailName').textContent = emp.name;
+  document.getElementById('detailMeta').textContent =
+    `${emp.emp_code || '—'} · ${emp.dept || '—'} · ${emp.email || emp.mobile || '—'}` +
+    (emp.registeredAt ? ` · Registered: ${emp.registeredAt}` : '');
+
+  document.getElementById('detailStatusBadge').outerHTML = getStatusBadgeFull(emp.faceStatus);
+
+  const isRegistered = emp.faceStatus === 'registered';
+  document.getElementById('registerFaceBtn').style.display = isRegistered ? 'none' : 'inline-flex';
+  document.getElementById('reRegisterBtn').style.display = isRegistered ? 'inline-flex' : 'none';
+  document.getElementById('viewFaceBtn').style.display = isRegistered ? 'inline-flex' : 'none';
+  document.getElementById('removeFaceBtn').style.display = isRegistered ? 'inline-flex' : 'none';
+
+  resetCameraUiForEmployee(emp);
+}
+
+function resetCameraUiForEmployee(emp) {
+  document.getElementById('videoPreview').style.display = 'none';
+  document.getElementById('canvasPreview').style.display = 'none';
+  document.getElementById('captureBtn').style.display = 'inline-flex';
+  document.getElementById('captureBtn').disabled = false;
+  document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera"></i> Capture';
+  document.getElementById('registerBtn').style.display = 'none';
+  document.getElementById('registerBtn').disabled = false;
+  document.getElementById('registerBtn').innerHTML = '<i class="fas fa-check"></i> Register Face';
+  document.getElementById('cancelCaptureBtn').style.display = 'none';
+  document.getElementById('faceOverlay').style.display = 'block';
+
+  const ph = document.getElementById('cameraPlaceholder');
+  ph.style.display = 'block';
+
+  if (emp.faceStatus === 'registered' && emp.faceImage) {
+    ph.innerHTML = `
+      <img class="preview-img" src="${esc(emp.faceImage)}" alt="Face" />
+      <div class="text" style="color:rgba(255,255,255,.8);">Face Registered ✓</div>
+      <div class="sub">Registered on ${esc(emp.registeredAt || 'N/A')}</div>
+    `;
+    setCameraStatus('Registered', 'green');
+  } else if (emp.faceStatus === 'registered') {
+    ph.innerHTML = `
+      <i class="fas fa-check-circle" style="color:#4ade80;"></i>
+      <div class="text" style="color:rgba(255,255,255,.8);">Face Registered ✓</div>
+      <div class="sub">Registered on ${esc(emp.registeredAt || 'N/A')}</div>
+    `;
+    setCameraStatus('Registered', 'green');
+  } else if (emp.faceStatus === 'failed') {
+    ph.innerHTML = `
+      <i class="fas fa-times-circle" style="color:#ef4444;"></i>
+      <div class="text" style="color:rgba(255,255,255,.8);">Registration Failed</div>
+      <div class="sub">Please capture again</div>
+    `;
+    setCameraStatus('Failed', 'red');
+  } else {
+    ph.innerHTML = `
+      <i class="fas fa-user"></i>
+      <div class="text">Ready for Registration</div>
+      <div class="sub">Click Capture to open camera</div>
+    `;
+    setCameraStatus('Ready');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// CAMERA
+// ─────────────────────────────────────────────────────────────
+async function startCamera() {
+  const emp = EMPLOYEES.find(e => e.id === selectedEmpId);
+  if (!emp) {
+    showToast('Please select an employee first.', true);
+    return;
+  }
+
+  try {
+    stopCamera();
+    capturedBlob = null;
+    capturedDataUrl = null;
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 720 } },
+      audio: false
+    });
+
+    cameraStream = stream;
+    isCameraOpen = true;
+
+    const video = document.getElementById('videoPreview');
+    video.srcObject = stream;
+    video.style.display = 'block';
+
+    document.getElementById('canvasPreview').style.display = 'none';
+    document.getElementById('cameraPlaceholder').style.display = 'none';
+    document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera"></i> Take Photo';
+    document.getElementById('captureBtn').disabled = false;
+    document.getElementById('cancelCaptureBtn').style.display = 'inline-flex';
+    document.getElementById('registerBtn').style.display = 'none';
+    document.getElementById('faceOverlay').style.display = 'block';
+    setCameraStatus('Camera Live', 'green');
+  } catch (err) {
+    console.error('camera error:', err);
+    showToast('Camera permission allow karo. HTTPS/live server par open karo.', true);
+    setCameraStatus('Camera Error', 'red');
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('videoPreview');
+  const canvas = document.getElementById('canvasPreview');
+
+  if (!cameraStream || !isCameraOpen) {
+    startCamera();
+    return;
+  }
+
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 720;
+  canvas.width = w;
+  canvas.height = h;
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, w, h);
+
+  canvas.toBlob(blob => {
+    if (!blob) {
+      showToast('Photo capture failed.', true);
+      return;
+    }
+
+    capturedBlob = blob;
+    capturedDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+
+    stopCamera(false);
+
+    canvas.style.display = 'block';
+    document.getElementById('videoPreview').style.display = 'none';
+    document.getElementById('cameraPlaceholder').style.display = 'none';
+    document.getElementById('captureBtn').style.display = 'none';
+    document.getElementById('registerBtn').style.display = 'inline-flex';
+    document.getElementById('cancelCaptureBtn').style.display = 'inline-flex';
+    document.getElementById('faceOverlay').style.display = 'none';
+    setCameraStatus('Captured', 'green');
+    showToast('📸 Face captured. Register Face dabao.');
+  }, 'image/jpeg', 0.90);
+}
+
+function stopCamera(resetVideo = true) {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+  }
+  cameraStream = null;
+  isCameraOpen = false;
+  if (resetVideo) {
+    const video = document.getElementById('videoPreview');
+    video.srcObject = null;
+    video.style.display = 'none';
+  }
+}
+
+function cancelCapture() {
+  stopCamera();
+  capturedBlob = null;
+  capturedDataUrl = null;
+  const emp = EMPLOYEES.find(e => e.id === selectedEmpId);
+  if (emp) resetCameraUiForEmployee(emp);
+  showToast('Capture cancelled');
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUPABASE REGISTER / REMOVE
+// ─────────────────────────────────────────────────────────────
+async function registerFace() {
+  if (!assertSupabaseReady()) return;
+
+  const emp = EMPLOYEES.find(e => e.id === selectedEmpId);
+  if (!emp) {
+    showToast('Please select an employee.', true);
+    return;
+  }
+  if (!capturedBlob) {
+    showToast('Please capture face first.', true);
+    return;
+  }
+
+  const btn = document.getElementById('registerBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+  setCameraStatus('Uploading...', 'yellow');
+
+  try {
+    const filePath = `${ORG_ID}/${emp.id}/face_${Date.now()}.jpg`;
+
+    const { error: uploadErr } = await sb.storage
+      .from(FACE_BUCKET)
+      .upload(filePath, capturedBlob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (uploadErr) throw uploadErr;
+
+    const { data: publicData } = sb.storage.from(FACE_BUCKET).getPublicUrl(filePath);
+    const faceUrl = publicData && publicData.publicUrl ? publicData.publicUrl : null;
+
+    const payload = {
+      org_id: ORG_ID,
+      branch_id: emp.branch_id || BRANCH_ID || null,
+      employee_id: emp.id,
+      face_image_url: faceUrl,
+      face_storage_path: filePath,
+      face_status: 'registered',
+      registered: true,
+      registered_at: new Date().toISOString(),
+      registered_by: USER_ID || null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: upsertErr } = await sb
+      .from('employee_face_registration')
+      .upsert(payload, { onConflict: 'org_id,employee_id' });
+
+    if (upsertErr) throw upsertErr;
+
+    if (emp.faceStoragePath && emp.faceStoragePath !== filePath) {
+      try {
+        await sb.storage.from(FACE_BUCKET).remove([emp.faceStoragePath]);
+      } catch (e) {
+        console.warn('old face remove skipped:', e);
+      }
+    }
+
+    capturedBlob = null;
+    capturedDataUrl = null;
+    await loadEmployeesFromSupabase();
+    selectedEmpId = emp.id;
+    selectEmployee(emp.id);
+
+    showToast(`✅ Face registered for ${emp.name}`);
+  } catch (err) {
+    console.error('registerFace:', err);
+
+    try {
+      await sb.from('employee_face_registration').upsert({
+        org_id: ORG_ID,
+        branch_id: emp.branch_id || BRANCH_ID || null,
+        employee_id: emp.id,
+        face_status: 'failed',
+        registered: false,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'org_id,employee_id' });
+    } catch (_) {}
+
+    showToast(err.message || 'Face register failed', true);
+    setCameraStatus('Failed', 'red');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Register Face';
+  }
+}
+
+function reRegisterFace() {
+  const emp = EMPLOYEES.find(e => e.id === selectedEmpId);
+  if (!emp) return;
+  openConfirm({
+    title: 'Re-register Face',
+    icon: 'fas fa-sync',
+    sub: `Re-register face for ${emp.name}?`,
+    msg: 'Existing face image replace ho jayegi.',
+    actionText: 'Yes, Re-register',
+    actionClass: 'btn-confirm',
+    onConfirm: async () => {
+      await startCamera();
+    }
+  });
+}
+
+function removeFace() {
+  const emp = EMPLOYEES.find(e => e.id === selectedEmpId);
+  if (!emp) return;
+
+  openConfirm({
+    title: 'Remove Face',
+    icon: 'fas fa-trash',
+    sub: `Remove face data for ${emp.name}?`,
+    msg: 'Employee ko dobara face register karna padega.',
+    actionText: 'Yes, Remove',
+    actionClass: 'btn-danger',
+    onConfirm: async () => {
+      if (!assertSupabaseReady()) return;
+
+      try {
+        if (emp.faceStoragePath) {
+          const { error: storageErr } = await sb.storage.from(FACE_BUCKET).remove([emp.faceStoragePath]);
+          if (storageErr) console.warn('storage remove:', storageErr);
+        }
+
+        const { error } = await sb
+          .from('employee_face_registration')
+          .upsert({
+            org_id: ORG_ID,
+            branch_id: emp.branch_id || BRANCH_ID || null,
+            employee_id: emp.id,
+            face_image_url: null,
+            face_storage_path: null,
+            face_status: 'notregistered',
+            registered: false,
+            registered_at: null,
+            registered_by: USER_ID || null,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'org_id,employee_id' });
+
+        if (error) throw error;
+
+        await loadEmployeesFromSupabase();
+        selectedEmpId = emp.id;
+        selectEmployee(emp.id);
+        showToast(`🗑️ Face removed for ${emp.name}`);
+      } catch (err) {
+        console.error('removeFace:', err);
+        showToast(err.message || 'Face remove failed', true);
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// VIEW / EXPORT
+// ─────────────────────────────────────────────────────────────
+function viewFace() {
+  const emp = EMPLOYEES.find(e => e.id === selectedEmpId);
+  if (!emp || emp.faceStatus !== 'registered') {
+    showToast('No registered face found.', true);
+    return;
+  }
+
+  document.getElementById('viewSub').textContent = `${emp.name} · ${emp.dept}`;
+  document.getElementById('viewName').textContent = emp.name;
+  document.getElementById('viewDept').textContent = emp.dept;
+  document.getElementById('viewDate').textContent = emp.registeredAt || 'N/A';
+
+  const img = document.getElementById('viewFaceImage');
+  const placeholder = document.getElementById('viewPlaceholder');
+
+  if (emp.faceImage) {
+    img.src = emp.faceImage;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = 'flex';
+  }
+
+  document.getElementById('viewModal').classList.add('show');
+}
+
+function exportData() {
+  const header = ['Emp Code','Name','Department','Designation','Email','Mobile','Face Status','Registered Date'];
+  const rows = EMPLOYEES.map(e => [
+    e.emp_code,
+    e.name,
+    e.dept,
+    e.designation,
+    e.email,
+    e.mobile,
+    STATUS_FULL[e.faceStatus] || e.faceStatus,
+    e.registeredAt || 'N/A'
+  ]);
+
+  const csv = [header, ...rows]
+    .map(row => row.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `face_registration_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📊 Exported successfully!');
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODAL
+// ─────────────────────────────────────────────────────────────
+function openConfirm({ title, icon, sub, msg, actionText, actionClass, onConfirm }) {
+  document.getElementById('confirmTitle').innerHTML = `<i class="${esc(icon)}"></i> ${esc(title)}`;
+  document.getElementById('confirmSub').textContent = sub;
+  document.getElementById('confirmMsg').textContent = msg;
+  const action = document.getElementById('confirmAction');
+  action.textContent = actionText;
+  action.className = actionClass || 'btn-confirm';
+  document.getElementById('confirmModal').classList.add('show');
+
+  action.onclick = async function() {
+    document.getElementById('confirmModal').classList.remove('show');
+    action.onclick = null;
+    await onConfirm();
+  };
+}
+
+function closeModals() {
+  document.getElementById('confirmModal').classList.remove('show');
+  document.getElementById('viewModal').classList.remove('show');
+}
+
+// ─────────────────────────────────────────────────────────────
+// EVENTS
+// ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-group button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.filter-group button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentFilter = this.dataset.filter;
+    renderEmployeeList();
+
+    const filtered = getFilteredEmployees();
+    if (filtered.length && !filtered.some(e => e.id === selectedEmpId)) {
+      selectEmployee(filtered[0].id);
+    }
+  });
+});
+
+document.getElementById('empSearch').addEventListener('input', function() {
+  renderEmployeeList();
+});
+
+document.getElementById('backBtn').addEventListener('click', function() {
+  stopCamera();
+  if (RETURN_PAGE) {
+    const params = new URLSearchParams(location.search);
+    location.href = `${RETURN_PAGE}?${params.toString()}`;
+  } else if (history.length > 1) {
+    history.back();
+  } else {
+    location.href = `admin.html${location.search || ''}`;
+  }
+});
+
+document.getElementById('refreshBtn').addEventListener('click', async function() {
+  showToast('🔄 Refreshing...');
+  await loadEmployeesFromSupabase();
+  showToast('✅ Refreshed');
+});
+
+document.getElementById('captureBtn').addEventListener('click', capturePhoto);
+document.getElementById('cancelCaptureBtn').addEventListener('click', cancelCapture);
+document.getElementById('registerBtn').addEventListener('click', registerFace);
+document.getElementById('registerFaceBtn').addEventListener('click', startCamera);
+document.getElementById('reRegisterBtn').addEventListener('click', reRegisterFace);
+document.getElementById('viewFaceBtn').addEventListener('click', viewFace);
+document.getElementById('removeFaceBtn').addEventListener('click', removeFace);
+document.getElementById('exportBtn').addEventListener('click', exportData);
+
+document.getElementById('viewClose').addEventListener('click', () => document.getElementById('viewModal').classList.remove('show'));
+document.getElementById('viewModal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('show'); });
+document.getElementById('confirmCancel').addEventListener('click', () => document.getElementById('confirmModal').classList.remove('show'));
+document.getElementById('confirmModal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('show'); });
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeModals();
+    if (isCameraOpen || capturedBlob) cancelCapture();
+  }
+  if (e.ctrlKey && e.key.toLowerCase() === 'r') {
+    e.preventDefault();
+    document.getElementById('refreshBtn').click();
+  }
+});
+
+window.addEventListener('beforeunload', stopCamera);
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadEmployeesFromSupabase();
+});
+</script>
+</body>
+</html>

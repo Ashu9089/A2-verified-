@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Face Attendance · OrgConnect</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+    body{background:radial-gradient(ellipse at 20% 30%,#0f2f2c,#051c1a);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .attendance-card{width:100%;max-width:920px;background:rgba(255,255,255,.97);backdrop-filter:blur(14px);border-radius:2.4rem;box-shadow:0 30px 90px rgba(0,0,0,.45);border:1px solid rgba(220,235,231,.4);padding:2rem;max-height:98vh;overflow-y:auto}
+    .attendance-card::-webkit-scrollbar{width:4px}.attendance-card::-webkit-scrollbar-thumb{background:#b8d5ce;border-radius:9px}
+    .att-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem}
+    .att-header .left{display:flex;align-items:center;gap:12px}.back-btn{background:#f0f8f6;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;color:#1e3a3a;font-size:.9rem}.back-btn:hover{background:#e0efeb}
+    .att-header h2{font-size:1.2rem;font-weight:800;color:#1e3a3a;display:flex;align-items:center;gap:10px}.att-header h2 i{color:#1f6e68}.att-header .sub{font-size:.65rem;color:#5b8a82;margin-top:2px}
+    .user-badge{display:flex;align-items:center;gap:8px;padding:.3rem .8rem .3rem .6rem;background:#f0f8f6;border-radius:2rem;border:1px solid #e0efeb}.user-badge .avatar{width:32px;height:32px;border-radius:50%;background:#1f6e68;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.7rem}.user-badge .name{font-size:.78rem;font-weight:600;color:#1e3a3a}.user-badge .role{font-size:.55rem;color:#5b8a82}
+    .date-time-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.6rem 1rem;background:#f6fbfa;border-radius:1.2rem;border:1px solid #e0efeb;margin-bottom:1.2rem}.date-time-bar .date{font-weight:600;color:#1e3a3a;font-size:.85rem;display:flex;align-items:center;gap:6px}.date-time-bar .date i{color:#1f6e68}.date-time-bar .time{font-weight:800;color:#1f6e68;font-size:1.1rem;font-variant-numeric:tabular-nums}.status-pill{font-size:.65rem;font-weight:700;padding:.2rem 1rem;border-radius:999px}.present{background:#e0f2ed;color:#0f7b5c}.absent{background:#fee2e2;color:#991b1b}.late{background:#fef3c7;color:#92400e}.leave{background:#dbeafe;color:#1e40af}.weeklyoff{background:#e8eaf6;color:#283593}.blocked{background:#fee2e2;color:#991b1b}
+    .camera-box{background:#0f2f2c;border-radius:1.6rem;border:1px solid #e0efeb;overflow:hidden;position:relative;min-height:400px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a3a35,#0a1a18);margin-bottom:1.2rem}
+    #videoPreview,#canvasPreview{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:cover;display:none;position:absolute;inset:0;z-index:0}.camera-placeholder{text-align:center;color:rgba(255,255,255,.3);z-index:1;padding:1rem}.camera-placeholder i{font-size:4.5rem;display:block;margin-bottom:.5rem}.camera-placeholder .text{font-size:.9rem;font-weight:500;color:rgba(255,255,255,.6)}.camera-placeholder .sub{font-size:.65rem;opacity:.65;max-width:520px}.scan-status{margin-top:.6rem;padding:.3rem 1.2rem;border-radius:999px;font-size:.7rem;font-weight:700;display:inline-block}.scan-status.scanning{background:rgba(245,158,11,.3);color:#fbbf24;animation:pulse-glow 1s ease-in-out infinite}.scan-status.success{background:rgba(15,123,92,.3);color:#4ade80}.scan-status.failed{background:rgba(185,28,28,.3);color:#f87171}.scan-status.idle{background:rgba(255,255,255,.08);color:rgba(255,255,255,.65)}@keyframes pulse-glow{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.02)}}
+    .face-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:240px;border:2px dashed rgba(255,255,255,.15);border-radius:1.2rem;pointer-events:none;animation:pulse-border 2.5s ease-in-out infinite;z-index:1}.face-overlay.scanning{border-color:rgba(245,158,11,.5);animation:pulse-border-scan .8s ease-in-out infinite}.face-overlay.success{border-color:rgba(74,222,128,.6);animation:none;background:rgba(74,222,128,.05)}.face-overlay.failed{border-color:rgba(248,113,113,.6);animation:none;background:rgba(248,113,113,.05)}@keyframes pulse-border{0%,100%{border-color:rgba(255,255,255,.12);box-shadow:0 0 30px rgba(31,110,104,0)}50%{border-color:rgba(31,110,104,.4);box-shadow:0 0 40px rgba(31,110,104,.1)}}@keyframes pulse-border-scan{0%,100%{border-color:rgba(245,158,11,.5);box-shadow:0 0 30px rgba(245,158,11,.1)}50%{border-color:rgba(245,158,11,.8);box-shadow:0 0 50px rgba(245,158,11,.2)}}
+    .scan-progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.05);z-index:2;overflow:hidden;display:none}.scan-progress.active{display:block}.scan-progress .bar{height:100%;background:linear-gradient(90deg,#f59e0b,#4ade80);width:0%;transition:width .3s;border-radius:0 2px 2px 0}.camera-status{position:absolute;top:1rem;right:1rem;padding:.2rem 1rem;border-radius:999px;font-size:.6rem;font-weight:700;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);color:rgba(255,255,255,.7);z-index:2;display:flex;align-items:center;gap:6px}.dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pulse-dot 1.5s ease-in-out infinite}.dot.yellow{background:#f59e0b;animation:pulse-dot .8s ease-in-out infinite}.dot.red{background:#ef4444;animation:none}@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+    .camera-controls{position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;gap:.8rem;z-index:2;flex-wrap:wrap;justify-content:center}.camera-controls button{padding:.6rem 2rem;border-radius:2rem;border:none;font-weight:700;font-size:.85rem;cursor:pointer;transition:.25s;display:flex;align-items:center;gap:8px}.btn-scan{background:#1f6e68;color:white;box-shadow:0 4px 16px rgba(31,110,104,.3)}.btn-scan:hover{background:#0f4a44;transform:scale(1.04);box-shadow:0 6px 24px rgba(31,110,104,.4)}.btn-scan:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}.btn-scan.done{background:#0f7b5c}.btn-reset{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);backdrop-filter:blur(4px)}.btn-reset:hover{background:rgba(255,255,255,.2)}
+    .info-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-bottom:1.2rem}.info-item{background:#f9fdfc;border-radius:1.2rem;padding:.6rem .8rem;border:1px solid #e0efeb;text-align:center}.info-item .label{font-size:.6rem;font-weight:600;color:#5b8a82;text-transform:uppercase;letter-spacing:.3px}.info-item .value{font-weight:800;color:#1e3a3a;font-size:1.05rem;margin-top:2px}.info-item .value.green{color:#0f7b5c}.info-item .value.red{color:#991b1b}.info-item .value.yellow{color:#92400e}.info-item .value.blue{color:#1e40af}.info-item .value.gray{color:#6b7280}.info-item .value.small{font-size:.82rem}
+    .check-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-bottom:1.2rem}.check-item{background:#f6fbfa;border:1px solid #e0efeb;border-radius:1rem;padding:.55rem .75rem;font-size:.72rem;color:#1e3a3a}.check-item strong{display:block;font-size:.6rem;text-transform:uppercase;color:#5b8a82;margin-bottom:2px}.check-item.ok{border-color:#bbf7d0;background:#f0fdf4}.check-item.bad{border-color:#fecaca;background:#fff1f2}.check-item.warn{border-color:#fde68a;background:#fffbeb}.geo-detail-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin:-.6rem 0 1.2rem}.geo-detail{background:#fff;border:1px solid #e0efeb;border-radius:1rem;padding:.55rem .75rem;text-align:center}.geo-detail .label{font-size:.58rem;font-weight:700;color:#5b8a82;text-transform:uppercase}.geo-detail .value{font-size:.9rem;font-weight:900;color:#1e3a3a;margin-top:2px}.geo-detail .value.green{color:#0f7b5c}.geo-detail .value.red{color:#991b1b}.geo-detail .value.yellow{color:#92400e}.geo-detail small{font-size:.58rem;color:#6b7280}
+    .history-section{background:#f9fdfc;border-radius:1.4rem;border:1px solid #e0efeb;padding:.8rem 1rem}.history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}.history-header .title{font-weight:700;font-size:.8rem;color:#1e3a3a;display:flex;align-items:center;gap:6px}.history-header .title i{color:#1f6e68}.badge-count{font-size:.6rem;font-weight:700;padding:.1rem .8rem;border-radius:999px;background:#f0f8f6;color:#5b8a82}.history-list{display:flex;flex-direction:column;gap:.3rem;max-height:160px;overflow-y:auto}.history-item{display:flex;justify-content:space-between;align-items:center;padding:.35rem .6rem;border-radius:.8rem;background:white;border:1px solid #eef5f3;font-size:.75rem}.history-item .left{display:flex;align-items:center;gap:8px}.history-item .icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem}.icon.in{background:#e0f2ed;color:#0f7b5c}.icon.out{background:#fee2e2;color:#991b1b}.icon.late{background:#fef3c7;color:#92400e}.history-item .time{font-weight:600;color:#1e3a3a}.history-item .type{font-size:.6rem;color:#5b8a82;margin-left:4px}.status-tag{font-size:.55rem;font-weight:700;padding:.1rem .6rem;border-radius:999px}.history-empty{text-align:center;padding:1rem .5rem;color:#b8d5ce;font-size:.75rem}.history-empty i{display:block;font-size:1.5rem;margin-bottom:.3rem}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a5e58;color:white;padding:10px 24px;border-radius:40px;font-size:.82rem;font-weight:500;box-shadow:0 8px 28px rgba(0,0,0,.20);z-index:9999;max-width:90%;text-align:center;backdrop-filter:blur(4px)}.toast.error{background:#b91c1c}.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:5000;padding:1.5rem}.modal-overlay.show{display:flex}.modal-box{background:white;border-radius:2rem;padding:2rem;max-width:460px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.4);animation:fadeUp .25s ease;text-align:center}@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.icon-big{font-size:3.5rem;display:block;margin-bottom:.5rem}.icon-big.success{color:#0f7b5c}.icon-big.failed{color:#991b1b}.icon-big.info{color:#1f6e68}.modal-box h3{font-size:1.2rem;color:#1e3a3a;margin-bottom:.3rem}.modal-box .sub{font-size:.85rem;color:#5b8a82;margin-bottom:.6rem}.modal-box .detail{font-size:.8rem;color:#1e3a3a;background:#f9fdfc;padding:.6rem 1rem;border-radius:1rem;border:1px solid #e0efeb;margin:.6rem 0;line-height:1.6}.modal-actions{display:flex;gap:.6rem;margin-top:1rem;justify-content:center}.modal-actions button{padding:.4rem 1.6rem;border-radius:2rem;border:none;font-weight:600;font-size:.8rem;cursor:pointer;transition:.2s}.modal-actions .btn-primary{background:#1f6e68;color:white}
+    @media(max-width:640px){.attendance-card{padding:1.2rem;border-radius:1.6rem;max-height:none}.att-header h2{font-size:1rem}.user-badge .name{font-size:.7rem}.user-badge .role{display:none}.camera-box{min-height:330px}.face-overlay{width:150px;height:180px}.camera-placeholder i{font-size:3rem}.camera-controls button{padding:.4rem 1.2rem;font-size:.7rem}.info-panel,.check-panel,.geo-detail-panel{grid-template-columns:1fr 1fr}.date-time-bar{flex-direction:column;align-items:stretch;text-align:center}.date-time-bar .time{font-size:.95rem}.history-item{font-size:.7rem}}
+    @media(max-width:400px){body{padding:.6rem}.attendance-card{padding:.8rem;border-radius:1.2rem}.info-panel,.check-panel,.geo-detail-panel{grid-template-columns:1fr}.att-header h2{font-size:.9rem}.face-overlay{width:120px;height:150px}.camera-controls{bottom:1rem}.camera-controls button{padding:.3rem .8rem;font-size:.65rem}}
+  </style>
+</head>
+<body>
+  <div class="attendance-card">
+    <div class="att-header">
+      <div class="left">
+        <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i></button>
+        <div>
+          <h2><i class="fas fa-user-circle"></i> Face Attendance</h2>
+          <div class="sub">Roster + Geofence + Registered face check</div>
+        </div>
+      </div>
+      <div class="right">
+        <div class="user-badge">
+          <div class="avatar" id="userAvatar">--</div>
+          <div class="info"><div class="name" id="userName">Loading...</div><div class="role" id="userRole">Please wait</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="date-time-bar">
+      <div class="date"><i class="fas fa-calendar-alt"></i> <span id="currentDate">--</span></div>
+      <div class="time" id="currentTime">--:--:--</div>
+      <span class="status-pill absent" id="todayStatus">Loading</span>
+    </div>
+
+    <div class="camera-box" id="cameraBox">
+      <video id="videoPreview" autoplay playsinline muted></video>
+      <canvas id="canvasPreview"></canvas>
+      <div class="camera-placeholder" id="cameraPlaceholder">
+        <i class="fas fa-user-circle"></i>
+        <div class="text">Loading attendance checks...</div>
+        <div class="sub">Employee, roster, location and face registration checking</div>
+        <div class="scan-status idle" id="scanStatus">Ready</div>
+      </div>
+      <div class="face-overlay" id="faceOverlay"></div>
+      <div class="scan-progress" id="scanProgress"><div class="bar" id="scanBar"></div></div>
+      <div class="camera-status" id="cameraStatus"><span class="dot"></span> Ready</div>
+      <div class="camera-controls">
+        <button class="btn-scan" id="scanBtn" disabled><i class="fas fa-camera"></i> Scan Face</button>
+        <button class="btn-reset" id="resetBtn" style="display:none;"><i class="fas fa-undo"></i> Reset</button>
+        <button class="btn-reset" id="locRefreshBtn"><i class="fas fa-location-crosshairs"></i> Location</button>
+      </div>
+    </div>
+
+    <div class="check-panel">
+      <div class="check-item warn" id="faceCheck"><strong>Face</strong><span>Checking...</span></div>
+      <div class="check-item warn" id="rosterCheck"><strong>Roster</strong><span>Checking...</span></div>
+      <div class="check-item warn" id="geoCheck"><strong>Location</strong><span>Checking...</span></div>
+    </div>
+
+    <div class="geo-detail-panel">
+      <div class="geo-detail"><div class="label">Allowed Radius</div><div class="value" id="allowedRadiusValue">--</div><small id="geoSourceValue">Company/Branch</small></div>
+      <div class="geo-detail"><div class="label">Emp Distance</div><div class="value" id="empDistanceValue">--</div><small id="empDistanceSub">Waiting GPS</small></div>
+      <div class="geo-detail"><div class="label">GPS Accuracy</div><div class="value" id="gpsAccuracyValue">--</div><small id="gpsAccuracySub">Best reading</small></div>
+    </div>
+
+    <div class="info-panel">
+      <div class="info-item"><div class="label">Today's Status</div><div class="value gray" id="todayStatusValue">Loading</div></div>
+      <div class="info-item"><div class="label">Punch In</div><div class="value" id="punchInTime">--:--</div></div>
+      <div class="info-item"><div class="label">Punch Out</div><div class="value" id="punchOutTime">--:--</div></div>
+    </div>
+
+    <div class="history-section">
+      <div class="history-header"><div class="title"><i class="fas fa-clock"></i> Today's Activity</div><span class="badge-count" id="historyCount">0 entries</span></div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="resultModal">
+    <div class="modal-box">
+      <span class="icon-big" id="resultIcon">✅</span>
+      <h3 id="resultTitle">Attendance Marked!</h3>
+      <div class="sub" id="resultSub">Face verified successfully</div>
+      <div class="detail" id="resultDetail"></div>
+      <div class="modal-actions"><button class="btn-primary" id="resultOk">OK</button></div>
+    </div>
+  </div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// SUPABASE CONFIG
+// ─────────────────────────────────────────────────────────────
+const SUPABASE_URL = window.SUPABASE_URL || 'https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const FACE_BUCKET = 'employee-face';
+const ATTENDANCE_FACE_BUCKET = 'employee-face'; // same bucket, attendance folder me save hoga
+
+function getParam(name){ return new URLSearchParams(location.search).get(name); }
+const ORG_ID = getParam('org_id');
+const ORG_CODE = getParam('org_code');
+const BRANCH_ID = getParam('branch_id');
+const EMP_ID_PARAM = getParam('emp_id') || getParam('employee_id');
+const EMP_CODE_PARAM = getParam('emp_code');
+const USER_ID = getParam('user_id');
+const USER_NAME_PARAM = getParam('name') || getParam('email') || '';
+const RETURN_PAGE = getParam('return_page');
+const ROLE = (getParam('role') || getParam('actual_role') || '').toLowerCase();
+
+let sb = null;
+try{
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global:{headers:{'x-org-id':ORG_ID || '', 'x-org-code':ORG_CODE || ''}}
+  });
+}catch(e){ console.error(e); }
+
+let employee = null;
+let organization = null;
+let roster = null;
+let todayAttendance = null;
+let faceRegistration = null;
+let currentLocation = null;
+let currentDistance = null;
+let geofence = null;
+let cameraStream = null;
+let capturedBlob = null;
+let isScanning = false;
+
+function todayISO(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function esc(str){ if(str===null||str===undefined||str==='')return '—'; return String(str).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function clean(str){ return (str||'').toString().trim(); }
+function initials(name){ name=clean(name); if(!name)return '--'; return name.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function showToast(msg,isErr=false){ const old=document.querySelector('.toast'); if(old)old.remove(); const t=document.createElement('div'); t.className='toast'+(isErr?' error':''); t.innerText=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3500); }
+function assertReady(){
+  if(!sb){ showToast('Supabase client load nahi hua.', true); return false; }
+  if(!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('PASTE_YOUR')){ showToast('SUPABASE_ANON_KEY paste karo.', true); return false; }
+  if(!ORG_ID){ showToast('URL me org_id missing hai.', true); return false; }
+  return true;
+}
+function setCheck(id, type, text){ const el=document.getElementById(id); el.className='check-item '+type; el.querySelector('span').innerHTML=text; }
+function setScanStatus(text, cls='idle'){ const el=document.getElementById('scanStatus'); el.className='scan-status '+cls; el.textContent=text; }
+function setCameraStatus(text, color=''){ document.getElementById('cameraStatus').innerHTML=`<span class="dot ${color}"></span> ${esc(text)}`; }
+function fmtTime(v){
+  if(!v) return '--:--';
+  try{ return new Date(v).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return String(v).slice(0,5); }
+}
+function parseTimeToday(t){
+  if(!t) return null;
+  const [hh,mm,ss] = String(t).split(':').map(Number);
+  const d = new Date(); d.setHours(hh||0, mm||0, ss||0, 0); return d;
+}
+function haversineMeters(lat1, lon1, lat2, lon2){
+  const R=6371000, toRad=x=>x*Math.PI/180;
+  const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function safeNum(v){ const n=Number(v); return Number.isFinite(n)?n:null; }
+function round1(n){ const x=Number(n); return Number.isFinite(x) ? Math.round(x*10)/10 : null; }
+function getAllowedRadius(){
+  const r = Number(geofence && geofence.radius);
+  return Number.isFinite(r) && r > 0 ? r : 50;
+}
+function setText(id, value){ const el=document.getElementById(id); if(el) el.textContent=value; }
+function updateGeoDetails(){
+  const radius = getAllowedRadius();
+  const src = geofence ? (geofence.source === 'branch' ? 'Branch' : 'Company') : 'Company/Branch';
+  const branchName = geofence && geofence.branch_name ? ` · ${geofence.branch_name}` : '';
+  setText('allowedRadiusValue', `${Math.round(radius)}m`);
+  setText('geoSourceValue', `${src}${branchName}`);
+
+  if(currentDistance !== null && currentDistance !== undefined){
+    const ok = Number(currentDistance) <= radius;
+    const val = document.getElementById('empDistanceValue');
+    if(val){ val.textContent = `${Math.round(Number(currentDistance))}m`; val.className = 'value ' + (ok ? 'green' : 'red'); }
+    setText('empDistanceSub', ok ? 'Inside allowed radius' : 'Outside allowed radius');
+  }else{
+    const val = document.getElementById('empDistanceValue');
+    if(val){ val.textContent='--'; val.className='value'; }
+    setText('empDistanceSub','Waiting GPS');
+  }
+
+  if(currentLocation && currentLocation.accuracy !== undefined){
+    const acc = Math.round(Number(currentLocation.accuracy)||0);
+    const val = document.getElementById('gpsAccuracyValue');
+    if(val){ val.textContent = `${acc}m`; val.className = 'value ' + (acc <= 30 ? 'green' : acc <= 80 ? 'yellow' : 'red'); }
+    setText('gpsAccuracySub', acc <= 30 ? 'Good GPS' : acc <= 80 ? 'Average GPS' : 'Low accuracy');
+  }else{
+    const val = document.getElementById('gpsAccuracyValue');
+    if(val){ val.textContent='--'; val.className='value'; }
+    setText('gpsAccuracySub','Best reading');
+  }
+}
+function shortTime(v){ return v ? String(v).slice(0,5) : '--'; }
+function rosterText(r){ if(!r) return 'Aaj ka roster nahi mila'; return `${esc(r.shift_name||r.shift||'Shift')} ${esc(shortTime(r.shift_start||r.start_time||r.start))}-${esc(shortTime(r.shift_end||r.end_time||r.end))}`; }
+function geoText(){
+  if(!geofence){
+    updateGeoDetails();
+    return 'Company/branch location missing';
+  }
+
+  const src = geofence.source === 'branch' ? 'Branch' : 'Company';
+  const radius = getAllowedRadius();
+  const branchLabel = geofence.branch_name ? ` · ${geofence.branch_name}` : '';
+  updateGeoDetails();
+
+  if(!currentLocation || currentDistance === null || currentDistance === undefined){
+    return `${src}${branchLabel} allowed radius: ${Math.round(radius)}m<br><small>Employee GPS distance pending</small>`;
+  }
+
+  const dist = Math.round(Number(currentDistance));
+  const acc = Math.round(Number(currentLocation.accuracy)||0);
+  const ok = dist <= radius;
+  return `${ok ? 'Inside' : 'Outside'}: Emp distance ${dist}m / Allowed ${Math.round(radius)}m<br><small>${src}${branchLabel} · GPS accuracy ${acc}m · Branch lat/lng ${Number(geofence.lat).toFixed(6)}, ${Number(geofence.lng).toFixed(6)}</small>`;
+}
+
+function updateDateTime(){
+  const now=new Date();
+  document.getElementById('currentDate').textContent = now.toLocaleDateString('en-IN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+async function trySelect(table, selects, build){
+  let lastErr=null;
+  for(const sel of selects){
+    try{
+      let q=sb.from(table).select(sel);
+      q=build(q, sel);
+      const res=await q;
+      if(!res.error) return res.data || [];
+      lastErr=res.error;
+      console.warn(table,'select failed:', sel, res.error);
+    }catch(e){ lastErr=e; console.warn(table,'select exception:', sel, e); }
+  }
+  if(lastErr) throw lastErr;
+  return [];
+}
+
+async function loadEmployee(){
+  const selects=[
+    'id,org_id,branch_id,emp_code,full_name,email,mobile,department,designation,employee_type,active',
+    'id,org_id,branch_id,emp_code,full_name,email,mobile,department,designation,active',
+    'id,org_id,branch_id,emp_code,full_name,email,mobile,department,active',
+    'id,org_id,branch_id,emp_code,full_name,email,mobile,active',
+    'id,org_id,branch_id,emp_code,full_name,active'
+  ];
+  const rows=await trySelect('employees', selects, (q,sel)=>{
+    q=q.eq('org_id', ORG_ID);
+    if(EMP_ID_PARAM) q=q.eq('id', EMP_ID_PARAM);
+    else if(EMP_CODE_PARAM) q=q.eq('emp_code', decodeURIComponent(EMP_CODE_PARAM));
+    else if(USER_ID) q=q.eq('id', USER_ID);
+    if(sel.includes('active')) q=q.eq('active', true);
+    return q.limit(1);
+  });
+  if(!rows.length) throw new Error('Employee nahi mila. URL me emp_id ya emp_code bhejo. Owner user_id ko employee mat mano.');
+  const e=rows[0];
+  employee={
+    id:e.id, org_id:e.org_id||ORG_ID, branch_id:e.branch_id||BRANCH_ID, emp_code:e.emp_code||EMP_CODE_PARAM||'',
+    name:e.full_name||e.emp_code||USER_NAME_PARAM||'Employee', email:e.email||'', mobile:e.mobile||'', dept:e.department||e.designation||'—', designation:e.designation||'', employee_type:e.employee_type||''
+  };
+  document.getElementById('userAvatar').textContent=initials(employee.name);
+  document.getElementById('userName').textContent=employee.name;
+  document.getElementById('userRole').textContent=`${employee.emp_code||'—'} · ${employee.dept||'—'}`;
+}
+
+function firstValue(row, keys){
+  if(!row) return null;
+  for(const k of keys){
+    if(row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+  }
+  return null;
+}
+function firstNumber(row, keys){
+  const v = firstValue(row, keys);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+function geofenceFromRow(row, source){
+  if(!row) return null;
+
+  // IMPORTANT:
+  // Tumhare DB me branch location org_branches table me hai:
+  // id, org_id, branch_code, branch_name, address, city, state, lat, lng, radius_meters, active
+  // Isliye lat/lng/radius_meters ko highest priority diya gaya hai.
+  const lat = firstNumber(row, [
+    'lat','latitude','geo_lat','org_lat','company_lat','branch_lat','location_lat','attendance_lat','gps_lat'
+  ]);
+  const lng = firstNumber(row, [
+    'lng','lon','long','longitude','geo_lng','geo_long','org_lng','org_long','company_lng','company_long',
+    'branch_lng','branch_long','location_lng','location_long','attendance_lng','gps_lng'
+  ]);
+
+  // Radius ko default 100 se overwrite nahi karna. Agar DB me radius_meters = 50 hai,
+  // yahi value show hogi. Default sirf tab lagega jab radius blank/null ho.
+  let radius = firstNumber(row, [
+    'radius_meters','radius_meter','radius','geo_radius','geo_radius_meters','attendance_radius',
+    'attendance_radius_meters','range_meters','location_radius','location_radius_meters'
+  ]);
+  if(radius === null || radius <= 0) radius = 50; // safe default, but DB value gets priority
+
+  if(lat === null || lng === null) return null;
+
+  return {
+    lat,
+    lng,
+    radius,
+    branch_name: firstValue(row, ['branch_name','name','location_name']) || '',
+    branch_code: firstValue(row, ['branch_code','code']) || '',
+    address: firstValue(row, ['address','branch_address','location','geo_address']) || '',
+    source,
+    raw: row
+  };
+}
+
+async function loadBranchGeofence(){
+  // First priority: org_branches, because user confirmed:
+  // org_branches(id,org_id,branch_code,branch_name,address,city,state,lat,lng,radius_meters,active,created_at,updated_at)
+  const tableAttempts = ['org_branches', 'branches'];
+  let lastErr = null;
+
+  for(const table of tableAttempts){
+    try{
+      let q = sb.from(table).select('*').eq('org_id', ORG_ID);
+
+      if(BRANCH_ID){
+        q = q.eq('id', BRANCH_ID);
+      }
+
+      // active column exists in org_branches. If branches table does not have active, fallback below will catch error.
+      if(table === 'org_branches') q = q.eq('active', true);
+
+      const res = await q.limit(1);
+      if(!res.error && res.data && res.data.length){
+        console.log('Geofence loaded from', table, res.data[0]);
+        return res.data[0];
+      }
+
+      if(res.error){
+        lastErr = res.error;
+        console.warn(table, 'geofence load failed:', res.error);
+      }
+
+      // If branch_id exact did not match, try same table without branch id but active org branch.
+      if(BRANCH_ID){
+        let q2 = sb.from(table).select('*').eq('org_id', ORG_ID);
+        if(table === 'org_branches') q2 = q2.eq('active', true);
+        const res2 = await q2.limit(1);
+        if(!res2.error && res2.data && res2.data.length){
+          console.log('Geofence loaded from', table, 'without branch_id strict filter', res2.data[0]);
+          return res2.data[0];
+        }
+        if(res2.error){
+          lastErr = res2.error;
+          console.warn(table, 'geofence fallback without branch_id failed:', res2.error);
+        }
+      }
+    }catch(e){
+      lastErr = e;
+      console.warn(table, 'geofence exception:', e);
+    }
+  }
+
+  if(lastErr) console.warn('No branch geofence found. last error:', lastErr);
+  return null;
+}
+async function loadOrganization(){
+  // IMPORTANT: select('*') use kiya hai taki missing columns (org_code/lat/lng/radius_meters/address)
+  // ki wajah se 400 Bad Request na aaye. Columns ko neeche multiple possible names se read kiya ja raha hai.
+  let rows = [];
+  try{
+    rows = await trySelect('organizations', ['*'], (q,sel)=>q.eq('id', ORG_ID).limit(1));
+  }catch(e){
+    console.warn('organizations select(*) by id failed:', e);
+    rows = [];
+  }
+  if(!rows.length && ORG_CODE){
+    try{
+      rows = await trySelect('organizations', ['*'], (q,sel)=>q.eq('org_code', ORG_CODE).limit(1));
+    }catch(e){
+      console.warn('organizations select(*) by org_code failed:', e);
+      rows = [];
+    }
+  }
+
+  organization = rows[0] || { id: ORG_ID, org_code: ORG_CODE || '' };
+  geofence = geofenceFromRow(organization, 'organization');
+
+  // Agar company/org table me lat-lng nahi hai to branch table se location/radius lo.
+  if(!geofence){
+    const branchRow = await loadBranchGeofence();
+    const branchGeo = geofenceFromRow(branchRow, 'branch');
+    if(branchGeo){
+      geofence = branchGeo;
+      organization.branch_geofence = branchRow;
+    }
+  }
+
+  if(!rows.length && !geofence){
+    throw new Error('Organization/branch location nahi mila. Org RLS ya location columns check karo.');
+  }
+}
+
+async function loadFaceRegistration(){
+  const selects=[
+    'id,org_id,employee_id,face_image_url,face_storage_path,face_status,registered,registered_at',
+    'id,org_id,employee_id,face_image_url,face_status,registered,registered_at',
+    'id,employee_id,face_image_url,registered,registered_at'
+  ];
+  try{
+    const rows=await trySelect('employee_face_registration', selects, (q,sel)=>{
+      q=q.eq('employee_id', employee.id);
+      if(sel.includes('org_id')) q=q.eq('org_id', ORG_ID);
+      return q.limit(1);
+    });
+    faceRegistration=rows[0]||null;
+  }catch(e){ console.warn('face registration unavailable:', e); faceRegistration=null; }
+  const ok = !!(faceRegistration && (faceRegistration.registered===true || faceRegistration.face_status==='registered' || faceRegistration.face_image_url));
+  setCheck('faceCheck', ok?'ok':'bad', ok?'Registered face found':'Face not registered');
+  return ok;
+}
+
+async function loadRoster(){
+  const d=todayISO();
+  roster=null;
+
+  // Roster table/column fallback. Tumhare DB me generally "rosters" table hai,
+  // lekin agar column names different hon to ye variants try karega.
+  const tableNames=['rosters','employee_rosters','employee_roster','staff_rosters'];
+  const dateCols=['roster_date','date','duty_date','shift_date'];
+  const empCols=['employee_id','emp_id'];
+  const branchCols=['branch_id'];
+
+  let lastErr=null;
+  for(const table of tableNames){
+    for(const dateCol of dateCols){
+      for(const empCol of empCols){
+        try{
+          let q=sb.from(table).select('*').eq('org_id',ORG_ID).eq(empCol,employee.id).eq(dateCol,d);
+          if(BRANCH_ID) q=q.eq('branch_id',BRANCH_ID);
+          const res=await q.limit(1);
+          if(!res.error && res.data && res.data.length){
+            roster=res.data[0];
+            roster.roster_date = roster.roster_date || roster.date || roster.duty_date || roster.shift_date || d;
+            roster.shift_start = roster.shift_start || roster.start_time || roster.start || roster.roster_start;
+            roster.shift_end = roster.shift_end || roster.end_time || roster.end || roster.roster_end;
+            roster.shift_name = roster.shift_name || roster.shift || roster.shift_type || 'Shift';
+            break;
+          }
+          if(res.error) lastErr=res.error;
+        }catch(e){ lastErr=e; }
+      }
+      if(roster) break;
+    }
+    if(roster) break;
+  }
+
+  // Branch strict filter ki wajah se roster miss ho sakta hai, isliye branch filter ke bina ek aur try.
+  if(!roster){
+    for(const table of tableNames){
+      for(const dateCol of dateCols){
+        for(const empCol of empCols){
+          try{
+            const res=await sb.from(table).select('*').eq('org_id',ORG_ID).eq(empCol,employee.id).eq(dateCol,d).limit(1);
+            if(!res.error && res.data && res.data.length){
+              roster=res.data[0];
+              roster.roster_date = roster.roster_date || roster.date || roster.duty_date || roster.shift_date || d;
+              roster.shift_start = roster.shift_start || roster.start_time || roster.start || roster.roster_start;
+              roster.shift_end = roster.shift_end || roster.end_time || roster.end || roster.roster_end;
+              roster.shift_name = roster.shift_name || roster.shift || roster.shift_type || 'Shift';
+              break;
+            }
+          }catch(e){ lastErr=e; }
+        }
+        if(roster) break;
+      }
+      if(roster) break;
+    }
+  }
+
+  if(roster){
+    setCheck('rosterCheck','ok',`${rosterText(roster)}<br><small>${esc(todayISO())}</small>`);
+  }else{
+    console.warn('roster not found. last error:', lastErr);
+    setCheck('rosterCheck','bad',`Aaj ka roster nahi mila<br><small>${esc(todayISO())} · emp ${esc(employee.emp_code||employee.id)}</small>`);
+  }
+  return !!roster;
+}
+
+async function loadTodayAttendance(){
+  const d=todayISO();
+  const selects=[
+    'id,org_id,branch_id,employee_id,attendance_date,punch_in,punch_out,punch_in_time,punch_out_time,status,is_late,late_minutes,worked_minutes,worked_hours,remarks,roster_id,leave_type',
+    'id,org_id,employee_id,attendance_date,punch_in,punch_out,status,is_late,late_minutes,worked_minutes,worked_hours,remarks,roster_id,leave_type',
+    'id,employee_id,attendance_date,punch_in,punch_out,status,is_late,late_minutes,worked_minutes,worked_hours'
+  ];
+  try{
+    const rows=await trySelect('attendance', selects, (q,sel)=>{
+      q=q.eq('org_id',ORG_ID).eq('employee_id',employee.id).eq('attendance_date',d);
+      if(BRANCH_ID && sel.includes('branch_id')) q=q.eq('branch_id',BRANCH_ID);
+      return q.order('created_at',{ascending:false}).limit(1);
+    });
+    todayAttendance=rows[0]||null;
+  }catch(e){ console.warn('attendance load error:', e); todayAttendance=null; }
+}
+
+function getOneGeoPosition(timeout=12000){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation) return reject(new Error('Geolocation browser me supported nahi hai.'));
+    navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout,maximumAge:0});
+  });
+}
+
+async function getBestGeoPosition(){
+  // Mobile GPS kabhi-kabhi pehli reading galat deta hai. Isliye 3 readings lekar
+  // sabse kam accuracy meter wali reading use ki ja rahi hai.
+  const readings=[];
+  let lastErr=null;
+  for(let i=0;i<3;i++){
+    try{
+      setCheck('geoCheck','warn',`GPS reading ${i+1}/3...<br><small>Allowed ${Math.round(getAllowedRadius())}m</small>`);
+      const pos=await getOneGeoPosition(i===0 ? 15000 : 10000);
+      readings.push(pos);
+      if(pos.coords && Number(pos.coords.accuracy) <= 25) break;
+      await new Promise(r=>setTimeout(r,700));
+    }catch(e){ lastErr=e; }
+  }
+  if(!readings.length) throw lastErr || new Error('Location permission required');
+  readings.sort((a,b)=>(Number(a.coords.accuracy)||999999)-(Number(b.coords.accuracy)||999999));
+  return readings[0];
+}
+
+async function checkLocation(){
+  if(!geofence || geofence.lat===null || geofence.lng===null){
+    currentLocation=null;
+    currentDistance=null;
+    updateGeoDetails();
+    setCheck('geoCheck','bad','Company/branch lat-lng missing<br><small>org_branches me lat, lng, radius_meters save karo</small>');
+    return false;
+  }
+
+  setCheck('geoCheck','warn',geoText());
+  try{
+    const pos=await getBestGeoPosition();
+    currentLocation={
+      lat:Number(pos.coords.latitude),
+      lng:Number(pos.coords.longitude),
+      accuracy:Number(pos.coords.accuracy),
+      timestamp:pos.timestamp || Date.now()
+    };
+    currentDistance=Math.round(haversineMeters(currentLocation.lat,currentLocation.lng,Number(geofence.lat),Number(geofence.lng)));
+    const radius = getAllowedRadius();
+    const ok=currentDistance <= radius;
+    setCheck('geoCheck', ok?'ok':'bad', geoText());
+    updateGeoDetails();
+    return ok;
+  }catch(e){
+    console.warn('location error:',e);
+    currentLocation=null;
+    currentDistance=null;
+    updateGeoDetails();
+    setCheck('geoCheck','bad','Location permission required<br><small>Browser location allow karo. Mobile me GPS ON rakho.</small>');
+    return false;
+  }
+}
+
+function attendanceState(){
+  if(!todayAttendance) return {status:'absent', label:'Not Punched', value:'Not Punched', cls:'red', action:'punch_in'};
+  const st=(todayAttendance.status||'').toLowerCase();
+  if(st.includes('leave')) return {status:'leave', label:'Leave', value:'Leave', cls:'blue', action:'blocked'};
+  if(st.includes('holiday')) return {status:'weeklyoff', label:'Holiday', value:'Holiday', cls:'blue', action:'blocked'};
+  if(todayAttendance.punch_in && !todayAttendance.punch_out) return {status: todayAttendance.is_late?'late':'present', label: todayAttendance.is_late?'Late':'Present', value:'Punch In Done', cls: todayAttendance.is_late?'yellow':'green', action:'punch_out'};
+  if(todayAttendance.punch_in && todayAttendance.punch_out) return {status:'present', label:'Completed', value:'Completed', cls:'green', action:'done'};
+  return {status:st||'absent', label:st||'Not Punched', value:st||'Not Punched', cls:'red', action:'punch_in'};
+}
+
+function renderHistory(){
+  const entries=[];
+  if(todayAttendance && todayAttendance.punch_in){
+    entries.push({type:todayAttendance.is_late?'late':'in',time:fmtTime(todayAttendance.punch_in),label:todayAttendance.is_late?'Late Punch In':'Punch In',status:todayAttendance.is_late?'late':'present'});
+  }
+  if(todayAttendance && todayAttendance.punch_out){
+    entries.push({type:'out',time:fmtTime(todayAttendance.punch_out),label:'Punch Out',status:'present'});
+  }
+  const cont=document.getElementById('historyList');
+  document.getElementById('historyCount').textContent=`${entries.length} entries`;
+  if(!entries.length){ cont.innerHTML=`<div class="history-empty"><i class="fas fa-clock"></i>No activity yet today</div>`; return; }
+  cont.innerHTML=entries.map(e=>{
+    const icon=e.type==='out'?'fa-sign-out-alt':e.type==='late'?'fa-hourglass-start':'fa-sign-in-alt';
+    const lab=e.status==='late'?'Late':'Present';
+    return `<div class="history-item"><div class="left"><div class="icon ${e.type}"><i class="fas ${icon}"></i></div><div class="text"><span class="time">${esc(e.time)}</span><span class="type">${esc(e.label)}</span></div></div><span class="status-tag ${e.status}">${lab}</span></div>`;
+  }).join('');
+}
+
+function updateUI(){
+  const s=attendanceState();
+  const pill=document.getElementById('todayStatus');
+  pill.className=`status-pill ${s.status}`;
+  pill.textContent=s.label;
+  const val=document.getElementById('todayStatusValue');
+  val.className=`value ${s.cls}`;
+  val.textContent=s.value;
+  document.getElementById('punchInTime').textContent=fmtTime(todayAttendance && todayAttendance.punch_in);
+  document.getElementById('punchOutTime').textContent=fmtTime(todayAttendance && todayAttendance.punch_out);
+  renderHistory();
+  updateScanButton();
+}
+
+function checksReady(){
+  const faceOk=!!(faceRegistration && (faceRegistration.registered===true || faceRegistration.face_status==='registered' || faceRegistration.face_image_url));
+  const rosterOk=!!roster;
+  const geoOk=!!(currentLocation && currentDistance!==null && geofence && currentDistance <= (Number.isFinite(Number(geofence.radius)) ? Number(geofence.radius) : 50));
+  return {faceOk,rosterOk,geoOk,all:faceOk&&rosterOk&&geoOk};
+}
+function updateScanButton(){
+  const btn=document.getElementById('scanBtn');
+  const s=attendanceState();
+  const c=checksReady();
+  if(s.action==='done'){
+    btn.innerHTML='<i class="fas fa-check"></i> Attendance Completed'; btn.className='btn-scan done'; btn.disabled=true; setScanStatus('Completed','success'); return;
+  }
+  if(s.action==='blocked'){
+    btn.innerHTML='<i class="fas fa-ban"></i> Blocked'; btn.disabled=true; setScanStatus('Blocked','failed'); return;
+  }
+  if(!c.all){
+    btn.innerHTML='<i class="fas fa-triangle-exclamation"></i> Check Failed'; btn.disabled=true; setScanStatus('Check Failed','failed'); return;
+  }
+  btn.innerHTML = s.action==='punch_out' ? '<i class="fas fa-sign-out-alt"></i> Punch Out Face' : '<i class="fas fa-camera"></i> Scan Face';
+  btn.className='btn-scan'; btn.disabled=false; setScanStatus('Ready','idle');
+}
+
+async function initData(){
+  if(!assertReady()) return;
+  setCameraStatus('Loading','yellow');
+  try{
+    await loadEmployee();
+    await loadOrganization();
+    updateGeoDetails();
+    setCheck('geoCheck', geofence?'warn':'bad', geoText());
+    await loadFaceRegistration();
+    await loadRoster();
+    await loadTodayAttendance();
+    updateUI();
+    await checkLocation();
+    updateUI();
+    setCameraStatus('Ready','green');
+    const c=checksReady();
+    if(!c.faceOk) setPlaceholder('Face not registered','Admin se pehle face register karwayein.','❌');
+    else if(!c.rosterOk) setPlaceholder('Roster not found','Aaj employee ka roster nahi mila. Attendance blocked.','❌');
+    else if(!c.geoOk) setPlaceholder('Out of range',`${geoText().replace(/<[^>]*>/g,' ')}`,'❌');
+    else setPlaceholder('Position your face in the center','Roster aur location verified. Scan Face dabao.','');
+  }catch(e){
+    console.error('initData error:', e);
+    setCameraStatus('Error','red');
+    setPlaceholder('Load failed', e.message || 'Supabase data load failed', '❌');
+    showToast(e.message || 'Data load failed', true);
+  }
+}
+function setPlaceholder(text, sub, icon){
+  const ph=document.getElementById('cameraPlaceholder');
+  ph.style.display='block';
+  ph.querySelector('i').className = icon==='❌' ? 'fas fa-circle-exclamation' : icon==='✅' ? 'fas fa-circle-check' : 'fas fa-user-circle';
+  ph.querySelector('.text').textContent=text;
+  ph.querySelector('.sub').textContent=sub;
+}
+
+async function startCamera(){
+  try{
+    stopCamera(); capturedBlob=null;
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:720}},audio:false});
+    cameraStream=stream;
+    const video=document.getElementById('videoPreview');
+    video.srcObject=stream; video.style.display='block';
+    document.getElementById('canvasPreview').style.display='none';
+    document.getElementById('cameraPlaceholder').style.display='none';
+    document.getElementById('faceOverlay').className='face-overlay scanning';
+    setCameraStatus('Camera Live','green');
+    return true;
+  }catch(e){ console.error(e); showToast('Camera allow karo. HTTPS/live server use karo.', true); return false; }
+}
+function stopCamera(){ if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); } cameraStream=null; const v=document.getElementById('videoPreview'); v.srcObject=null; }
+function captureFrame(){
+  return new Promise(resolve=>{
+    const video=document.getElementById('videoPreview');
+    const canvas=document.getElementById('canvasPreview');
+    const w=video.videoWidth||640, h=video.videoHeight||720;
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').drawImage(video,0,0,w,h);
+    canvas.toBlob(blob=>{ capturedBlob=blob; resolve(blob); }, 'image/jpeg', .88);
+  });
+}
+async function uploadAttendanceFace(action){
+  if(!capturedBlob) return null;
+  const path=`${ORG_ID}/${employee.id}/attendance/${todayISO()}_${action}_${Date.now()}.jpg`;
+  try{
+    const {error}=await sb.storage.from(ATTENDANCE_FACE_BUCKET).upload(path,capturedBlob,{contentType:'image/jpeg',cacheControl:'3600',upsert:true});
+    if(error){ console.warn('attendance face upload skipped:', error); return null; }
+    const {data}=sb.storage.from(ATTENDANCE_FACE_BUCKET).getPublicUrl(path);
+    return data && data.publicUrl ? data.publicUrl : null;
+  }catch(e){ console.warn('uploadAttendanceFace error:', e); return null; }
+}
+
+async function scanFace(){
+  if(isScanning) return;
+  const c=checksReady();
+  if(!c.all){ showToast('Face, roster aur location check pass nahi hua.', true); return; }
+  const state=attendanceState();
+  if(state.action==='done' || state.action==='blocked'){ showToast('Attendance action allowed nahi hai.', true); return; }
+
+  isScanning=true;
+  document.getElementById('scanBtn').disabled=true;
+  document.getElementById('scanBtn').innerHTML='<i class="fas fa-spinner fa-spin"></i> Scanning...';
+  document.getElementById('scanProgress').className='scan-progress active';
+  document.getElementById('scanBar').style.width='0%';
+  setScanStatus('🔍 Scanning...','scanning');
+  setCameraStatus('Scanning','yellow');
+
+  const camOk=await startCamera();
+  if(!camOk){ isScanning=false; updateScanButton(); return; }
+  let progress=0;
+  const timer=setInterval(()=>{ progress=Math.min(100,progress+8); document.getElementById('scanBar').style.width=progress+'%'; },100);
+  await new Promise(r=>setTimeout(r,1600));
+  clearInterval(timer); document.getElementById('scanBar').style.width='100%';
+  await captureFrame();
+  stopCamera();
+
+  try{
+    await saveAttendance(state.action);
+    document.getElementById('faceOverlay').className='face-overlay success';
+    setScanStatus('✅ Verified','success');
+    setCameraStatus('Verified','green');
+  }catch(e){
+    console.error('saveAttendance error:', e);
+    document.getElementById('faceOverlay').className='face-overlay failed';
+    setScanStatus('❌ Failed','failed');
+    setCameraStatus('Failed','red');
+    showResult(false, 'Attendance save failed', e.message || 'Supabase error');
+    showToast(e.message || 'Attendance save failed', true);
+  }finally{
+    isScanning=false;
+    document.getElementById('scanProgress').className='scan-progress';
+    updateScanButton();
+  }
+}
+
+function calcLate(now){
+  if(!roster || !roster.shift_start) return {isLate:false,lateMinutes:0};
+  const start=parseTimeToday(roster.shift_start);
+  if(!start) return {isLate:false,lateMinutes:0};
+  const diff=Math.floor((now-start)/60000);
+  return {isLate:diff>0, lateMinutes:Math.max(0,diff)};
+}
+async function saveAttendance(action){
+  const now=new Date();
+  const nowIso=now.toISOString();
+  const faceUrl=await uploadAttendanceFace(action);
+  const late=calcLate(now);
+  const d=todayISO();
+
+  if(action==='punch_in'){
+    const payload={
+      org_id:ORG_ID, branch_id:employee.branch_id||BRANCH_ID||null, employee_id:employee.id, roster_id:roster.id||null,
+      org_code:ORG_CODE||null, emp_code:employee.emp_code||null, employee_name:employee.name||null, email:employee.email||null, mobile:employee.mobile||null,
+      attendance_date:d, punch_in:nowIso, punch_in_time:now.toTimeString().slice(0,8),
+      punch_in_lat:currentLocation.lat, punch_in_lng:currentLocation.lng, punch_in_distance_meters:currentDistance,
+      status:late.isLate?'late':'present', is_late:late.isLate, late_minutes:late.lateMinutes,
+      source:'face_attendance', attendance_source:'face_attendance', correction_source:'face_attendance',
+      remarks: faceUrl ? `Face attendance punch in. image=${faceUrl}` : 'Face attendance punch in',
+      department:employee.dept||null, designation:employee.designation||null,
+      created_by:USER_ID||employee.id, updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
+      updated_by_name:employee.name, updated_by_emp_code:employee.emp_code||null, updated_at:nowIso
+    };
+    await insertAttendanceWithFallback(payload);
+    await loadTodayAttendance();
+    showResult(true, late.isLate?'Late Punch In Marked':'Punch In Marked', `<strong>Punch In:</strong> ${fmtTime(nowIso)}<br><strong>Roster:</strong> ${esc(roster.shift_name||'Shift')} ${esc(String(roster.shift_start||'').slice(0,5))}<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Status:</strong> ${late.isLate?'Late ('+late.lateMinutes+' min)':'Present'}`);
+    showToast(`✅ Punch In saved at ${fmtTime(nowIso)}`);
+  } else if(action==='punch_out'){
+    if(!todayAttendance || !todayAttendance.id) throw new Error('Punch out ke liye pehle punch in record chahiye.');
+    const inDate=new Date(todayAttendance.punch_in);
+    const workedMinutes=Math.max(0,Math.floor((now-inDate)/60000));
+    const workedHours=Number((workedMinutes/60).toFixed(2));
+    const payload={
+      punch_out:nowIso, punch_out_time:now.toTimeString().slice(0,8),
+      punch_out_lat:currentLocation.lat, punch_out_lng:currentLocation.lng, punch_out_distance_meters:currentDistance,
+      worked_minutes:workedMinutes, worked_hours:workedHours, working_hours:workedHours,
+      status:todayAttendance.is_late?'late':'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
+      updated_by_name:employee.name, updated_by_emp_code:employee.emp_code||null, updated_at:nowIso,
+      remarks: faceUrl ? `Face attendance punch out. image=${faceUrl}` : 'Face attendance punch out'
+    };
+    await updateAttendanceWithFallback(todayAttendance.id, payload);
+    await loadTodayAttendance();
+    showResult(true, 'Punch Out Marked', `<strong>Punch Out:</strong> ${fmtTime(nowIso)}<br><strong>Worked:</strong> ${workedHours} hours<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m`);
+    showToast(`✅ Punch Out saved at ${fmtTime(nowIso)}`);
+  }
+  updateUI();
+}
+async function insertAttendanceWithFallback(payload){
+  const payloads=[payload, strip(payload,['org_code','employee_name','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']), strip(payload,['org_code','employee_name','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])];
+  let lastErr=null;
+  for(const p of payloads){
+    const {error}=await sb.from('attendance').insert(p);
+    if(!error) return;
+    console.warn('attendance insert fallback failed:', error, p); lastErr=error;
+  }
+  throw lastErr || new Error('Attendance insert failed');
+}
+async function updateAttendanceWithFallback(id,payload){
+  const payloads=[payload, strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
+  let lastErr=null;
+  for(const p of payloads){
+    const {error}=await sb.from('attendance').update(p).eq('id',id);
+    if(!error) return;
+    console.warn('attendance update fallback failed:', error, p); lastErr=error;
+  }
+  throw lastErr || new Error('Attendance update failed');
+}
+function strip(obj,keys){ const o={...obj}; keys.forEach(k=>delete o[k]); return o; }
+
+function showResult(success,title,detail){
+  const modal=document.getElementById('resultModal');
+  const icon=document.getElementById('resultIcon');
+  icon.className='icon-big '+(success?'success':'failed');
+  icon.textContent=success?'✅':'❌';
+  document.getElementById('resultTitle').textContent=title;
+  document.getElementById('resultSub').textContent=success?'Face + roster + location verified':'Please check issue';
+  document.getElementById('resultDetail').innerHTML=detail;
+  modal.classList.add('show');
+}
+function resetScan(){
+  document.getElementById('faceOverlay').className='face-overlay';
+  document.getElementById('scanProgress').className='scan-progress';
+  setCameraStatus('Ready','green');
+  setPlaceholder('Position your face in the center','Roster aur location verified. Scan Face dabao.','');
+  updateScanButton();
+}
+
+// Events
+document.getElementById('scanBtn').addEventListener('click',scanFace);
+document.getElementById('resetBtn').addEventListener('click',resetScan);
+document.getElementById('locRefreshBtn').addEventListener('click',async()=>{ showToast('📍 GPS best accuracy checking...'); await checkLocation(); updateUI(); });
+document.getElementById('resultOk').addEventListener('click',()=>document.getElementById('resultModal').classList.remove('show'));
+document.getElementById('resultModal').addEventListener('click',e=>{ if(e.target===e.currentTarget)e.currentTarget.classList.remove('show'); });
+document.getElementById('backBtn').addEventListener('click',()=>{
+  stopCamera();
+  if(RETURN_PAGE){ const params=new URLSearchParams(location.search); location.href=`${RETURN_PAGE}?${params.toString()}`; }
+  else if(history.length>1) history.back();
+  else location.href=`emp.html${location.search||''}`;
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!document.getElementById('scanBtn').disabled) scanFace(); if(e.key==='Escape')document.getElementById('resultModal').classList.remove('show'); });
+window.addEventListener('beforeunload',stopCamera);
+
+document.addEventListener('DOMContentLoaded',()=>{
+  updateDateTime(); setInterval(updateDateTime,1000);
+  initData();
+});
+</script>
+</body>
+</html>

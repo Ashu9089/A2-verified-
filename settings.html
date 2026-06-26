@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Company · OrgConnect</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        /* ── reset & base ── */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            background: radial-gradient(ellipse at 20% 30%, #0f2f2c, #051c1a);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        /* ── main card ── */
+        .company-card {
+            width: 100%;
+            max-width: 1024px;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(12px);
+            border-radius: 2.4rem;
+            padding: 2rem 2rem 1.8rem;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(220, 235, 231, 0.5);
+            transition: transform 0.2s ease;
+        }
+        .company-card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* ── header ── */
+        .company-header {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            margin-bottom: 1.6rem;
+            flex-wrap: wrap;
+        }
+        .company-avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1f6e68, #0f4a44);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2.2rem;
+            box-shadow: 0 8px 18px rgba(31, 110, 104, 0.25);
+            flex-shrink: 0;
+            cursor: default;
+        }
+        .company-title {
+            flex: 1;
+        }
+        .company-title h2 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #1e3a3a;
+            letter-spacing: -0.3px;
+            line-height: 1.2;
+        }
+        .company-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1rem;
+            margin-top: 4px;
+        }
+        .company-meta .meta-item {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #5b8a82;
+            background: #e7f5f2;
+            padding: 2px 12px;
+            border-radius: 999px;
+            letter-spacing: 0.3px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .company-meta .meta-item i {
+            font-size: 0.65rem;
+        }
+        .plan-badge {
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 4px 18px;
+            border-radius: 999px;
+            background: #d1e6e0;
+            color: #0f4a44;
+        }
+        .plan-badge.paid {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .plan-badge.free {
+            background: #d1e6e0;
+            color: #0f4a44;
+        }
+        .plan-badge.pro {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* ── QR code section ── */
+        .qr-section {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            background: #f6fbfa;
+            border-radius: 1.4rem;
+            padding: 0.6rem 1.2rem 0.6rem 1rem;
+            border: 1px solid #e0efeb;
+            margin-bottom: 1.2rem;
+            flex-wrap: wrap;
+        }
+        .qr-section .qr-code {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid #e0efeb;
+            overflow: hidden;
+        }
+        .qr-section .qr-code img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .qr-section .qr-info {
+            flex: 1;
+        }
+        .qr-section .qr-info .code-label {
+            font-size: 0.65rem;
+            color: #5b8a82;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .qr-section .qr-info .code-value {
+            font-weight: 700;
+            color: #1e3a3a;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .qr-section .qr-info .code-value button {
+            background: transparent;
+            border: none;
+            color: #1f6e68;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 2px 10px;
+            border-radius: 999px;
+            background: #e0efeb;
+            transition: 0.2s;
+        }
+        .qr-section .qr-info .code-value button:hover {
+            background: #1f6e68;
+            color: white;
+        }
+        .qr-section .qr-actions {
+            display: flex;
+            gap: 0.4rem;
+        }
+        .qr-section .qr-actions button {
+            background: white;
+            border: 1px solid #e0efeb;
+            border-radius: 999px;
+            padding: 4px 14px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #1e5a4c;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .qr-section .qr-actions button:hover {
+            background: #1f6e68;
+            color: white;
+            border-color: #1f6e68;
+        }
+
+        /* ── tabs ── */
+        .tabs {
+            display: flex;
+            gap: 0.2rem;
+            border-bottom: 2px solid #e0efeb;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+            padding-bottom: 0;
+            flex-wrap: nowrap;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: #5b8a82;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tab-btn i {
+            font-size: 0.85rem;
+        }
+        .tab-btn.active {
+            color: #1e5a4c;
+            border-bottom-color: #1f6e68;
+            background: rgba(31, 110, 104, 0.04);
+        }
+        .tab-btn:hover {
+            color: #1e5a4c;
+            background: rgba(31, 110, 104, 0.04);
+        }
+
+        /* ── tab content ── */
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── overview grid ── */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem 2rem;
+            margin-bottom: 1.2rem;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .info-item .label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #5b8a82;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-item .value {
+            font-weight: 600;
+            color: #1e3a3a;
+            font-size: 0.92rem;
+        }
+        .info-item .value i {
+            margin-right: 6px;
+            color: #1f6e68;
+            width: 18px;
+        }
+        .info-full {
+            grid-column: 1 / -1;
+        }
+
+        /* ── feature chips ── */
+        .feature-compact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 4px 2px;
+        }
+        .feature-compact::-webkit-scrollbar {
+            width: 4px;
+        }
+        .feature-compact::-webkit-scrollbar-thumb {
+            background: #b8d5ce;
+            border-radius: 9px;
+        }
+        .feature-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 14px 4px 10px;
+            border-radius: 999px;
+            background: white;
+            border: 1px solid #e0efeb;
+            color: #1e3a3a;
+            white-space: nowrap;
+        }
+        .feature-chip i {
+            font-size: 0.7rem;
+            color: #5b8a82;
+        }
+        .feature-chip .tier-free {
+            color: #0f7b5c;
+            background: #e0f2ed;
+            border-radius: 999px;
+            padding: 0 8px;
+            font-size: 0.55rem;
+            font-weight: 700;
+            line-height: 1.6;
+        }
+        .feature-chip .tier-paid {
+            color: #a16207;
+            background: #fef3c7;
+            border-radius: 999px;
+            padding: 0 8px;
+            font-size: 0.55rem;
+            font-weight: 700;
+            line-height: 1.6;
+        }
+        .feature-stats {
+            font-size: 0.8rem;
+            color: #5b8a82;
+            margin-bottom: 0.6rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .feature-stats span {
+            background: #f0f8f6;
+            padding: 2px 12px;
+            border-radius: 999px;
+        }
+
+        /* ── feature pricing cards ── */
+        .feature-pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.8rem;
+            margin-top: 0.4rem;
+        }
+        .feature-price-card {
+            background: #f9fdfc;
+            border: 1px solid #e0efeb;
+            border-radius: 1.2rem;
+            padding: 0.8rem 1rem;
+            transition: 0.2s;
+        }
+        .feature-price-card:hover {
+            border-color: #1f6e68;
+            background: white;
+        }
+        .feature-price-card .fname {
+            font-weight: 700;
+            color: #1e3a3a;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .feature-price-card .fname i {
+            color: #1f6e68;
+        }
+        .feature-price-card .fprices {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .feature-price-card .fprices span {
+            font-size: 0.65rem;
+            background: white;
+            padding: 1px 10px;
+            border-radius: 999px;
+            border: 1px solid #e0efeb;
+            color: #1e3a3a;
+            font-weight: 600;
+        }
+        .feature-price-card .fprices span .cur {
+            color: #5b8a82;
+            font-weight: 400;
+        }
+
+        /* ── billing plans ── */
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 1.2rem;
+        }
+        .plan-card {
+            background: #f9fdfc;
+            border: 2px solid #e0efeb;
+            border-radius: 1.4rem;
+            padding: 1.2rem 1rem;
+            text-align: center;
+            transition: 0.25s;
+            position: relative;
+        }
+        .plan-card:hover {
+            transform: translateY(-4px);
+        }
+        .plan-card.popular {
+            border-color: #1f6e68;
+            background: #f0f8f6;
+        }
+        .plan-card.popular::after {
+            content: '★ POPULAR';
+            position: absolute;
+            top: -8px;
+            right: 12px;
+            background: #1f6e68;
+            color: white;
+            font-size: 0.55rem;
+            font-weight: 700;
+            padding: 2px 12px;
+            border-radius: 999px;
+        }
+        .plan-card .plan-name {
+            font-weight: 800;
+            color: #1e3a3a;
+            font-size: 1rem;
+        }
+        .plan-card .plan-price {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #1e3a3a;
+            margin: 4px 0;
+        }
+        .plan-card .plan-price .cur {
+            font-size: 0.9rem;
+            color: #5b8a82;
+            font-weight: 600;
+        }
+        .plan-card .plan-dur {
+            font-size: 0.7rem;
+            color: #5b8a82;
+        }
+        .plan-card .plan-benefits {
+            list-style: none;
+            padding: 0;
+            margin: 8px 0 12px;
+            text-align: left;
+            font-size: 0.7rem;
+            color: #1e3a3a;
+        }
+        .plan-card .plan-benefits li {
+            padding: 2px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .plan-card .plan-benefits li i {
+            color: #1f6e68;
+            font-size: 0.6rem;
+            width: 16px;
+        }
+        .plan-card .btn-select {
+            background: #1f6e68;
+            border: none;
+            color: white;
+            font-weight: 700;
+            padding: 0.4rem 1.2rem;
+            border-radius: 2rem;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.75rem;
+            width: 100%;
+        }
+        .plan-card .btn-select:hover {
+            background: #0f4a44;
+        }
+        .plan-card .btn-select.outline {
+            background: transparent;
+            color: #1f6e68;
+            border: 2px solid #1f6e68;
+        }
+        .plan-card .btn-select.outline:hover {
+            background: #1f6e68;
+            color: white;
+        }
+
+        /* ── employee list ── */
+        .employee-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        .employee-toolbar input {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            border: 1px solid #e0efeb;
+            background: white;
+            font-size: 0.8rem;
+            outline: none;
+            transition: 0.2s;
+        }
+        .employee-toolbar input:focus {
+            border-color: #1f6e68;
+            box-shadow: 0 0 0 3px rgba(31, 110, 104, 0.1);
+        }
+        .employee-toolbar select {
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            border: 1px solid #e0efeb;
+            background: white;
+            font-size: 0.8rem;
+            outline: none;
+        }
+        .employee-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .employee-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem 0.8rem;
+            background: #f9fdfc;
+            border-radius: 1.2rem;
+            border: 1px solid #e0efeb;
+            transition: 0.2s;
+        }
+        .employee-item:hover {
+            background: white;
+            border-color: #b8d5ce;
+        }
+        .employee-item .avatar-sm {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1f6e68;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+        .employee-item .info {
+            flex: 1;
+        }
+        .employee-item .info .name {
+            font-weight: 600;
+            color: #1e3a3a;
+            font-size: 0.85rem;
+        }
+        .employee-item .info .role {
+            font-size: 0.7rem;
+            color: #5b8a82;
+        }
+        .employee-item .badge-status {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 2px 12px;
+            border-radius: 999px;
+            background: #e0f2ed;
+            color: #0f7b5c;
+        }
+        .employee-item .badge-status.inactive {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        /* ── activity log ── */
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 1rem;
+            background: #f9fdfc;
+            border-left: 4px solid #1f6e68;
+            font-size: 0.8rem;
+        }
+        .activity-item .time {
+            font-size: 0.65rem;
+            color: #5b8a82;
+            white-space: nowrap;
+        }
+        .activity-item .desc {
+            flex: 1;
+            color: #1e3a3a;
+        }
+        .activity-item .desc i {
+            margin-right: 6px;
+            color: #1f6e68;
+        }
+
+        /* ── announcements ── */
+        .announcement-card {
+            background: #f6fbfa;
+            border-radius: 1.2rem;
+            padding: 0.8rem 1.2rem;
+            border: 1px solid #e0efeb;
+            margin-bottom: 0.6rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .announcement-card .title {
+            font-weight: 700;
+            color: #1e3a3a;
+        }
+        .announcement-card .date {
+            font-size: 0.7rem;
+            color: #5b8a82;
+        }
+
+        /* ── action buttons ── */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 0.6rem;
+            margin: 1.4rem 0 1rem;
+        }
+        .action-btn {
+            background: #f5fbfa;
+            border: 1px solid #e0efeb;
+            border-radius: 1.4rem;
+            padding: 0.6rem 0.2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+            color: #1e5a4c;
+            font-weight: 600;
+            font-size: 0.7rem;
+            position: relative;
+            min-height: 60px;
+        }
+        .action-btn i {
+            font-size: 1.2rem;
+            color: #1f6e68;
+        }
+        .action-btn:hover {
+            background: white;
+            border-color: #1f6e68;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(31, 110, 104, 0.10);
+        }
+        .action-btn .badge-icon {
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            background: #dc2626;
+            color: white;
+            border-radius: 999px;
+            font-size: 0.55rem;
+            font-weight: 800;
+            padding: 0 7px;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn.full-width {
+            grid-column: 1 / -1;
+            flex-direction: row;
+            gap: 10px;
+            min-height: 44px;
+            padding: 0.4rem 1.2rem;
+            justify-content: center;
+        }
+        .action-btn.full-width i {
+            font-size: 1rem;
+            margin-bottom: 0;
+        }
+        .action-btn.danger {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+        .action-btn.danger i {
+            color: #b91c1c;
+        }
+        .action-btn.danger:hover {
+            background: #fee2e2;
+            border-color: #f87171;
+        }
+
+        /* ── logout ── */
+        .logout-btn {
+            width: 100%;
+            background: #1e3a3a;
+            border: none;
+            border-radius: 2rem;
+            padding: 0.8rem;
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            letter-spacing: 0.3px;
+            margin-top: 0.4rem;
+        }
+        .logout-btn:hover {
+            background: #b91c1c;
+            transform: scale(1.01);
+            box-shadow: 0 8px 24px rgba(185, 28, 28, 0.25);
+        }
+        .logout-btn:hover i {
+            transform: translateX(3px);
+        }
+
+        /* ── toast ── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a5e58;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.20);
+            z-index: 4000;
+            max-width: 90%;
+            text-align: center;
+            backdrop-filter: blur(4px);
+        }
+        .toast.error {
+            background: #b91c1c;
+        }
+
+
+        /* ── payment modal ── */
+        .pay-modal{
+            position:fixed; inset:0; background:rgba(2,6,23,.62);
+            display:none; align-items:center; justify-content:center; z-index:5000;
+            padding:1rem; backdrop-filter:blur(4px);
+        }
+        .pay-modal.show{display:flex}
+        .pay-box{
+            width:100%; max-width:460px; background:white; border-radius:1.6rem;
+            box-shadow:0 30px 80px rgba(0,0,0,.35); padding:1.3rem;
+            border:1px solid #e0efeb;
+        }
+        .pay-head{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.8rem}
+        .pay-head h3{color:#1e3a3a;font-size:1.1rem}
+        .pay-close{border:0;background:#f1f5f9;color:#0f172a;border-radius:999px;width:34px;height:34px;cursor:pointer}
+        .pay-summary{background:#f6fbfa;border:1px solid #e0efeb;border-radius:1.1rem;padding:.8rem;margin:.8rem 0;color:#1e3a3a;font-size:.82rem}
+        .pay-summary div{display:flex;justify-content:space-between;padding:.2rem 0;gap:.8rem}
+        .upi-pill{background:#eef2ff;color:#1e40af;border-radius:999px;padding:.2rem .7rem;font-weight:800}
+        .pay-actions{display:grid;gap:.55rem;margin-top:.9rem}
+        .pay-primary,.pay-secondary{
+            border:0;border-radius:999px;padding:.7rem 1rem;font-weight:800;cursor:pointer;
+        }
+        .pay-primary{background:#1f6e68;color:white}
+        .pay-secondary{background:#e2e8f0;color:#1e293b}
+        .pay-note{font-size:.7rem;color:#64748b;margin-top:.6rem;line-height:1.4}
+        .pay-status{font-size:.75rem;font-weight:700;margin-top:.55rem;color:#0f766e}
+
+        /* ── responsive ── */
+        @media (max-width: 640px) {
+            .company-card { padding: 1.2rem; }
+            .info-grid { grid-template-columns: 1fr; }
+            .tabs { gap: 0; }
+            .tab-btn { padding: 0.5rem 0.8rem; font-size: 0.7rem; }
+            .company-header { gap: 0.8rem; }
+            .company-avatar { width: 56px; height: 56px; font-size: 1.6rem; }
+            .company-title h2 { font-size: 1.1rem; }
+            .action-grid { grid-template-columns: 1fr 1fr; }
+            .employee-toolbar input { min-width: 100px; }
+            .qr-section { flex-direction: column; align-items: stretch; text-align: center; }
+            .qr-section .qr-code { margin: 0 auto; }
+            .plans-grid { grid-template-columns: 1fr 1fr; }
+            .feature-pricing-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 400px) {
+            .action-grid { grid-template-columns: 1fr 1fr; }
+            .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.6rem; }
+            .plans-grid { grid-template-columns: 1fr; }
+            .feature-pricing-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="company-card">
+        <!-- header -->
+        <div class="company-header">
+            <div class="company-avatar">
+                <i class="fas fa-building"></i>
+            </div>
+            <div class="company-title">
+                <h2 id="orgName">OrgConnect</h2>
+                <div class="company-meta">
+                    <span class="meta-item"><i class="fas fa-code"></i> <span id="orgCode">ORG‑000</span></span>
+                    <span class="meta-item"><i class="fas fa-users"></i> <span id="totalEmp">0</span> employees</span>
+                    <span class="plan-badge" id="planBadge">Free</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code Section -->
+        <div class="qr-section" id="qrSection">
+            <div class="qr-code" id="qrCodeContainer">
+                <img id="qrImage" src="" alt="QR Code" />
+            </div>
+            <div class="qr-info">
+                <div class="code-label"><i class="fas fa-qrcode"></i> Company Code</div>
+                <div class="code-value">
+                    <span id="companyCodeDisplay">ORG‑000</span>
+                    <button id="copyCodeBtn"><i class="fas fa-copy"></i> Copy</button>
+                </div>
+                <div style="font-size:0.65rem;color:#5b8a82;margin-top:2px;">
+                    <i class="fas fa-info-circle"></i> Share this code or QR to invite employees
+                </div>
+            </div>
+            <div class="qr-actions">
+                <button id="downloadQrBtn"><i class="fas fa-download"></i> QR</button>
+                <button id="shareQrBtn"><i class="fas fa-share-alt"></i> Share</button>
+            </div>
+        </div>
+
+        <!-- tabs -->
+        <div class="tabs" id="tabContainer">
+            <button class="tab-btn active" data-tab="overview"><i class="fas fa-info-circle"></i> Overview</button>
+            <button class="tab-btn" data-tab="features"><i class="fas fa-th-large"></i> Features</button>
+            <button class="tab-btn" data-tab="pricing"><i class="fas fa-tags"></i> Pricing</button>
+            <button class="tab-btn" data-tab="plans"><i class="fas fa-crown"></i> Plans</button>
+            <button class="tab-btn" data-tab="employees"><i class="fas fa-user-friends"></i> Employees</button>
+            <button class="tab-btn" data-tab="activity"><i class="fas fa-clock"></i> Activity</button>
+            <button class="tab-btn" data-tab="announcements"><i class="fas fa-bullhorn"></i> Announcements</button>
+        </div>
+
+        <!-- Tab panes -->
+        <!-- Overview -->
+        <div class="tab-pane active" id="tab-overview">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Company ID</span>
+                    <span class="value" id="detailOrgId">—</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Industry</span>
+                    <span class="value" id="detailIndustry">—</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Admin</span>
+                    <span class="value" id="detailAdmin">—</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Email</span>
+                    <span class="value" id="detailEmail">—</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Mobile</span>
+                    <span class="value" id="detailMobile">—</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Since</span>
+                    <span class="value" id="detailSince">—</span>
+                </div>
+                <div class="info-item info-full">
+                    <span class="label">Address</span>
+                    <span class="value" id="detailAddress">—</span>
+                </div>
+            </div>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:0.4rem;">
+                <button class="action-btn" style="flex:1; min-height:40px; flex-direction:row; gap:8px;" data-action="edit">
+                    <i class="fas fa-pen"></i> Edit Profile
+                </button>
+                <button class="action-btn" style="flex:1; min-height:40px; flex-direction:row; gap:8px;" data-action="export">
+                    <i class="fas fa-download"></i> Export Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="tab-pane" id="tab-features">
+            <div class="feature-stats" id="featureStats">
+                <span>🔹 <span id="freeCount">0</span> free</span>
+                <span>🔸 <span id="paidCount">0</span> paid</span>
+                <span>📦 <span id="totalCount">0</span> total</span>
+            </div>
+            <div class="feature-compact" id="featureList">
+                <span class="feature-empty" style="color:#5b8a82;font-style:italic;">Loading features…</span>
+            </div>
+        </div>
+
+        <!-- Pricing (Feature-wise) -->
+        <div class="tab-pane" id="tab-pricing">
+            <div style="font-size:0.8rem;color:#5b8a82;margin-bottom:0.8rem;">
+                <i class="fas fa-info-circle"></i> Each paid feature can be purchased individually. Prices shown are per feature.
+            </div>
+            <div class="feature-pricing-grid" id="featurePricingGrid">
+                <!-- dynamic -->
+            </div>
+        </div>
+
+        <!-- Plans (Billing) -->
+        <div class="tab-pane" id="tab-plans">
+            <div style="font-size:0.8rem;color:#5b8a82;margin-bottom:0.8rem;">
+                <i class="fas fa-rocket"></i> Choose a plan that fits your business. All plans include core features.
+            </div>
+            <div class="plans-grid" id="plansGrid">
+                <!-- dynamic -->
+            </div>
+            <div style="font-size:0.7rem;color:#5b8a82;text-align:center;margin-top:0.4rem;">
+                <i class="fas fa-lock"></i> Secure payments • Cancel anytime • 14-day free trial on annual plans
+            </div>
+        </div>
+
+        <!-- Employees -->
+        <div class="tab-pane" id="tab-employees">
+            <div class="employee-toolbar">
+                <input type="text" placeholder="🔍 Search employees…" id="empSearch" />
+                <select id="empFilter">
+                    <option value="all">All</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+                <button class="action-btn" style="min-height:36px; flex-direction:row; gap:6px; padding:0 1.2rem;" data-action="addEmployee">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+            <div class="employee-list" id="employeeList">
+                <!-- dynamic -->
+            </div>
+        </div>
+
+        <!-- Activity -->
+        <div class="tab-pane" id="tab-activity">
+            <div class="activity-list" id="activityList">
+                <!-- dynamic -->
+            </div>
+        </div>
+
+        <!-- Announcements -->
+        <div class="tab-pane" id="tab-announcements">
+            <div id="announcementContainer">
+                <!-- dynamic -->
+            </div>
+            <button class="action-btn" style="min-height:40px; flex-direction:row; gap:8px; margin-top:0.6rem;" data-action="newAnnouncement">
+                <i class="fas fa-plus-circle"></i> New Announcement
+            </button>
+        </div>
+
+        <!-- action buttons (below tabs) -->
+        <div class="action-grid">
+            <button class="action-btn" data-action="privacy"><i class="fas fa-shield-alt"></i> Privacy</button>
+            <button class="action-btn" data-action="support"><i class="fas fa-headset"></i> Support</button>
+            <button class="action-btn" data-action="chat">
+                <i class="fas fa-comment-dots"></i> Chat
+                <span class="badge-icon" id="chatBadge" style="display:none;">1</span>
+            </button>
+            <button class="action-btn" data-action="docs"><i class="fas fa-book"></i> Docs</button>
+            <button class="action-btn full-width" data-action="feedback"><i class="fas fa-star"></i> Rate & Feedback</button>
+        </div>
+
+        <!-- logout -->
+        <button class="logout-btn" id="logoutBtn">
+            <i class="fas fa-sign-out-alt"></i>
+            Sign Out
+        </button>
+    </div>
+
+
+    <!-- Payment Modal -->
+    <div class="pay-modal" id="paymentModal">
+        <div class="pay-box">
+            <div class="pay-head">
+                <h3><i class="fas fa-shield-alt"></i> Secure Plan Payment</h3>
+                <button class="pay-close" id="closePaymentModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="pay-summary">
+                <div><span>Plan</span><b id="payPlanName">—</b></div>
+                <div><span>Duration</span><b id="payPlanDuration">—</b></div>
+                <div><span>Amount</span><b id="payPlanAmount">₹0</b></div>
+                <div><span>UPI Receiver</span><b class="upi-pill" id="payUpiReceiver">a0926@ybl</b></div>
+            </div>
+            <div class="pay-actions">
+                <button class="pay-primary" id="payOnlineBtn"><i class="fas fa-mobile-alt"></i> Pay Now & Activate</button>
+                <button class="pay-secondary" id="payUpiIntentBtn"><i class="fas fa-qrcode"></i> Direct UPI Pay</button>
+            </div>
+            <div class="pay-status" id="paymentStatus"></div>
+            <div class="pay-note">
+                Auto activation tabhi hoga jab Razorpay/PhonePe webhook successful payment verify karega.
+                Direct UPI intent/QR me payment ho sakta hai, lekin browser khud payment success verify nahi kar sakta. Desktop par QR fallback dikhega.
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // ── Supabase config ──
+        const SUPABASE_URL = "https://tovpcbzztvkiwamimrxt.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+        // UPI TEST CONFIG
+        // Testing amount ₹1 rakha gaya hai. UPI ID lowercase me rakhein.
+        const PAYMENT_UPI_ID = "a0926@ybl";
+        const PAYMENT_RECEIVER_NAME = "OrgConnect";
+        // Backward compatibility aliases
+        const UPI_ID = PAYMENT_UPI_ID;
+        const UPI_NAME = PAYMENT_RECEIVER_NAME;
+        // Razorpay key_id yahan paste karein. Secret key kabhi HTML me mat dalein.
+        const RAZORPAY_KEY_ID = ""; // optional; Edge Function se key_id auto aayega
+        const PAYMENT_EDGE_CREATE_ORDER_URL = SUPABASE_URL + "/functions/v1/create-razorpay-order";
+        const PAYMENT_EDGE_VERIFY_URL = SUPABASE_URL + "/functions/v1/verify-razorpay-payment";
+        let selectedPaymentPlan = null;
+        let activeOrgSession = null;
+
+
+        // ── tier mapping ──
+        const FEATURE_TIER_MAP = {
+            'add_employee': 'free',
+            'employee_management': 'free',
+            'daily_attendance': 'free',
+            'attendance': 'free',
+            'leave_management': 'free',
+            'notifications': 'free',
+            'announcements': 'free',
+            'settings': 'free',
+            'branches': 'free',
+            'reports': 'free',
+            'attendance_report': 'free',
+            'feature_assignment': 'free',
+            'feature_management': 'free',
+            'geo_attendance': 'paid',
+            'qr_attendance': 'paid',
+            'payroll': 'paid',
+            'analytics': 'paid',
+            'device_management': 'paid',
+            'shift_management': 'paid',
+            'shift_change': 'paid',
+            'roster_management': 'paid',
+            'overtime': 'paid',
+            'holiday': 'paid',
+            'holidays': 'paid',
+            'advanced_reports': 'paid',
+            'expenses': 'paid'
+        };
+
+        // ── feature pricing (per feature) ──
+        const FEATURE_PRICES = {
+            'payroll': { monthly: 20, sixMonth: 50, yearly: 90 },
+            'analytics': { monthly: 15, sixMonth: 40, yearly: 70 },
+            'geo_attendance': { monthly: 10, sixMonth: 25, yearly: 45 },
+            'qr_attendance': { monthly: 10, sixMonth: 25, yearly: 45 },
+            'device_management': { monthly: 12, sixMonth: 30, yearly: 55 },
+            'shift_management': { monthly: 8, sixMonth: 20, yearly: 35 },
+            'shift_change': { monthly: 8, sixMonth: 20, yearly: 35 },
+            'roster_management': { monthly: 8, sixMonth: 20, yearly: 35 },
+            'overtime': { monthly: 10, sixMonth: 25, yearly: 45 },
+            'holiday': { monthly: 5, sixMonth: 12, yearly: 20 },
+            'holidays': { monthly: 5, sixMonth: 12, yearly: 20 },
+            'advanced_reports': { monthly: 18, sixMonth: 45, yearly: 80 },
+            'expenses': { monthly: 12, sixMonth: 30, yearly: 55 },
+        };
+
+        function getFeaturePrice(key) {
+            const k = String(key || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+            return FEATURE_PRICES[k] || null;
+        }
+
+        function getFeatureTier(key) {
+            const k = String(key || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+            return FEATURE_TIER_MAP[k] || 'free';
+        }
+
+        // ── Plan definitions ──
+        const PLANS = [{
+            id: 'free',
+            name: 'Free',
+            price: 0,
+            duration: 'month',
+            benefits: ['5 employees', 'Basic attendance', 'Leave management', 'Email support'],
+            popular: false
+        }, {
+            id: 'starter',
+            name: 'Starter',
+            price: 1,
+            duration: 'month',
+            benefits: ['Up to 25 employees', 'All free features', 'Geo-attendance', 'QR attendance',
+                'Email & chat support'
+            ],
+            popular: false
+        }, {
+            id: 'pro',
+            name: 'Pro',
+            price: 1,
+            duration: '3 months',
+            benefits: ['Up to 50 employees', 'All Starter features', 'Payroll', 'Analytics',
+                'Priority support', 'Shift management'
+            ],
+            popular: true
+        }, {
+            id: 'business',
+            name: 'Business',
+            price: 1,
+            duration: '6 months',
+            benefits: ['Up to 100 employees', 'All Pro features', 'Device management',
+                'Advanced reports', '24/7 dedicated support', 'Custom branding'
+            ],
+            popular: false
+        }, {
+            id: 'enterprise',
+            name: 'Enterprise',
+            price: 1,
+            duration: '1 year',
+            benefits: ['Unlimited employees', 'All Business features', 'Custom integrations',
+                'Dedicated account manager', 'SLA guarantee', 'On-premise option'
+            ],
+            popular: false
+        }];
+
+        // ── helpers ──
+        function getJsonAny(keys) {
+            for (const key of keys) {
+                try {
+                    const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+                    if (raw) return JSON.parse(raw);
+                } catch (_) {}
+            }
+            return null;
+        }
+
+        function readSession() {
+            const inlist = getJsonAny(['inlistSession']) || {};
+            const empSession = getJsonAny(['inlistEmployeeSession']) || {};
+            const cs = getJsonAny(['currentSession']) || {};
+            const p = new URLSearchParams(location.search);
+            return {
+                orgId: p.get('org_id') || inlist.orgId || empSession.orgId || cs.orgId || cs.org_id || null,
+                orgCode: p.get('org_code') || p.get('company_code') || inlist.orgCode || empSession.orgCode || cs
+                    .orgCode || cs.org_code || '',
+                userId: p.get('user_id') || inlist.userId || cs.userId || '',
+                branchId: p.get('branch_id') || inlist.branchId || empSession.branchId || cs.branchId || '',
+                empId: p.get('emp_id') || empSession.empId || cs.empId || '',
+                empCode: p.get('emp_code') || empSession.empCode || cs.empCode || '',
+                role: p.get('role') || inlist.role || empSession.role || cs.role || 'company',
+                mode: p.get('mode') || cs.mode || '',
+                email: p.get('email') || inlist.email || empSession.email || cs.email || '',
+                mobile: p.get('mobile') || inlist.mobile || empSession.mobile || cs.mobile || ''
+            };
+        }
+
+        function showToast(msg, isErr = false) {
+            const old = document.querySelector('.toast');
+            if (old) old.remove();
+            const t = document.createElement('div');
+            t.className = 'toast' + (isErr ? ' error' : '');
+            t.innerText = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 4200);
+        }
+
+        function errorMessage(err, fallback = 'Something went wrong') {
+            if (!err) return fallback;
+            if (typeof err === 'string') return err;
+            if (err instanceof Error) return err.message || fallback;
+            if (typeof err === 'object') {
+                return err.message || err.error_description || err.description || err.details || err.hint || err.error?.description || err.error?.message || JSON.stringify(err);
+            }
+            return String(err || fallback);
+        }
+
+        function esc(str) {
+            if (!str) return '—';
+            return String(str).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } [m] ||
+            m));
+        }
+
+        function formatDate(iso) {
+            if (!iso) return '—';
+            try { return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); } catch (
+            _) { return String(iso); }
+        }
+
+        function createMiniSupabaseClient(url, key, extraHeaders = {}) {
+            const base = url.replace(/\/$/, "");
+            const baseHeaders = {
+                apikey: key,
+                Authorization: "Bearer " + key,
+                "Content-Type": "application/json",
+                ...extraHeaders
+            };
+
+            function parseMaybeJson(raw) {
+                try { return raw ? JSON.parse(raw) : null; } catch { return raw; }
+            }
+
+            function readableApiError(data, raw, fallback) {
+                if (!data && raw) return raw;
+                if (typeof data === "string") return data;
+                if (data && typeof data === "object") {
+                    return data.message || data.error_description || data.description || data.details || data.hint ||
+                        data.error?.description || data.error?.message || JSON.stringify(data);
+                }
+                return fallback || "Request failed";
+            }
+
+            return {
+                async rpc(fn, args) {
+                    const res = await fetch(base + "/rest/v1/rpc/" + fn, {
+                        method: "POST",
+                        headers: baseHeaders,
+                        body: JSON.stringify(args || {})
+                    });
+                    const raw = await res.text();
+                    const data = parseMaybeJson(raw);
+                    if (!res.ok) {
+                        return { data: null, error: { message: readableApiError(data, raw, res.statusText), status: res.status, raw: data || raw } };
+                    }
+                    return { data, error: null };
+                },
+                async edge(url, args) {
+                    // Edge Function call me x-org-id / x-org-code custom headers nahi bhejna.
+                    // Org data body ke andar already send ho raha hai; custom headers CORS block kar sakte hain.
+                    const edgeHeaders = {
+                        apikey: key,
+                        Authorization: "Bearer " + key,
+                        "Content-Type": "application/json"
+                    };
+
+                    const res = await fetch(url, {
+                        method: "POST",
+                        headers: edgeHeaders,
+                        body: JSON.stringify(args || {})
+                    });
+
+                    const raw = await res.text();
+                    const data = parseMaybeJson(raw);
+
+                    if (!res.ok) {
+                        return { data: null, error: { message: readableApiError(data, raw, res.statusText), status: res.status, raw: data || raw } };
+                    }
+                    return { data, error: null };
+                }
+            };
+        }
+
+        function createOrgClient(orgId, orgCode) {
+            return createMiniSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                "x-org-id": orgId || "",
+                "x-org-code": orgCode || ""
+            });
+        }
+
+        // ── QR Code generation ──
+        function generateQRCode(text, container) {
+            const url = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(text)}`;
+            const img = document.getElementById('qrImage');
+            if (img) {
+                img.src = url;
+                img.alt = `QR Code for ${text}`;
+            }
+            return url;
+        }
+
+        // ── mock data ──
+        const mockEmployees = [
+            { id: 1, name: 'Amit Sharma', role: 'Developer', active: true },
+            { id: 2, name: 'Priya Patel', role: 'Designer', active: true },
+            { id: 3, name: 'Rahul Singh', role: 'Manager', active: false },
+            { id: 4, name: 'Sneha Reddy', role: 'HR', active: true },
+            { id: 5, name: 'Vikram Kumar', role: 'Sales', active: true },
+        ];
+
+        const mockActivities = [
+            { time: '10 min ago', desc: 'Admin updated company profile' },
+            { time: '1 hour ago', desc: 'New employee added: Priya Patel' },
+            { time: '3 hours ago', desc: 'Leave request approved for Rahul Singh' },
+            { time: 'Yesterday', desc: 'System update completed' },
+            { time: '2 days ago', desc: 'Shift swap request approved' },
+        ];
+
+        const mockAnnouncements = [
+            { title: 'Holiday on 15th Aug', date: '2026-08-10' },
+            { title: 'New HR policy effective from Sept', date: '2026-08-05' },
+            { title: 'Team lunch this Friday', date: '2026-08-08' },
+        ];
+
+        // ── render functions ──
+        function renderCompany(org, user, features) {
+            const orgCode = org.org_code || 'ORG-000';
+            document.getElementById('orgName').textContent = org.org_name || org.name || 'OrgConnect';
+            document.getElementById('orgCode').textContent = orgCode;
+            document.getElementById('companyCodeDisplay').textContent = orgCode;
+            document.getElementById('totalEmp').textContent = org.total_employees || org.employee_count || mockEmployees.length;
+            document.getElementById('detailOrgId').textContent = esc(org.id || '—');
+            document.getElementById('detailIndustry').textContent = esc(org.industry || org.business_type || '—');
+            document.getElementById('detailAdmin').textContent = esc(user.full_name || user.name || user.email || 'Admin');
+            document.getElementById('detailEmail').textContent = esc(user.email || '—');
+            document.getElementById('detailMobile').textContent = esc(user.mobile || user.phone || '—');
+            document.getElementById('detailSince').textContent = formatDate(org.created_at || org.created_date);
+            document.getElementById('detailAddress').textContent = esc(org.address || org.location || '—');
+
+            // QR Code
+            const qrText = `org:${orgCode}|id:${org.id || ''}|code:${orgCode}`;
+            generateQRCode(qrText, document.getElementById('qrCodeContainer'));
+
+            renderFeatures(features);
+            renderFeaturePricing(features);
+            renderPlans();
+            renderEmployees(mockEmployees);
+            renderActivities(mockActivities);
+            renderAnnouncements(mockAnnouncements);
+        }
+
+        function renderFeatures(features) {
+            const list = document.getElementById('featureList');
+            const freeSpan = document.getElementById('freeCount');
+            const paidSpan = document.getElementById('paidCount');
+            const totalSpan = document.getElementById('totalCount');
+
+            if (!features || !features.length) {
+                list.innerHTML = '<span class="feature-empty">No modules enabled for this company.</span>';
+                freeSpan.textContent = '0';
+                paidSpan.textContent = '0';
+                totalSpan.textContent = '0';
+                return;
+            }
+
+            let free = 0,
+                paid = 0;
+            const chips = [];
+            features.forEach(f => {
+                const key = String(f.feature_key || '').trim();
+                const name = f.feature_name || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const tier = getFeatureTier(key);
+                if (tier === 'paid') paid++;
+                else free++;
+                const icon = tier === 'paid' ? 'fa-crown' : 'fa-check-circle';
+                const tierLabel = tier === 'paid' ? 'Paid' : 'Free';
+                const cls = tier === 'paid' ? 'tier-paid' : 'tier-free';
+                chips.push(`
+                    <span class="feature-chip">
+                        <i class="fas ${icon}"></i>
+                        ${esc(name)}
+                        <span class="${cls}">${tierLabel}</span>
+                    </span>
+                `);
+            });
+
+            freeSpan.textContent = free;
+            paidSpan.textContent = paid;
+            totalSpan.textContent = features.length;
+            list.innerHTML = chips.join('');
+
+            const badge = document.querySelector('.plan-badge');
+            if (paid > 0) {
+                badge.textContent = 'Pro / Paid';
+                badge.className = 'plan-badge paid';
+            } else {
+                badge.textContent = 'Free';
+                badge.className = 'plan-badge free';
+            }
+        }
+
+        function renderFeaturePricing(features) {
+            const container = document.getElementById('featurePricingGrid');
+            if (!features || !features.length) {
+                container.innerHTML =
+                '<div style="grid-column:1/-1;color:#5b8a82;text-align:center;padding:1rem;">No paid features available</div>';
+                return;
+            }
+
+            let html = '';
+            features.forEach(f => {
+                const key = String(f.feature_key || '').trim();
+                const name = f.feature_name || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const tier = getFeatureTier(key);
+                const price = getFeaturePrice(key);
+                if (tier !== 'paid' || !price) return;
+                html += `
+                    <div class="feature-price-card">
+                        <div class="fname"><i class="fas fa-tag"></i> ${esc(name)}</div>
+                        <div class="fprices">
+                            <span>₹${price.monthly} <span class="cur">/mo</span></span>
+                            <span>₹${price.sixMonth} <span class="cur">/6mo</span></span>
+                            <span>₹${price.yearly} <span class="cur">/yr</span></span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (!html) {
+                container.innerHTML =
+                '<div style="grid-column:1/-1;color:#5b8a82;text-align:center;padding:1rem;">No paid features with pricing available</div>';
+                return;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderPlans() {
+            const container = document.getElementById('plansGrid');
+            container.innerHTML = PLANS.map(p => `
+                <div class="plan-card ${p.popular ? 'popular' : ''}">
+                    <div class="plan-name">${p.name}</div>
+                    <div class="plan-price"><span class="cur">₹</span>${p.price}</div>
+                    <div class="plan-dur">${p.duration}</div>
+                    <ul class="plan-benefits">
+                        ${p.benefits.map(b => `<li><i class="fas fa-check-circle"></i> ${b}</li>`).join('')}
+                    </ul>
+                    <button class="btn-select ${p.price === 0 ? 'outline' : ''}" data-plan="${p.id}">
+                        ${p.price === 0 ? 'Current Plan' : 'Select Plan'}
+                    </button>
+                </div>
+            `).join('');
+
+            // Payment connect
+            container.querySelectorAll('.btn-select').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const planId = this.dataset.plan;
+                    const plan = PLANS.find(p => p.id === planId);
+                    if (!plan) return;
+                    if (plan.price <= 0) {
+                        showToast(`✅ You are on the ${plan.name} plan`);
+                        return;
+                    }
+                    openPaymentModal(plan);
+                });
+            });
+        }
+
+        function renderEmployees(employees) {
+            const container = document.getElementById('employeeList');
+            const search = document.getElementById('empSearch').value.toLowerCase();
+            const filter = document.getElementById('empFilter').value;
+            let filtered = employees.filter(e => {
+                const matchName = e.name.toLowerCase().includes(search);
+                const matchStatus = filter === 'all' ? true : (filter === 'active' ? e.active : !e.active);
+                return matchName && matchStatus;
+            });
+            if (!filtered.length) {
+                container.innerHTML = '<div style="padding:1rem;text-align:center;color:#5b8a82;">No employees found</div>';
+                return;
+            }
+            container.innerHTML = filtered.map(e => `
+                <div class="employee-item">
+                    <div class="avatar-sm">${e.name.split(' ').map(w=>w[0]).join('').toUpperCase()}</div>
+                    <div class="info">
+                        <div class="name">${esc(e.name)}</div>
+                        <div class="role">${esc(e.role)}</div>
+                    </div>
+                    <span class="badge-status ${e.active?'':'inactive'}">${e.active?'Active':'Inactive'}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderActivities(activities) {
+            const container = document.getElementById('activityList');
+            container.innerHTML = activities.map(a => `
+                <div class="activity-item">
+                    <span class="time">${esc(a.time)}</span>
+                    <span class="desc"><i class="fas fa-circle" style="font-size:0.5rem;"></i> ${esc(a.desc)}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderAnnouncements(announcements) {
+            const container = document.getElementById('announcementContainer');
+            container.innerHTML = announcements.map(a => `
+                <div class="announcement-card">
+                    <span class="title"><i class="fas fa-bullhorn" style="color:#1f6e68;margin-right:6px;"></i>${esc(a.title)}</span>
+                    <span class="date">${formatDate(a.date)}</span>
+                </div>
+            `).join('');
+        }
+
+        // ── fetch data ──
+        async function loadCompanyData() {
+            const session = readSession();
+            activeOrgSession = session;
+            if (!session.orgId && !session.orgCode) {
+                showToast('⚠️ Org ID / Code missing in session.', true);
+                renderCompany({ org_name: 'Demo Corp', org_code: 'DEMO-001' }, { name: 'Admin' }, [
+                    { feature_key: 'add_employee', feature_name: 'Add Employee' },
+                    { feature_key: 'daily_attendance', feature_name: 'Daily Attendance' },
+                    { feature_key: 'leave_management', feature_name: 'Leave Management' },
+                    { feature_key: 'payroll', feature_name: 'Payroll' },
+                    { feature_key: 'analytics', feature_name: 'Analytics' },
+                    { feature_key: 'geo_attendance', feature_name: 'Geo Attendance' },
+                ]);
+                return;
+            }
+
+            try {
+                const client = createOrgClient(session.orgId || '', session.orgCode || '');
+                const { data, error } = await client.rpc('app_admin_dashboard_data', {
+                    p_org_id: session.orgId || null,
+                    p_org_code: session.orgCode || null,
+                    p_user_id: session.userId || null
+                });
+
+                if (error) throw new Error('RPC error: ' + error.message);
+                if (!data || data.ok !== true) throw new Error((data && data.message) || 'Invalid response');
+
+                const org = data.org || {};
+                const user = data.user || {};
+                const features = data.enabled_features || [];
+
+                try {
+                    localStorage.setItem('orgData', JSON.stringify(org));
+                    localStorage.setItem('userData', JSON.stringify(user));
+                    localStorage.setItem('featuresData', JSON.stringify(features));
+                } catch (_) {}
+
+                renderCompany(org, user, features);
+
+                const notif = Number(localStorage.getItem('companyChatUnread') || 0);
+                const badge = document.getElementById('chatBadge');
+                if (notif > 0) {
+                    badge.style.display = 'flex';
+                    badge.textContent = notif > 99 ? '99+' : notif;
+                } else {
+                    badge.style.display = 'none';
+                }
+
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to load data: ' + err.message, true);
+                try {
+                    const cachedOrg = JSON.parse(localStorage.getItem('orgData') || 'null');
+                    const cachedUser = JSON.parse(localStorage.getItem('userData') || 'null');
+                    const cachedFeatures = JSON.parse(localStorage.getItem('featuresData') || 'null');
+                    if (cachedOrg) renderCompany(cachedOrg, cachedUser, cachedFeatures || []);
+                    else {
+                        renderCompany({ org_name: 'Demo Corp', org_code: 'DEMO-001' }, { name: 'Admin' }, [
+                            { feature_key: 'add_employee', feature_name: 'Add Employee' },
+                            { feature_key: 'daily_attendance', feature_name: 'Daily Attendance' },
+                            { feature_key: 'leave_management', feature_name: 'Leave Management' },
+                            { feature_key: 'payroll', feature_name: 'Payroll' },
+                            { feature_key: 'analytics', feature_name: 'Analytics' },
+                        ]);
+                    }
+                } catch (_) {}
+            }
+        }
+
+
+        // ── payment functions ──
+        function openPaymentModal(plan){
+            selectedPaymentPlan = plan;
+            document.getElementById('payPlanName').textContent = plan.name;
+            document.getElementById('payPlanDuration').textContent = plan.duration;
+            document.getElementById('payPlanAmount').textContent = '₹' + plan.price;
+            const upiEl = document.getElementById('payUpiReceiver');
+            if(upiEl) upiEl.textContent = PAYMENT_UPI_ID;
+            document.getElementById('paymentStatus').textContent = '';
+            const oldQr = document.getElementById('upiQrFallbackBox'); if(oldQr) oldQr.remove();
+            document.getElementById('paymentModal').classList.add('show');
+        }
+
+        function closePaymentModal(){
+            document.getElementById('paymentModal').classList.remove('show');
+        }
+
+        function planEndDate(durationText){
+            const d = new Date();
+            const x = String(durationText || '').toLowerCase();
+            if(x.includes('3')) d.setMonth(d.getMonth()+3);
+            else if(x.includes('6')) d.setMonth(d.getMonth()+6);
+            else if(x.includes('year') || x.includes('1 year')) d.setFullYear(d.getFullYear()+1);
+            else d.setMonth(d.getMonth()+1);
+            return d.toISOString().slice(0,10);
+        }
+
+        async function createPaymentOrder(plan){
+            const session = activeOrgSession || readSession();
+            if(!session.orgId && !session.orgCode) throw new Error('Org ID / Code missing.');
+            const client = createOrgClient(session.orgId || '', session.orgCode || '');
+
+            // Gateway connected: Razorpay order is created inside Supabase Edge Function.
+            // Secret key is never exposed in this HTML file.
+            const {data,error} = await client.edge(PAYMENT_EDGE_CREATE_ORDER_URL, {
+                org_id: session.orgId || null,
+                org_code: session.orgCode || null,
+                user_id: session.userId || null,
+                plan_id: plan.id,
+                plan_name: plan.name,
+                amount: Number(plan.price || 0),
+                duration_text: plan.duration,
+                receiver_upi: PAYMENT_UPI_ID
+            });
+
+            if(error) {
+                console.error('create-razorpay-order error:', error);
+                throw new Error(errorMessage(error, 'Payment order create failed'));
+            }
+            if(!data || data.ok !== true) {
+                console.error('create-razorpay-order invalid response:', data);
+                throw new Error(errorMessage(data?.error || data?.message || data, 'Payment order create failed'));
+            }
+            return data;
+        }
+
+        function buildUpiUrl(plan, paymentId){
+            const orgCode = document.getElementById('orgCode').textContent || '';
+            const note = `OrgConnect ${plan.name} ${orgCode} ${paymentId || ''}`.trim();
+            const amount = Number(plan.price || 1).toFixed(2);
+            return `upi://pay?pa=${encodeURIComponent(PAYMENT_UPI_ID)}&pn=${encodeURIComponent(PAYMENT_RECEIVER_NAME)}&am=${encodeURIComponent(amount)}&cu=INR&tn=${encodeURIComponent(note)}`;
+        }
+
+        function isMobileDevice(){
+            return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+        }
+
+        function showPaymentQr(upiUrl, plan, paymentId){
+            const old = document.getElementById('upiQrFallbackBox');
+            if(old) old.remove();
+
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(upiUrl)}`;
+            const wrap = document.createElement('div');
+            wrap.id = 'upiQrFallbackBox';
+            wrap.style.marginTop = '12px';
+            wrap.style.padding = '12px';
+            wrap.style.border = '1px solid #e0efeb';
+            wrap.style.borderRadius = '18px';
+            wrap.style.background = '#f8fafc';
+            wrap.style.textAlign = 'center';
+            wrap.innerHTML = `
+                <div style="font-weight:900;color:#0f172a;margin-bottom:4px;">Scan UPI QR</div>
+                <div style="font-size:12px;color:#64748b;margin-bottom:8px;line-height:1.4;">
+                    Amount: <b>₹${Number(plan.price||0)}</b> • UPI: <b>${PAYMENT_UPI_ID}</b><br>
+                    Ref: <b>${paymentId || '-'}</b>
+                </div>
+                <img src="${qrUrl}" alt="UPI QR" style="width:260px;height:260px;max-width:100%;border-radius:12px;background:white;padding:6px;border:1px solid #e2e8f0;">
+                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px;">
+                    <button type="button" id="copyUpiBtn" style="border:0;border-radius:999px;background:#e2e8f0;color:#0f172a;padding:8px 14px;font-weight:800;cursor:pointer;">Copy UPI ID</button>
+                    <button type="button" id="openUpiAgainBtn" style="border:0;border-radius:999px;background:#1f6e68;color:white;padding:8px 14px;font-weight:800;cursor:pointer;">Open UPI App</button>
+                </div>
+                <div style="font-size:11px;color:#b45309;margin-top:8px;line-height:1.4;">
+                    Direct UPI/QR payment ka success browser verify nahi kar sakta. Auto plan active ke liye Razorpay/PhonePe/Cashfree webhook required hai.
+                </div>
+            `;
+            const status = document.getElementById('paymentStatus');
+            status.insertAdjacentElement('afterend', wrap);
+            document.getElementById('copyUpiBtn').onclick = async () => {
+                try{ await navigator.clipboard.writeText(PAYMENT_UPI_ID); showToast('✅ UPI ID copied: '+PAYMENT_UPI_ID); }
+                catch(_){ showToast('UPI ID: '+PAYMENT_UPI_ID); }
+            };
+            document.getElementById('openUpiAgainBtn').onclick = () => { window.location.href = upiUrl; };
+        }
+
+        function openDirectUpi(plan, paymentId){
+            const upiUrl = buildUpiUrl(plan, paymentId);
+            if(isMobileDevice()){
+                window.location.href = upiUrl;
+                document.getElementById('paymentStatus').textContent = 'UPI app open karne ki koshish ki gayi. Agar app open na ho to neeche QR scan karein.';
+                setTimeout(() => showPaymentQr(upiUrl, plan, paymentId), 900);
+            }else{
+                document.getElementById('paymentStatus').textContent = 'Desktop/browser me UPI app handler nahi mila. Neeche QR scan karein.';
+                showPaymentQr(upiUrl, plan, paymentId);
+            }
+        }
+
+        async function startOnlinePayment(){
+            const plan = selectedPaymentPlan;
+            if(!plan) return;
+            try{
+                document.getElementById('paymentStatus').textContent = 'Creating payment order...';
+                const order = await createPaymentOrder(plan);
+
+                if(!window.Razorpay || !(order.razorpay_key_id || RAZORPAY_KEY_ID) || !order.razorpay_order_id){
+                    document.getElementById('paymentStatus').textContent = 'Razorpay key missing. Direct UPI opening...';
+                    openDirectUpi(plan, order.payment_id);
+                    return;
+                }
+
+                const options = {
+                    key: order.razorpay_key_id || RAZORPAY_KEY_ID,
+                    amount: Number(plan.price) * 100,
+                    currency: 'INR',
+                    name: PAYMENT_RECEIVER_NAME,
+                    description: `${plan.name} Plan - ${plan.duration}`,
+                    order_id: order.razorpay_order_id,
+                    method: { upi: true, card: true, netbanking: true, wallet: true },
+                    notes: {
+                        org_id: order.org_id || '',
+                        org_code: order.org_code || '',
+                        plan_id: plan.id,
+                        receiver_upi: PAYMENT_UPI_ID,
+                        local_payment_id: order.payment_id
+                    },
+                    handler: async function(response){
+                        try{
+                            document.getElementById('paymentStatus').textContent = 'Verifying payment...';
+                            const session = activeOrgSession || readSession();
+                            const client = createOrgClient(session.orgId || '', session.orgCode || '');
+                            const {data,error} = await client.edge(PAYMENT_EDGE_VERIFY_URL, {
+                                payment_id: order.payment_id,
+                                org_id: order.org_id,
+                                org_code: order.org_code,
+                                plan_id: plan.id,
+                                plan_name: plan.name,
+                                plan_end_date: planEndDate(plan.duration),
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_signature: response.razorpay_signature
+                            });
+                            if(error) throw new Error(errorMessage(error, 'Verification failed'));
+                            if(!data || data.ok !== true) throw new Error(errorMessage(data?.error || data?.message || data, 'Verification failed'));
+                            document.getElementById('paymentStatus').textContent = 'Payment successful. Plan activated.';
+                            showToast('✅ Payment successful. Plan activated.');
+                            closePaymentModal();
+                            await loadCompanyData();
+                        }catch(e){
+                            console.error(e);
+                            const msg = errorMessage(e, 'Verification failed');
+                            document.getElementById('paymentStatus').textContent = msg;
+                            showToast(msg, true);
+                        }
+                    },
+                    modal: { ondismiss: function(){ document.getElementById('paymentStatus').textContent = 'Payment cancelled.'; } },
+                    prefill: {
+                        email: (activeOrgSession && activeOrgSession.email) || '',
+                        contact: (activeOrgSession && activeOrgSession.mobile) || ''
+                    },
+                    theme: { color: '#1f6e68' }
+                };
+                const rz = new Razorpay(options);
+                rz.open();
+            }catch(e){
+                console.error(e);
+                const msg = errorMessage(e, 'Payment failed');
+                document.getElementById('paymentStatus').textContent = msg;
+                showToast(msg, true);
+            }
+        }
+
+        async function startDirectUpi(){
+            const plan = selectedPaymentPlan;
+            if(!plan) return;
+            try{
+                // Direct UPI fallback Razorpay order create nahi karta, kyunki browser UPI success verify nahi kar sakta.
+                // Auto activation ke liye Pay Now & Activate (Razorpay) use karein.
+                const session = activeOrgSession || readSession();
+                const ref = 'UPI-' + (session.orgCode || session.orgId || 'ORG') + '-' + Date.now();
+                openDirectUpi(plan, ref);
+            }catch(e){
+                showToast(errorMessage(e, 'Direct UPI failed'), true);
+            }
+        }
+
+        document.getElementById('closePaymentModal').addEventListener('click', closePaymentModal);
+        document.getElementById('payOnlineBtn').addEventListener('click', startOnlinePayment);
+        document.getElementById('payUpiIntentBtn').addEventListener('click', startDirectUpi);
+        document.getElementById('paymentModal').addEventListener('click', function(e){
+            if(e.target === this) closePaymentModal();
+        });
+
+
+        // ── tab switching ──
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ── event listeners ──
+        document.getElementById('empSearch').addEventListener('input', function() {
+            renderEmployees(mockEmployees);
+        });
+        document.getElementById('empFilter').addEventListener('change', function() {
+            renderEmployees(mockEmployees);
+        });
+
+        // ── QR copy ──
+        document.getElementById('copyCodeBtn').addEventListener('click', function() {
+            const code = document.getElementById('companyCodeDisplay').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('✅ Company code copied: ' + code);
+            }).catch(() => {
+                // fallback
+                const ta = document.createElement('textarea');
+                ta.value = code;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                showToast('✅ Company code copied: ' + code);
+            });
+        });
+
+        // ── QR download ──
+        document.getElementById('downloadQrBtn').addEventListener('click', function() {
+            const img = document.getElementById('qrImage');
+            if (img && img.src) {
+                const link = document.createElement('a');
+                link.download = 'company-qr.png';
+                link.href = img.src;
+                link.target = '_blank';
+                link.click();
+                showToast('📥 Downloading QR code…');
+            } else {
+                showToast('⚠️ QR code not ready yet.', true);
+            }
+        });
+
+        // ── QR share ──
+        document.getElementById('shareQrBtn').addEventListener('click', function() {
+            const code = document.getElementById('companyCodeDisplay').textContent;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Join OrgConnect',
+                    text: `Join my company on OrgConnect with code: ${code}`,
+                    url: window.location.href
+                }).catch(() => {});
+            } else {
+                showToast('📤 Share this code: ' + code);
+            }
+        });
+
+        // ── action handlers ──
+        function handleAction(action) {
+            switch (action) {
+                case 'privacy':
+                    showToast('📄 Privacy Policy – opening in new tab');
+                    window.open('privacy.html', '_blank');
+                    break;
+                case 'support':
+                    showToast('🛟 Support – redirecting …');
+                    window.location.href = 'support.html';
+                    break;
+                case 'chat':
+                    showToast('💬 Live Chat – connecting …');
+                    localStorage.setItem('companyChatUnread', '0');
+                    document.getElementById('chatBadge').style.display = 'none';
+                    window.location.href = 'chat.html';
+                    break;
+                case 'docs':
+                    showToast('📘 Documentation – loading …');
+                    window.open('docs.html', '_blank');
+                    break;
+                case 'feedback':
+                    showToast('⭐ Feedback form opening …');
+                    window.location.href = 'feedback.html';
+                    break;
+                case 'edit':
+                    showToast('✏️ Edit company profile – coming soon');
+                    break;
+                case 'export':
+                    showToast('📥 Exporting company data …');
+                    break;
+                case 'addEmployee':
+                    showToast('👤 Add employee form – coming soon');
+                    break;
+                case 'newAnnouncement':
+                    showToast('📢 New announcement editor – coming soon');
+                    break;
+                default:
+                    showToast('Action: ' + action, true);
+            }
+        }
+
+        function handleLogout() {
+            if (!confirm('Sign out from OrgConnect?')) return;
+            const keys = [
+                'inlistSession', 'inlistEmployeeSession', 'currentSession',
+                'orgData', 'currentOrg', 'orgInfo', 'userData', 'currentUser', 'userInfo', 'featuresData',
+                'supabaseAuthToken', 'supabaseRefreshToken'
+            ];
+            keys.forEach(k => { sessionStorage.removeItem(k);
+                localStorage.removeItem(k); });
+            showToast('👋 Signed out.');
+            setTimeout(() => { window.location.href = 'login.html'; }, 700);
+        }
+
+        document.querySelectorAll('[data-action]').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                handleAction(this.dataset.action);
+            });
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+
+        // ── init ──
+        document.addEventListener('DOMContentLoaded', loadCompanyData);
+        window.addEventListener('storage', function(e) {
+            if (e.key && (e.key.includes('session') || e.key === 'orgData' || e.key === 'featuresData')) {
+                loadCompanyData();
+            }
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Add Employee | Inlist</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    body { background: radial-gradient(ellipse at 20% 30%, #0f2f2c, #051c1a); min-height: 100vh; padding: 1.5rem; display: flex; justify-content: center; align-items: center; }
+    .employee-container { max-width: 980px; width: 100%; background: rgba(255,255,255,.96); border-radius: 2rem; box-shadow: 0 30px 45px -12px rgba(0,0,0,.25); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #1a5c54, #0e3d38); padding: 1.2rem 2rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; color:#fff; }
+    .header h1 { font-size:1.5rem; display:flex; align-items:center; gap:8px; }
+    .back-btn { background:rgba(255,255,255,.15); border:none; padding:8px 18px; border-radius:40px; color:#fff; cursor:pointer; }
+    .content { padding:2rem; }
+    .session-box { background:#eef6f4; border:1px solid #dcebe7; border-radius:1.2rem; padding:1rem 1.2rem; margin-bottom:1.5rem; color:#1e5a4c; font-size:.86rem; display:grid; gap:6px; }
+    .session-box b { color:#0e3d38; }
+    .form-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.2rem; margin-bottom:1.5rem; }
+    .input-group { display:flex; flex-direction:column; gap:5px; }
+    .input-group label { font-size:.7rem; font-weight:700; color:#1e6b63; text-transform:uppercase; letter-spacing:.3px; }
+    .input-group input, .input-group select { padding:10px 14px; border-radius:2rem; border:1.5px solid #dcebe7; background:#fff; outline:none; }
+    .input-group input:focus, .input-group select:focus { border-color:#1f6e68; box-shadow:0 0 0 3px rgba(31,110,104,.12); }
+    .full-width { grid-column:span 2; }
+    .profile-preview { display:flex; align-items:center; gap:1rem; }
+    .profile-preview img { width:60px; height:60px; border-radius:50%; object-fit:cover; background:#eef4f2; border:1px solid #dcebe7; }
+    .action-buttons { display:flex; gap:1rem; margin:1.5rem 0; flex-wrap:wrap; }
+    .btn-primary { background:#1f6e68; color:#fff; border:none; padding:10px 24px; border-radius:2rem; font-weight:700; cursor:pointer; }
+    .btn-secondary { background:#e2e8f0; color:#2c655e; border:none; padding:10px 24px; border-radius:2rem; font-weight:700; cursor:pointer; }
+    button:disabled, .btn-disabled { opacity:.6; cursor:not-allowed; }
+    .excel-group { background:#f4faf8; border-radius:1.2rem; padding:1rem 1.2rem; margin:1rem 0; display:flex; flex-wrap:wrap; gap:1rem; align-items:center; }
+    .result-box { display:none; margin-top:1rem; border-radius:1.2rem; padding:1rem; background:#eef6f4; color:#1e5a4c; font-size:.88rem; line-height:1.6; }
+    .result-box.error { background:#fee2e2; color:#991b1b; }
+    .toast { position:fixed; bottom:20px; left:20px; background:#1a5e58; color:#fff; padding:8px 18px; border-radius:40px; font-size:.8rem; z-index:1000; animation:fadeOut 3s forwards; }
+    @keyframes fadeOut { 0%,70% { opacity:1; } 100% { opacity:0; visibility:hidden; } }
+    @media (max-width:700px){ .form-grid{grid-template-columns:1fr}.full-width{grid-column:span 1}.content{padding:1.4rem}.header{padding:1rem 1.4rem} }
+  </style>
+</head>
+<body>
+<div class="employee-container">
+  <div class="header">
+    <h1><i class="fas fa-user-plus"></i> Add Employee</h1>
+    <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+  </div>
+  <div class="content">
+    <div class="session-box" id="sessionBox">
+      <div>Checking admin session...</div>
+    </div>
+
+    <div class="form-grid" id="employeeForm">
+      <div class="input-group"><label>Employee Code *</label><input type="text" id="empId" placeholder="Auto: EMP001"></div>
+      <div class="input-group"><label>Full Name *</label><input type="text" id="empName" placeholder="e.g., Ashish Kumar"></div>
+      <div class="input-group"><label>Email *</label><input type="email" id="empEmail" placeholder="employee@org.com"></div>
+      <div class="input-group"><label>Mobile *</label><input type="tel" id="empMobile" placeholder="9876543210"></div>
+      <div class="input-group"><label>Date of Birth</label><input type="date" id="empDob"></div>
+      <div class="input-group"><label>Gender</label><select id="empGender"><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
+      <div class="input-group"><label>Department</label><input type="text" id="empDept" placeholder="e.g., Engineering"></div>
+      <div class="input-group"><label>Designation</label><input type="text" id="empDesig" placeholder="e.g., Developer"></div>
+      <div class="input-group"><label>Employee Type</label><select id="empRole"><option value="full_time">Full Time</option><option value="part_time">Part Time</option><option value="contract">Contract</option><option value="intern">Intern</option><option value="admin">Admin</option><option value="hr">HR</option><option value="manager">Manager</option></select></div>
+      <div class="input-group"><label>Joining Date</label><input type="date" id="joiningDate"></div>
+      <div class="input-group full-width"><label>Password (Auto: FirstName@123)</label><input type="text" id="empPassword" placeholder="Auto-generated"></div>
+      <div class="input-group full-width">
+        <label>Profile Picture Preview Only</label>
+        <div class="profile-preview">
+          <img id="profilePreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23dcebe7'/%3E%3Ctext x='50' y='67' text-anchor='middle' fill='%236b8c9c' font-size='40'%3E👤%3C/text%3E%3C/svg%3E" alt="Preview">
+          <input type="file" id="profilePic" accept="image/png,image/jpeg">
+        </div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button id="addSingleBtn" class="btn-primary"><i class="fas fa-save"></i> Add Employee</button>
+      <button id="resetFormBtn" class="btn-secondary">Reset Form</button>
+    </div>
+
+    <div class="excel-group">
+      <i class="fas fa-file-excel" style="font-size:1.5rem;color:#1f6e68;"></i>
+      <span><strong>Bulk Upload via Excel</strong> — duplicate employee code/email/mobile detect hoga</span>
+      <button id="downloadTemplateBtn" class="btn-secondary"><i class="fas fa-download"></i> Download Template</button>
+      <label class="btn-primary" style="padding:8px 20px;display:inline-block;cursor:pointer;"><i class="fas fa-upload"></i> Upload Excel<input type="file" id="excelUpload" accept=".xlsx,.xls" style="display:none;"></label>
+    </div>
+
+    <div class="result-box" id="resultBox"></div>
+  </div>
+</div>
+
+<script>
+// ================= SUPABASE CONFIG =================
+const SUPABASE_URL = "https://tovpcbzztvkiwamimrxt.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+
+function createMiniSupabaseClient(url, key, extraHeaders = {}){
+  const base = url.replace(/\/$/, '');
+  const baseHeaders = {
+    apikey: key,
+    Authorization: "Bearer " + key,
+    "Content-Type": "application/json",
+    ...extraHeaders
+  };
+
+  return {
+    async rpc(fn, args){
+      const res = await fetch(base + "/rest/v1/rpc/" + fn, {
+        method: "POST",
+        headers: baseHeaders,
+        body: JSON.stringify(args || {})
+      });
+
+      const raw = await res.text();
+      let data = null;
+
+      try { data = raw ? JSON.parse(raw) : null; }
+      catch { data = raw; }
+
+      if(!res.ok){
+        return {
+          data: null,
+          error: {
+            message: (data && (data.message || data.details || data.hint)) || raw || res.statusText
+          }
+        };
+      }
+
+      return { data, error: null };
+    }
+  };
+}
+
+function createOrgClient(orgId, orgCode){
+  return createMiniSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    "x-org-id": orgId || "",
+    "x-org-code": orgCode || ""
+  });
+}
+
+let supabaseClient = createMiniSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = id => document.getElementById(id);
+const DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23dcebe7'/%3E%3Ctext x='50' y='67' text-anchor='middle' fill='%236b8c9c' font-size='40'%3E👤%3C/text%3E%3C/svg%3E";
+
+let session = null;
+let org = null;
+let branch = null;
+let currentUser = null;
+
+async function sha256(text){
+  const bytes = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function showToast(msg, isErr=false){
+  let old=document.querySelector('.toast');
+  if(old) old.remove();
+
+  const toast=document.createElement('div');
+  toast.className='toast';
+  toast.style.background=isErr?'#b91c1c':'#1a5e58';
+  toast.innerText=msg;
+  document.body.appendChild(toast);
+
+  setTimeout(()=>toast.remove(),3000);
+}
+
+function showResult(html, isErr=false){
+  const box=$('resultBox');
+  box.className='result-box'+(isErr?' error':'');
+  box.innerHTML=html;
+  box.style.display='block';
+}
+
+function hideResult(){
+  $('resultBox').style.display='none';
+}
+
+function cleanPhone(v){
+  return String(v||'').replace(/\s+/g,'').replace(/^\+91/,'').trim();
+}
+
+function cleanEmail(v){
+  return String(v||'').trim().toLowerCase();
+}
+
+function safeDate(v){
+  if(!v) return null;
+  const d=String(v).slice(0,10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d)?d:null;
+}
+
+function generatePasswordFromName(name){
+  const first=(name||'').trim().split(' ')[0] || 'Emp';
+  return first + '@123';
+}
+
+function normalizeEmpCode(v){
+  return String(v||'').trim().toUpperCase();
+}
+
+function stripHtml(s){
+  return String(s||'').replace(/<[^>]+>/g,'');
+}
+
+function getJsonAny(keys){
+  for(const key of keys){
+    try{
+      const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+  }
+  return null;
+}
+
+function getParam(name){
+  return new URLSearchParams(location.search).get(name);
+}
+
+function getSession(){
+  const inlist = getJsonAny(['inlistSession']) || {};
+  const current = getJsonAny(['currentSession']) || {};
+
+  return {
+    orgId: getParam('org_id') || inlist.orgId || current.orgId || current.org_id || null,
+    orgCode: getParam('org_code') || inlist.orgCode || current.orgCode || current.org_code || '',
+    userId: getParam('user_id') || inlist.userId || current.userId || current.user_id || '',
+    branchId: getParam('branch_id') || inlist.branchId || current.branchId || current.branch_id || '',
+    role: getParam('role') || inlist.role || current.role || 'admin',
+    email: getParam('email') || inlist.email || current.email || '',
+    mobile: getParam('mobile') || inlist.mobile || current.mobile || current.phone || ''
+  };
+}
+
+function disableForm(disabled){
+  ['addSingleBtn','downloadTemplateBtn'].forEach(id=>{
+    const el=$(id);
+    if(el) el.disabled=disabled;
+  });
+
+  document.querySelectorAll('#employeeForm input,#employeeForm select,#excelUpload,#resetFormBtn').forEach(el=>{
+    el.disabled=disabled;
+  });
+}
+
+async function initSession(){
+  session = getSession();
+
+  if(!session || (!session.orgId && !session.orgCode)){
+    $('sessionBox').innerHTML = '<b>Login required:</b> URL/session me org_id ya org_code nahi mila. Pehle login karke admin se open karo.';
+    disableForm(true);
+    return;
+  }
+
+  const allowed = ['owner','admin','hr','manager','developer','company'];
+  if(!allowed.includes(String(session.role||'').toLowerCase())){
+    $('sessionBox').innerHTML = '<b>Access denied:</b> Employee add karne ke liye admin/owner/hr/manager role chahiye.';
+    disableForm(true);
+    return;
+  }
+
+  supabaseClient = createOrgClient(session.orgId || '', session.orgCode || '');
+  console.log('ADD EMP RLS HEADERS SET', {orgId: session.orgId, orgCode: session.orgCode});
+
+  const { data, error } = await supabaseClient.rpc('app_add_employee_context', {
+    p_org_id: session.orgId || null,
+    p_org_code: session.orgCode || null,
+    p_user_id: session.userId || null,
+    p_branch_id: session.branchId || null
+  });
+
+  if(error){
+    $('sessionBox').innerHTML = '<b>Error:</b> ' + error.message;
+    disableForm(true);
+    return;
+  }
+
+  if(!data || data.ok !== true){
+    $('sessionBox').innerHTML = '<b>Error:</b> ' + ((data && data.message) || 'Context not found');
+    disableForm(true);
+    return;
+  }
+
+  org = data.org || {};
+  branch = data.branch || {};
+  currentUser = data.user || {};
+  session.orgId = data.session?.orgId || org.id || session.orgId;
+  session.orgCode = data.session?.orgCode || org.org_code || session.orgCode;
+  session.branchId = data.session?.branchId || branch.id || session.branchId;
+  session.userId = data.session?.userId || currentUser.id || session.userId;
+  session.role = data.session?.role || currentUser.role || session.role;
+
+  $('sessionBox').innerHTML = `
+    <div><b>Organization:</b> ${escapeHtml(org.org_name || '-')} (${escapeHtml(org.org_code || session.orgCode || '-')})</div>
+    <div><b>Branch:</b> ${escapeHtml(branch.branch_name || 'MAIN')} ${branch.branch_code ? '('+escapeHtml(branch.branch_code)+')' : ''}</div>
+    <div><b>Added by:</b> ${escapeHtml(currentUser.full_name || currentUser.email || session.role || 'Admin')} — ${escapeHtml(session.role || '')}</div>
+  `;
+
+  disableForm(false);
+  $('empId').value = data.next_emp_code || 'EMP001';
+}
+
+function escapeHtml(str){
+  return String(str ?? '').replace(/[&<>'"]/g, m => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    "'":'&#39;',
+    '"':'&quot;'
+  }[m]));
+}
+
+async function generateEmployeeId(){
+  if(!org) return 'EMP001';
+
+  const { data, error } = await supabaseClient.rpc('app_next_emp_code', {
+    p_org_id: session.orgId || org.id
+  });
+
+  if(error) {
+    console.warn(error);
+    return 'EMP001';
+  }
+
+  return (data && data.emp_code) || data || 'EMP001';
+}
+
+async function createEmployee(row){
+  const empCode = normalizeEmpCode(row.empCode);
+  const name = String(row.name||'').trim();
+  const email = cleanEmail(row.email);
+  const mobile = cleanPhone(row.mobile);
+  const password = String(row.password||'').trim() || generatePasswordFromName(name);
+
+  if(!name || !email || !mobile) throw new Error('Name, Email aur Mobile required hai');
+  if(!empCode) throw new Error('Employee code required hai');
+
+  const passwordHash = await sha256(password);
+
+  const { data, error } = await supabaseClient.rpc('app_add_employee', {
+    p_org_id: session.orgId || org.id,
+    p_branch_id: session.branchId || branch?.id || null,
+    p_created_by: session.userId || null,
+    p_emp_code: empCode,
+    p_full_name: name,
+    p_email: email,
+    p_mobile: mobile,
+    p_password_hash: passwordHash,
+    p_department: row.dept || null,
+    p_designation: row.designation || null,
+    p_employee_type: row.role || 'full_time',
+    p_joining_date: safeDate(row.joiningDate),
+    p_dob: safeDate(row.dob),
+    p_gender: row.gender || null
+  });
+
+  if(error) throw new Error(error.message);
+
+  if(!data || data.ok !== true){
+    throw new Error((data && data.message) || 'Employee add failed');
+  }
+
+  return data.employee;
+}
+
+$('empName').addEventListener('input', function(){
+  const pwd=$('empPassword');
+  if(!pwd.value || pwd.value === pwd.getAttribute('data-last')){
+    const next=generatePasswordFromName(this.value);
+    pwd.value=next;
+    pwd.setAttribute('data-last', next);
+  }
+});
+
+$('profilePic').addEventListener('change', function(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>$('profilePreview').src=ev.target.result;
+  reader.readAsDataURL(file);
+});
+
+async function addEmployeeFromForm(){
+  hideResult();
+
+  try{
+    $('addSingleBtn').disabled = true;
+
+    const row = {
+      empCode: $('empId').value || await generateEmployeeId(),
+      name: $('empName').value,
+      email: $('empEmail').value,
+      mobile: $('empMobile').value,
+      dob: $('empDob').value,
+      gender: $('empGender').value,
+      dept: $('empDept').value.trim(),
+      designation: $('empDesig').value.trim(),
+      role: $('empRole').value,
+      joiningDate: $('joiningDate').value,
+      password: $('empPassword').value
+    };
+
+    const emp = await createEmployee(row);
+
+    showToast(`✅ ${emp.full_name} uploaded successfully`);
+    showResult(`✅ Employee uploaded successfully.<br><b>Employee Code:</b> ${emp.emp_code}<br><b>Name:</b> ${emp.full_name}<br><b>Email:</b> ${emp.email}<br><b>Mobile:</b> ${emp.mobile}`);
+
+    await resetForm();
+  }catch(err){
+    console.error(err);
+    showToast(stripHtml(err.message), true);
+    showResult('❌ ' + err.message, true);
+  }finally{
+    $('addSingleBtn').disabled = false;
+  }
+}
+
+async function resetForm(){
+  $('empId').value = await generateEmployeeId();
+  $('empName').value='';
+  $('empEmail').value='';
+  $('empMobile').value='';
+  $('empDob').value='';
+  $('empGender').value='male';
+  $('empDept').value='';
+  $('empDesig').value='';
+  $('empRole').value='full_time';
+  $('empPassword').value='';
+  $('joiningDate').value='';
+  $('profilePic').value='';
+  $('profilePreview').src=DEFAULT_AVATAR;
+  $('empPassword').setAttribute('data-last','');
+}
+
+function downloadTemplate(){
+  const templateData = [
+    ['EmployeeID','Name','Email','Mobile','DOB','Gender','Department','Designation','Role','JoiningDate','Password'],
+    ['EMP001','Ashish Kumar','ashish@org.com','9876543210','1990-05-15','male','Engineering','Developer','full_time','2025-01-01','Ashish@123'],
+    ['EMP002','Priya Sharma','priya@org.com','9876543211','1992-08-22','female','HR','HR Executive','full_time','2025-01-10','Priya@123']
+  ];
+
+  const ws=XLSX.utils.aoa_to_sheet(templateData);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Employees');
+  XLSX.writeFile(wb,'employee_template.xlsx');
+}
+
+function getCell(row, headers, names){
+  for(const n of names){
+    const idx=headers.findIndex(h=>String(h).trim().toLowerCase()===n.toLowerCase());
+    if(idx>=0) return row[idx];
+  }
+  return '';
+}
+
+async function handleExcelUpload(file){
+  hideResult();
+
+  const reader = new FileReader();
+
+  reader.onload = async function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:'array'});
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, {header:1, raw:false});
+
+      if(!rows || rows.length < 2) return showResult('❌ Empty file or invalid format', true);
+
+      const headers = rows[0].map(h=>String(h||'').trim());
+      const missing = ['Name','Email','Mobile'].filter(r => !headers.some(h=>h.toLowerCase()===r.toLowerCase()));
+
+      if(missing.length) return showResult(`❌ Missing columns: ${missing.join(', ')}`, true);
+
+      let added=0, skipped=[];
+
+      for(let i=1;i<rows.length;i++){
+        const r=rows[i];
+        if(!r || !r.length) continue;
+
+        const row = {
+          empCode: getCell(r,headers,['EmployeeID','EmpCode','Employee Code']) || await generateEmployeeId(),
+          name: getCell(r,headers,['Name','Full Name']),
+          email: getCell(r,headers,['Email']),
+          mobile: getCell(r,headers,['Mobile','Phone']),
+          dob: getCell(r,headers,['DOB','Date of Birth']),
+          gender: getCell(r,headers,['Gender']) || 'male',
+          dept: getCell(r,headers,['Department']),
+          designation: getCell(r,headers,['Designation']),
+          role: getCell(r,headers,['Role','Employee Type']) || 'full_time',
+          joiningDate: getCell(r,headers,['JoiningDate','Joining Date']),
+          password: getCell(r,headers,['Password'])
+        };
+
+        if(!row.name || !row.email || !row.mobile){
+          skipped.push(`Row ${i+1}: Name/Email/Mobile missing`);
+          continue;
+        }
+
+        try{
+          await createEmployee(row);
+          added++;
+        }catch(err){
+          skipped.push(`Row ${i+1}: ${stripHtml(err.message)}`);
+        }
+      }
+
+      let html = `✅ Upload completed.<br><b>${added}</b> employee(s) uploaded successfully.`;
+      if(skipped.length) html += `<br><br><b>Skipped / Duplicate:</b><br>${skipped.map(x=>'• '+x).join('<br>')}`;
+
+      showResult(html, false);
+      showToast(`✅ ${added} employees uploaded successfully`);
+      await resetForm();
+    }catch(err){
+      console.error(err);
+      showResult('❌ '+err.message, true);
+      showToast(err.message, true);
+    }
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+$('addSingleBtn').addEventListener('click', addEmployeeFromForm);
+$('resetFormBtn').addEventListener('click', resetForm);
+$('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+$('excelUpload').addEventListener('change', e=>{
+  if(e.target.files.length) handleExcelUpload(e.target.files[0]);
+  e.target.value='';
+});
+
+$('backBtn').addEventListener('click', ()=>{
+  if(history.length>1) history.back();
+  else location.href='admin.html?org_id='+(session?.orgId||'')+'&org_code='+(session?.orgCode||'');
+});
+
+initSession().catch(err=>{
+  console.error(err);
+  $('sessionBox').innerHTML='<b>Error:</b> '+err.message;
+  disableForm(true);
+});
+</script>
+</body>
+</html>

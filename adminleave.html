@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Leave Management | Card View</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(ellipse at 20% 30%, #0f2f2c, #051c1a);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .admin-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(2px);
+      border-radius: 2rem;
+      box-shadow: 0 30px 50px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+    }
+
+    .top-bar {
+      background: #0a2c2f;
+      padding: 0.7rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      color: white;
+    }
+    .org-info { background: #174d47; padding: 4px 14px; border-radius: 40px; font-size: 0.8rem; }
+
+    .header {
+      background: linear-gradient(135deg, #1a5c54, #0e3d38);
+      padding: 0.8rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      color: white;
+    }
+    .header h1 { font-size: 1.3rem; display: flex; align-items: center; gap: 8px; }
+    .back-btn {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      padding: 5px 14px;
+      border-radius: 40px;
+      cursor: pointer;
+    }
+
+    /* Filters */
+    .filters {
+      padding: 1rem 1.5rem;
+      background: #f4faf8;
+      border-bottom: 1px solid #e0efeb;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 130px;
+    }
+    .filter-group label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #1e6b63;
+      text-transform: uppercase;
+    }
+    select, input {
+      padding: 8px 14px;
+      border-radius: 2rem;
+      border: 1px solid #cfe0db;
+      background: white;
+      font-size: 0.8rem;
+      outline: none;
+    }
+    .btn-sm {
+      background: #1f6e68;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 2rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #2c655e;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 2rem;
+      cursor: pointer;
+    }
+
+    /* Stats */
+    .stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      background: white;
+      border-bottom: 1px solid #eef4f2;
+    }
+    .stat-card {
+      background: #fefcf7;
+      border-radius: 1rem;
+      padding: 0.6rem 1rem;
+      text-align: center;
+      flex: 1;
+      min-width: 100px;
+    }
+    .stat-number { font-size: 1.6rem; font-weight: 800; color: #1e5a4c; }
+    .stat-label { font-size: 0.7rem; color: #5b8a82; font-weight: 600; }
+
+    /* Bulk Actions */
+    .bulk-bar {
+      padding: 0.6rem 1.5rem;
+      background: #fef8e7;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .bulk-actions { display: flex; gap: 0.8rem; }
+
+    /* Card List */
+    .cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1.5rem;
+    }
+    .leave-card {
+      background: white;
+      border-radius: 1.2rem;
+      border: 1px solid #e0efeb;
+      padding: 1rem;
+      transition: 0.2s;
+      position: relative;
+    }
+    .leave-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #eef4f2;
+    }
+    .emp-info h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1e5a4c;
+    }
+    .emp-details {
+      font-size: 0.7rem;
+      color: #6b8c9c;
+    }
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 2rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .status-pending, .status-admin_pending { background: #fff3e0; color: #c47a2e; }
+    .status-handover_pending { background: #e0f2fe; color: #0369a1; }
+    .status-approved { background: #e0f2e9; color: #1e6f3f; }
+    .status-rejected, .status-handover_rejected { background: #ffe6e5; color: #b91c1c; }
+    .status-cancelled { background: #e5e7eb; color: #374151; }
+
+    .card-body {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 0.8rem;
+    }
+    .info-row {
+      flex: 1;
+      min-width: 150px;
+      font-size: 0.8rem;
+    }
+    .info-label {
+      font-weight: 600;
+      color: #2c655e;
+    }
+    .reason {
+      background: #f4faf8;
+      padding: 6px 10px;
+      border-radius: 1rem;
+      margin-top: 6px;
+    }
+    .card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.8rem;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid #eef4f2;
+    }
+    .action-btn {
+      border: none;
+      padding: 5px 16px;
+      border-radius: 2rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    .approve-btn { background: #e0f2e9; color: #1e6f3f; }
+    .reject-btn { background: #ffe6e5; color: #b91c1c; }
+    .disabled-btn { background: #eef2f5; color: #8aa5a0; cursor: not-allowed; }
+
+    .select-checkbox {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      transform: scale(1.1);
+      cursor: pointer;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      padding: 1rem;
+      flex-wrap: wrap;
+    }
+    .page-btn {
+      background: #eef2f5;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 2rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    .page-btn.active { background: #1f6e68; color: white; }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .modal-content {
+      background: white;
+      max-width: 450px;
+      width: 90%;
+      border-radius: 1.5rem;
+      padding: 1.5rem;
+    }
+    .modal-header { font-size: 1.2rem; font-weight: bold; color: #1e5a4c; margin-bottom: 1rem; }
+    .modal textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 1rem;
+      border: 1px solid #cfe0db;
+      margin: 8px 0;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: #1a5e58;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      z-index: 3000;
+      animation: fadeOut 3s forwards;
+    }
+    @keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+  </style>
+</head>
+<body>
+<div class="admin-container">
+  <div class="top-bar">
+    <div><i class="fas fa-user-shield"></i> Admin: <strong id="adminName">--</strong></div>
+    <div class="org-info"><i class="fas fa-building"></i> <span id="orgName">--</span> | <span id="orgCode">--</span></div>
+  </div>
+  <div class="header">
+    <h1><i class="fas fa-umbrella-beach"></i> Leave Management (Card View)</h1>
+    <button class="back-btn" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <div class="filter-group"><label>Status</label><select id="statusFilter"><option value="all">All</option><option value="admin_pending">Admin Pending</option><option value="handover_pending">Handover Pending</option><option value="pending">Pending / All Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="handover_rejected">Handover Rejected</option><option value="cancelled">Cancelled</option></select></div>
+    <div class="filter-group"><label>Department</label><select id="deptFilter"><option value="all">All Departments</option></select></div>
+    <div class="filter-group"><label>Search</label><input type="text" id="searchInput" placeholder="Emp Name/ID"></div>
+    <button id="applyFilter" class="btn-sm">Apply</button>
+    <button id="resetFilter" class="btn-secondary">Reset</button>
+    <button id="exportExcel" class="btn-secondary">📎 Export Excel</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow"></div>
+
+  <!-- Bulk Actions -->
+  <div class="bulk-bar">
+    <div><i class="fas fa-check-square"></i> <span id="selectedCount">0</span> selected</div>
+    <div class="bulk-actions">
+      <button id="bulkApprove" class="btn-sm" style="background:#1f6e68;">✅ Approve Selected</button>
+      <button id="bulkReject" class="btn-sm" style="background:#b91c1c;">❌ Reject Selected</button>
+    </div>
+  </div>
+
+  <!-- Cards List -->
+  <div id="cardsList" class="cards-list"></div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- Reject Remark Modal -->
+<div id="rejectModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">Reject Leave Request</div>
+    <label>Reason for rejection *</label>
+    <textarea id="rejectRemark" rows="3" placeholder="Enter remarks..."></textarea>
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem;">
+      <button id="modalCancel" class="btn-secondary">Cancel</button>
+      <button id="modalConfirm" class="btn-sm">Confirm Reject</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // =========================================================
+  // SUPABASE CONFIG
+  // =========================================================
+  const SUPABASE_URL = "https://tovpcbzztvkiwamimrxt.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // =========================================================
+  // GLOBAL STATE
+  // =========================================================
+  let allLeaves = [];
+  let departments = [];
+  let sessionCache = null;
+  let currentStatus = "all";
+  let currentDept = "all";
+  let currentSearch = "";
+  let selectedRequests = new Set();
+  let currentPage = 1;
+  const itemsPerPage = 10;
+
+  // =========================================================
+  // HELPERS
+  // =========================================================
+  function safeText(value, fallback = "-") {
+    if (value === null || value === undefined || value === "") return fallback;
+    return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  }
+
+  function normalizeDate(value) {
+    if (!value) return "";
+    return String(value).slice(0, 10);
+  }
+
+  function formatDate(value) {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return safeText(value);
+    return d.toLocaleDateString("en-IN");
+  }
+
+  function calcDays(fromDate, toDate) {
+    if (!fromDate || !toDate) return 1;
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
+    return Math.max(1, Math.round((end - start) / 86400000) + 1);
+  }
+
+  function showToast(msg, err = false) {
+    const old = document.querySelector(".toast");
+    if (old) old.remove();
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.style.background = err ? "#b91c1c" : "#1a5e58";
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+  }
+
+  function showLoading(message = "Loading leave requests...") {
+    document.getElementById("cardsList").innerHTML = `<div style="text-align:center; padding:2rem; color:#2c655e; font-weight:700;"><i class="fas fa-spinner fa-spin"></i> ${safeText(message)}</div>`;
+  }
+
+  function getQueryParam(name) {
+    try { return new URLSearchParams(window.location.search).get(name) || ""; } catch(e) { return ""; }
+  }
+
+  function readLocalJson(key) {
+    try { return JSON.parse(localStorage.getItem(key) || sessionStorage.getItem(key) || "{}"); } catch(e) { return {}; }
+  }
+
+  function getBasicSessionData() {
+    const session = readLocalJson("currentSession");
+    const inlistSession = readLocalJson("inlistSession");
+    const personal = readLocalJson("personalData");
+    const qOrgCode = getQueryParam("org_code") || getQueryParam("orgCode") || getQueryParam("companyCode");
+    const qOrgId = getQueryParam("org_id") || getQueryParam("orgId");
+    const qUserId = getQueryParam("user_id") || getQueryParam("userId") || getQueryParam("adminId") || getQueryParam("admin_user_id");
+    const qEmail = getQueryParam("email") || getQueryParam("adminEmail");
+    const qMobile = getQueryParam("mobile") || getQueryParam("phone");
+
+    return {
+      rawUserId: qUserId || session.userId || session.adminId || session.orgUserId || session.org_user_id || session.id || inlistSession.userId || inlistSession.id || personal.id || "",
+      email: qEmail || session.email || session.userEmail || session.adminEmail || inlistSession.email || personal.email || "",
+      phone: qMobile || session.phone || session.mobile || session.adminPhone || inlistSession.mobile || inlistSession.phone || personal.phone || personal.mobile || "",
+      orgId: qOrgId || session.orgId || session.org_id || session.companyId || inlistSession.orgId || inlistSession.org_id || localStorage.getItem("org_id") || "",
+      orgCode: qOrgCode || session.orgCode || session.org_code || session.companyCode || session.company_code || inlistSession.orgCode || inlistSession.org_code || localStorage.getItem("orgCode") || localStorage.getItem("org_code") || "",
+      orgName: session.orgName || session.org_name || inlistSession.orgName || inlistSession.org_name || "OrgConnect",
+      adminName: personal.fullName || personal.full_name || session.fullName || session.full_name || session.name || inlistSession.fullName || inlistSession.full_name || "Admin",
+      role: session.role || inlistSession.role || personal.role || "admin"
+    };
+  }
+
+  async function callRpc(fn, args = {}) {
+    const { data, error } = await supabaseClient.rpc(fn, args);
+    if (error) {
+      console.error(`RPC ${fn} failed:`, error);
+      throw new Error(error.message || error.details || `${fn} failed`);
+    }
+    if (data && data.ok === false) {
+      console.error(`RPC ${fn} returned error:`, data);
+      throw new Error(data.error || `${fn} failed`);
+    }
+    return data;
+  }
+
+  // =========================================================
+  // RLS SAFE CONTEXT + LOADERS (RPC ONLY)
+  // =========================================================
+  async function resolveOrgAndAdmin() {
+    if (sessionCache) return sessionCache;
+
+    const basic = getBasicSessionData();
+    const ctx = await callRpc("admin_leave_screen_context", {
+      p_org_id: String(basic.orgId || ""),
+      p_org_code: String(basic.orgCode || ""),
+      p_viewer_user_id: String(basic.rawUserId || ""),
+      p_email: String(basic.email || ""),
+      p_phone: String(basic.phone || "")
+    });
+
+    sessionCache = {
+      orgId: ctx.org_id || basic.orgId || "",
+      orgCode: ctx.org_code || basic.orgCode || "",
+      orgName: ctx.org_name || basic.orgName || "OrgConnect",
+      adminId: ctx.admin_id || basic.rawUserId || "",
+      adminName: ctx.admin_name || basic.adminName || "Admin",
+      adminRole: ctx.admin_role || basic.role || "admin",
+      departments: Array.isArray(ctx.departments) ? ctx.departments : []
+    };
+
+    return sessionCache;
+  }
+
+  async function loadAdminInfo() {
+    const basic = getBasicSessionData();
+    document.getElementById("adminName").innerText = basic.adminName || "Admin";
+    document.getElementById("orgName").innerText = basic.orgName || "OrgConnect";
+    document.getElementById("orgCode").innerText = basic.orgCode || "--";
+
+    const s = await resolveOrgAndAdmin();
+    document.getElementById("adminName").innerText = s.adminName || "Admin";
+    document.getElementById("orgName").innerText = s.orgName || "OrgConnect";
+    document.getElementById("orgCode").innerText = s.orgCode || "--";
+    departments = s.departments || [];
+    populateDepartmentFilter();
+  }
+
+  async function loadEmployees() {
+    const s = await resolveOrgAndAdmin();
+    departments = s.departments || [];
+    populateDepartmentFilter();
+  }
+
+  function mapLeaveRow(row) {
+    return {
+      id: row.id,
+      orgId: row.org_id,
+      branchId: row.branch_id,
+      employeeId: row.employee_id,
+      empId: row.emp_code || row.empCode || "-",
+      empName: row.employee_name || row.full_name || "-",
+      dept: row.department || "-",
+      designation: row.designation || "-",
+      email: row.email || "-",
+      mobile: row.mobile || "-",
+      type: row.leave_type || "-",
+      priority: row.priority || "Normal",
+      fromDate: normalizeDate(row.from_date),
+      toDate: normalizeDate(row.to_date),
+      days: row.total_days || calcDays(row.from_date, row.to_date),
+      reason: row.reason || row.employee_note || "-",
+      handoverTo: row.handover_name || row.handover_full_name || "-",
+      handoverId: row.handover_emp_code || row.handover_code || "-",
+      status: row.status || "pending",
+      appliedOn: row.created_at,
+      approvedByName: row.approved_by_name || "-",
+      approvedAt: row.approved_at || row.rejected_at,
+      rejectRemark: row.admin_note || "",
+      attachmentUrl: row.attachment_url || "",
+      attachmentName: row.attachment_name || ""
+    };
+  }
+
+  async function loadLeaveRequests() {
+    showLoading();
+    const s = await resolveOrgAndAdmin();
+    const data = await callRpc("admin_get_leave_requests_rls", {
+      p_org_id: String(s.orgId || ""),
+      p_viewer_user_id: String(s.adminId || ""),
+      p_status: currentStatus === "all" ? "" : String(currentStatus),
+      p_department: currentDept === "all" ? "" : String(currentDept),
+      p_search: String(currentSearch || ""),
+      p_limit: 1000,
+      p_offset: 0
+    });
+
+    const rows = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+    allLeaves = rows.map(mapLeaveRow);
+    selectedRequests.clear();
+
+    if (Array.isArray(data?.departments)) {
+      departments = data.departments;
+      populateDepartmentFilter();
+    }
+
+    updateStatsAndList();
+  }
+
+  function populateDepartmentFilter() {
+    const select = document.getElementById("deptFilter");
+    const previous = select.value || "all";
+    const depts = [...new Set((departments || []).filter(Boolean))];
+    select.innerHTML = '<option value="all">All Departments</option>';
+    depts.forEach(d => select.innerHTML += `<option value="${safeText(d)}">${safeText(d)}</option>`);
+    if ([...select.options].some(opt => opt.value === previous)) select.value = previous;
+  }
+
+  // =========================================================
+  // FILTER + RENDER
+  // =========================================================
+  function getFilteredLeaves() {
+    // Server-side RPC already filters, but this keeps current page responsive/export consistent.
+    let filtered = [...allLeaves];
+    if (currentDept !== "all") filtered = filtered.filter(l => l.dept === currentDept);
+    if (currentSearch) {
+      const s = currentSearch.toLowerCase().trim();
+      filtered = filtered.filter(l => String(l.empName || "").toLowerCase().includes(s) || String(l.empId || "").toLowerCase().includes(s) || String(l.mobile || "").toLowerCase().includes(s) || String(l.email || "").toLowerCase().includes(s));
+    }
+    return filtered;
+  }
+
+  function isAdminActionableStatus(status) {
+    return ["admin_pending", "pending"].includes(String(status || "").toLowerCase());
+  }
+
+  function isWaitingHandoverStatus(status) {
+    return String(status || "").toLowerCase() === "handover_pending";
+  }
+
+  function prettyStatus(status) {
+    const s = String(status || "pending").toLowerCase();
+    const map = {
+      handover_pending: "Handover Pending",
+      admin_pending: "Admin Pending",
+      pending: "Pending",
+      approved: "Approved",
+      rejected: "Rejected",
+      cancelled: "Cancelled",
+      handover_rejected: "Handover Rejected"
+    };
+    return map[s] || s.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function updateStatsAndList() {
+    const filtered = getFilteredLeaves();
+    const pending = filtered.filter(l => ["pending", "admin_pending", "handover_pending"].includes(String(l.status || "").toLowerCase())).length;
+    const adminPending = filtered.filter(l => String(l.status || "").toLowerCase() === "admin_pending").length;
+    const handoverPending = filtered.filter(l => String(l.status || "").toLowerCase() === "handover_pending").length;
+    const approved = filtered.filter(l => String(l.status || "").toLowerCase() === "approved").length;
+    const rejected = filtered.filter(l => ["rejected", "handover_rejected"].includes(String(l.status || "").toLowerCase())).length;
+    const cancelled = filtered.filter(l => String(l.status || "").toLowerCase() === "cancelled").length;
+
+    document.getElementById("statsRow").innerHTML = `
+      <div class="stat-card"><div class="stat-number">${filtered.length}</div><div class="stat-label">Total</div></div>
+      <div class="stat-card"><div class="stat-number">${pending}</div><div class="stat-label">All Pending</div></div>
+      <div class="stat-card"><div class="stat-number">${adminPending}</div><div class="stat-label">Admin Pending</div></div>
+      <div class="stat-card"><div class="stat-number">${handoverPending}</div><div class="stat-label">Handover Pending</div></div>
+      <div class="stat-card"><div class="stat-number">${approved}</div><div class="stat-label">Approved</div></div>
+      <div class="stat-card"><div class="stat-number">${rejected}</div><div class="stat-label">Rejected</div></div>
+      <div class="stat-card"><div class="stat-number">${cancelled}</div><div class="stat-label">Cancelled</div></div>`;
+
+    renderCards(filtered);
+    renderPagination(filtered.length);
+    document.getElementById("selectedCount").innerText = selectedRequests.size;
+  }
+
+  function renderCards(filtered) {
+    const start = (currentPage - 1) * itemsPerPage;
+    const pageItems = filtered.slice(start, start + itemsPerPage);
+    const container = document.getElementById("cardsList");
+
+    if (!pageItems.length) {
+      container.innerHTML = '<div style="text-align:center; padding:2rem; color:#6b8c9c;">No leave requests found</div>';
+      return;
+    }
+
+    container.innerHTML = pageItems.map(leave => {
+      const rawStatus = String(leave.status || "pending").toLowerCase();
+      const statusClass = `status-${rawStatus}`;
+      const statusText = safeText(prettyStatus(rawStatus));
+      const checked = selectedRequests.has(leave.id) ? "checked" : "";
+      const isPending = isAdminActionableStatus(rawStatus);
+      const isHandoverPending = isWaitingHandoverStatus(rawStatus);
+      const attachmentHtml = leave.attachmentUrl ? `<div class="info-row"><span class="info-label">Attachment:</span> <a href="${safeText(leave.attachmentUrl)}" target="_blank">${safeText(leave.attachmentName || "View File")}</a></div>` : "";
+
+      return `<div class="leave-card">
+          <input type="checkbox" class="select-checkbox" data-id="${safeText(leave.id)}" ${checked} ${isPending ? "" : "disabled"}>
+          <div class="card-header">
+            <div class="emp-info"><h3>${safeText(leave.empName)} (${safeText(leave.empId)})</h3><div class="emp-details">${safeText(leave.dept)} • ${safeText(leave.designation)} • Applied: ${formatDate(leave.appliedOn)}</div></div>
+            <div><span class="status-badge ${statusClass}">${statusText}</span></div>
+          </div>
+          <div class="card-body">
+            <div class="info-row"><span class="info-label">Leave Type:</span> ${safeText(leave.type)}</div>
+            <div class="info-row"><span class="info-label">Priority:</span> ${safeText(leave.priority)}</div>
+            <div class="info-row"><span class="info-label">Duration:</span> ${formatDate(leave.fromDate)} to ${formatDate(leave.toDate)} (${safeText(leave.days)} days)</div>
+            <div class="info-row"><span class="info-label">Handover To:</span> ${safeText(leave.handoverTo)} (${safeText(leave.handoverId)})</div>
+            <div class="info-row"><span class="info-label">Mobile:</span> ${safeText(leave.mobile)}</div>
+            <div class="info-row"><span class="info-label">Email:</span> ${safeText(leave.email)}</div>
+            ${attachmentHtml}
+            <div class="info-row full-width"><span class="info-label">Reason:</span><div class="reason">${safeText(leave.reason)}</div></div>
+            ${leave.rejectRemark ? `<div class="info-row full-width"><span class="info-label">Admin Note:</span><div class="reason" style="background:#ffe6e5;">${safeText(leave.rejectRemark)}</div></div>` : ""}
+            ${leave.approvedAt ? `<div class="info-row"><span class="info-label">Updated By:</span> ${safeText(leave.approvedByName)} on ${formatDate(leave.approvedAt)}</div>` : ""}
+          </div>
+          <div class="card-actions">
+            ${isHandoverPending ? `<button class="action-btn disabled-btn" disabled><i class="fas fa-clock"></i> Waiting Handover</button>` : ""}
+            ${isPending ? `<button class="action-btn approve-btn" data-id="${safeText(leave.id)}"><i class="fas fa-check-circle"></i> Approve</button><button class="action-btn reject-btn" data-id="${safeText(leave.id)}"><i class="fas fa-times-circle"></i> Reject</button>` : ""}
+            ${(!isPending && !isHandoverPending) ? `<button class="action-btn disabled-btn" disabled>No actions available</button>` : ""}
+          </div>
+        </div>`;
+    }).join("");
+
+    document.querySelectorAll(".approve-btn").forEach(btn => btn.addEventListener("click", () => updateLeaveStatus(btn.dataset.id, "approved", null)));
+    document.querySelectorAll(".reject-btn").forEach(btn => btn.addEventListener("click", () => openRejectModal(btn.dataset.id)));
+    document.querySelectorAll(".select-checkbox").forEach(cb => cb.addEventListener("change", e => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) selectedRequests.add(id); else selectedRequests.delete(id);
+      document.getElementById("selectedCount").innerText = selectedRequests.size;
+    }));
+  }
+
+  function renderPagination(totalItems) {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const container = document.getElementById("pagination");
+    if (totalPages <= 1) { container.innerHTML = ""; return; }
+    let html = "";
+    for (let i = 1; i <= totalPages; i++) html += `<button class="page-btn ${i === currentPage ? "active" : ""}" data-page="${i}">${i}</button>`;
+    container.innerHTML = html;
+    document.querySelectorAll(".page-btn").forEach(btn => btn.addEventListener("click", () => { currentPage = parseInt(btn.dataset.page, 10); updateStatsAndList(); }));
+  }
+
+  // =========================================================
+  // UPDATE STATUS: RLS SAFE RPC ONLY
+  // =========================================================
+  async function updateLeaveStatus(leaveId, newStatus, remark) {
+    const s = await resolveOrgAndAdmin();
+    const leave = allLeaves.find(l => String(l.id) === String(leaveId));
+    if (!leave) return showToast("Leave not found", true);
+    if (!isAdminActionableStatus(leave.status)) return showToast(`Leave status ${prettyStatus(leave.status)} hai, admin approve/reject allowed nahi hai`, true);
+
+    const res = await callRpc("admin_update_leave_status_rls", {
+      p_org_id: String(s.orgId || ""),
+      p_viewer_user_id: String(s.adminId || ""),
+      p_leave_id: String(leaveId),
+      p_status: String(newStatus),
+      p_admin_note: remark || ""
+    });
+
+    showToast(res?.message || `Leave ${newStatus} for ${leave.empName}`);
+    await loadLeaveRequests();
+  }
+
+  // =========================================================
+  // REJECT MODAL + BULK + EXPORT
+  // =========================================================
+  let pendingRejectId = null;
+  function openRejectModal(leaveId) { pendingRejectId = leaveId; document.getElementById("rejectRemark").value = ""; document.getElementById("rejectModal").style.display = "flex"; }
+  function closeModal() { document.getElementById("rejectModal").style.display = "none"; pendingRejectId = null; }
+  async function confirmReject() {
+    const remark = document.getElementById("rejectRemark").value.trim();
+    if (!remark) return showToast("Please provide a rejection reason", true);
+    if (pendingRejectId) { await updateLeaveStatus(pendingRejectId, "rejected", remark); closeModal(); }
+  }
+
+  async function bulkAction(status) {
+    const ids = [...selectedRequests];
+    if (!ids.length) return showToast("No pending requests selected", true);
+    let remark = "";
+    if (status === "rejected") {
+      remark = prompt("Enter rejection reason for all selected requests:", "Not approved");
+      if (!remark || !remark.trim()) return;
+      remark = remark.trim();
+    }
+    for (const id of ids) await updateLeaveStatus(id, status, remark);
+    selectedRequests.clear();
+    document.getElementById("selectedCount").innerText = 0;
+  }
+
+  function exportToExcel() {
+    const filtered = getFilteredLeaves();
+    if (!filtered.length) return showToast("No data to export", true);
+    const sheetData = [["Request ID", "Employee", "Emp Code", "Department", "Designation", "Mobile", "Email", "Type", "Priority", "From", "To", "Days", "Reason", "Handover", "Handover Code", "Status", "Admin Note", "Applied On", "Approved By", "Approved At"]];
+    filtered.forEach(l => sheetData.push([l.id, l.empName, l.empId, l.dept, l.designation, l.mobile, l.email, l.type, l.priority, l.fromDate, l.toDate, l.days, l.reason, l.handoverTo, l.handoverId, l.status, l.rejectRemark || "", formatDate(l.appliedOn), l.approvedByName || "", formatDate(l.approvedAt)]));
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leave_Requests");
+    XLSX.writeFile(wb, `Leave_Requests_${new Date().toISOString().slice(0,10)}.xlsx`);
+    showToast("Excel exported");
+  }
+
+  async function applyFilters() {
+    currentStatus = document.getElementById("statusFilter").value;
+    currentDept = document.getElementById("deptFilter").value;
+    currentSearch = document.getElementById("searchInput").value;
+    currentPage = 1;
+    selectedRequests.clear();
+    await loadLeaveRequests();
+  }
+
+  async function resetFilters() {
+    document.getElementById("statusFilter").value = "all";
+    document.getElementById("deptFilter").value = "all";
+    document.getElementById("searchInput").value = "";
+    currentStatus = "all"; currentDept = "all"; currentSearch = ""; currentPage = 1; selectedRequests.clear();
+    await loadLeaveRequests();
+  }
+
+  async function initializePage() {
+    try {
+      showLoading("Connecting to Supabase...");
+      await loadAdminInfo();
+      await loadEmployees();
+      await loadLeaveRequests();
+    } catch (err) {
+      console.error("initializePage error:", err);
+      document.getElementById("cardsList").innerHTML = `<div style="text-align:center; padding:2rem; color:#b91c1c; font-weight:700;">${safeText(err.message || "Unable to load data")}</div>`;
+      showToast(err.message || "Unable to load data", true);
+    }
+  }
+
+  document.getElementById("applyFilter").addEventListener("click", () => applyFilters().catch(e => showToast(e.message, true)));
+  document.getElementById("resetFilter").addEventListener("click", () => resetFilters().catch(e => showToast(e.message, true)));
+  document.getElementById("exportExcel").addEventListener("click", exportToExcel);
+  document.getElementById("bulkApprove").addEventListener("click", () => bulkAction("approved").catch(e => showToast(e.message, true)));
+  document.getElementById("bulkReject").addEventListener("click", () => bulkAction("rejected").catch(e => showToast(e.message, true)));
+  document.getElementById("backBtn").addEventListener("click", () => { window.location.href = "admin.html"; });
+  document.getElementById("modalCancel").addEventListener("click", closeModal);
+  document.getElementById("modalConfirm").addEventListener("click", () => confirmReject().catch(e => showToast(e.message, true)));
+  document.getElementById("searchInput").addEventListener("keydown", e => { if (e.key === "Enter") applyFilters().catch(err => showToast(err.message, true)); });
+  window.onclick = e => { if (e.target === document.getElementById("rejectModal")) closeModal(); };
+  initializePage();
+</script>
+</body>
+</html>

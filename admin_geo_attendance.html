@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>GPS Attendance Admin | Supabase</title>
+
+  <!-- Supabase + Excel Export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(ellipse at 20% 30%, #0f2f2c, #051c1a);
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    .admin-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(2px);
+      border-radius: 2rem;
+      box-shadow: 0 30px 45px -12px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+    }
+
+    .top-bar {
+      background: #0a2c2f;
+      padding: 0.8rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      color: white;
+    }
+
+    .admin-details { font-size: 0.85rem; }
+
+    .org-details {
+      background: #174d47;
+      padding: 4px 16px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1a5c54, #0e3d38);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      color: white;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .back-btn {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      padding: 6px 18px;
+      border-radius: 40px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .content {
+      padding: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+
+    .map-panel {
+      flex: 1.2;
+      min-width: 300px;
+      background: white;
+      border-radius: 1.5rem;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .map-header, .panel-header {
+      background: #eef6f4;
+      padding: 0.8rem 1rem;
+      font-weight: 700;
+      color: #1e5a4c;
+      border-bottom: 1px solid #e0efeb;
+    }
+
+    #map {
+      height: 350px;
+      width: 100%;
+    }
+
+    .geo-pin {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      transform: translate(-50%, -100%);
+      cursor: pointer;
+      z-index: 20;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+      user-select: none;
+      touch-action: none;
+    }
+
+    .geo-pin::before {
+      content: "";
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      left: 4px;
+      top: 1px;
+      background: #dc2626;
+      border: 3px solid #ffffff;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+    }
+
+    .geo-pin::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      left: 13px;
+      top: 10px;
+      background: #ffffff;
+      border-radius: 50%;
+    }
+
+    .geofence-controls {
+      padding: 1rem;
+      background: #f4faf8;
+      border-top: 1px solid #e0efeb;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .slider-group label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #1e6b63;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .location-info {
+      margin-top: 12px;
+      font-size: 0.75rem;
+      background: #fffef7;
+      padding: 8px;
+      border-radius: 1rem;
+      line-height: 1.6;
+    }
+
+    .update-btn, .mark-btn, .refresh-btn {
+      background: #1f6e68;
+      color: white;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 2rem;
+      cursor: pointer;
+    }
+
+    .update-btn {
+      margin-top: 10px;
+      width: 100%;
+    }
+
+    .update-btn:disabled,
+    .mark-btn:disabled,
+    .refresh-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .employees-panel {
+      flex: 1;
+      min-width: 280px;
+      background: white;
+      border-radius: 1.5rem;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .employee-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .employee-item {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid #eef4f2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .emp-info { font-size: 0.85rem; }
+    .emp-name { font-weight: 600; color: #1e5a4c; }
+    .emp-loc { font-size: 0.7rem; color: #5b8a82; }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 2rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .within { background: #e0f2e9; color: #1e6f3f; }
+    .outside { background: #ffe6e5; color: #b91c1c; }
+    .neutral { background: #e2e8f0; color: #334155; }
+
+    .mark-btn { font-size: 0.7rem; }
+
+    .unmark-btn {
+      background: #b91c1c;
+      color: white;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 2rem;
+      cursor: pointer;
+      font-size: 0.7rem;
+    }
+
+    .expired-btn {
+      background: #94a3b8;
+      color: white;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 2rem;
+      cursor: not-allowed;
+      font-size: 0.7rem;
+    }
+
+    .employee-search-box {
+      padding: 0.8rem 1rem;
+      background: #f4faf8;
+      border-bottom: 1px solid #e0efeb;
+    }
+
+    .employee-search-box input {
+      width: 100%;
+      border: 1px solid #cfe5df;
+      border-radius: 2rem;
+      padding: 8px 12px;
+      outline: none;
+      font-size: 0.82rem;
+    }
+
+    .history-panel {
+      flex: 2;
+      min-width: 300px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1e5a4c;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .table-wrapper { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 8px 6px;
+      text-align: left;
+      border-bottom: 1px solid #eef4f2;
+      font-size: 0.8rem;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef6f4;
+      color: #1e5a4c;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: #1a5e58;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+      z-index: 1000;
+      max-width: calc(100vw - 40px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      animation: fadeOut 3s forwards;
+    }
+
+    @keyframes fadeOut {
+      0% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 0.7rem; }
+      .content { padding: 1rem; gap: 1rem; }
+      .top-bar, .header { padding: 0.8rem 1rem; }
+      .header h1 { font-size: 1.1rem; }
+      #map { height: 300px; }
+    }
+  </style>
+</head>
+<body>
+<div class="admin-container">
+  <div class="top-bar">
+    <div class="admin-details">
+      👤 Opened By: <strong id="adminName">--</strong>
+      <span style="margin-left:12px;">Role: <strong id="adminRole">--</strong></span>
+    </div>
+    <div class="org-details">🏢 <span id="orgName">--</span> | <span id="orgCode">--</span></div>
+  </div>
+
+  <div class="header">
+    <h1>📍 GPS Attendance Admin</h1>
+    <div class="header-actions">
+      <button class="back-btn" id="backBtn">← Back</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="map-panel" id="geoPanel">
+      <div class="map-header">Geofence Settings</div>
+      <div id="map"></div>
+      <div class="geofence-controls">
+        <div class="slider-group">
+          <label>Radius (1–200 meters):</label>
+          <input type="range" id="radiusSlider" min="1" max="200" step="1" value="100" />
+          <span id="radiusValue">100 m</span>
+        </div>
+        <div class="location-info">
+          <div><strong>Branch:</strong> <span id="branchNameDisplay">--</span></div>
+          <div><strong>Latitude:</strong> <span id="latDisplay">--</span></div>
+          <div><strong>Longitude:</strong> <span id="lngDisplay">--</span></div>
+          <div><strong>Address:</strong> <span id="addressDisplay">--</span></div>
+        </div>
+        <button id="currentLocationBtn" class="update-btn" style="background:#2563eb;margin-bottom:8px;">📍 Current Location</button>
+        <button id="updateGeofenceBtn" class="update-btn">💾 Update Geofence</button>
+      </div>
+    </div>
+
+    <div class="employees-panel">
+      <div class="panel-header">Employees</div>
+      <div class="employee-search-box">
+        <input id="employeeSearchInput" type="search" placeholder="Search Emp ID / name / mobile..." autocomplete="off" />
+      </div>
+      <div class="employee-list" id="employeeList"></div>
+    </div>
+
+    <div class="history-panel">
+      <div class="section-title">
+        <span>Attendance Records</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input type="date" id="historyFromDate" style="padding:6px 10px;border-radius:2rem;border:1px solid #cfe5df;font-size:.75rem;" />
+          <input type="date" id="historyToDate" style="padding:6px 10px;border-radius:2rem;border:1px solid #cfe5df;font-size:.75rem;" />
+          <button id="historyApplyBtn" class="refresh-btn">Apply</button>
+          <button id="refreshBtn" class="refresh-btn">Refresh</button>
+          <button id="exportHistoryBtn" style="background:#e2e8f0; border:none; padding:6px 12px; border-radius:2rem; cursor:pointer;">📎 Export CSV</button>
+        </div>
+      </div>
+      <div style="font-size:.75rem;color:#5b8a82;margin:-.4rem 0 .7rem 0;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <span id="historyInfo">Default current date ka data. Date range select karke Apply karein.</span>
+        <span>Large data ke liye CSV chunk export use hoga, browser freeze nahi karega.</span>
+      </div>
+      <div class="table-wrapper">
+        <table id="historyTable">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Date</th>
+              <th>Punch In</th>
+              <th>Punch Out</th>
+              <th>Location</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+      <div class="employee-pager" id="historyPager" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e0efeb;font-size:.75rem;color:#2c655e;flex-wrap:wrap;">
+        <button id="historyPrevBtn" type="button" style="border:0;background:#1f6e68;color:white;padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:700;">‹ Prev</button>
+        <span id="historyPageInfo">Page 1</span>
+        <button id="historyNextBtn" type="button" style="border:0;background:#1f6e68;color:white;padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:700;">Next ›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // =========================================================
+  // SUPABASE CONFIG - yahan apna URL aur anon key lagao
+  // =========================================================
+  const SUPABASE_URL = "https://tovpcbzztvkiwamimrxt.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE";
+  function getSupabaseAccessToken() {
+    /*
+      RLS ON tabhi table read/write allow karega jab Authorization header me
+      Supabase Auth ka logged-in user JWT ho. Sirf localStorage role/orgId RLS ke
+      liye kaafi nahi hota. Ye helper Supabase Auth v2 ke common storage keys se
+      access_token nikalta hai, aur custom session ke accessToken/access_token ko
+      bhi support karta hai.
+    */
+    const directSessions = [
+      safeJsonParse(sessionStorage.getItem("inlistSession")),
+      safeJsonParse(localStorage.getItem("currentSession")),
+      safeJsonParse(localStorage.getItem("inlist_current_session")),
+      safeJsonParse(localStorage.getItem("loginSession")),
+      safeJsonParse(localStorage.getItem("userSession"))
+    ];
+
+    for (const s of directSessions) {
+      const token = s?.access_token || s?.accessToken || s?.session?.access_token || s?.auth?.access_token;
+      if (token) return token;
+    }
+
+    // Supabase JS v2 storage key: sb-<project-ref>-auth-token
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (!storageKey || !storageKey.startsWith("sb-") || !storageKey.endsWith("-auth-token")) continue;
+      const item = safeJsonParse(localStorage.getItem(storageKey));
+      const token = item?.access_token || item?.currentSession?.access_token || item?.session?.access_token;
+      if (token) return token;
+    }
+
+    return "";
+  }
+
+  function createMiniSupabaseClient(url, key) {
+    const base = url.replace(/\/$/, "");
+
+    function makeHeaders(extraHeaders = {}) {
+      const accessToken = getSupabaseAccessToken();
+      return {
+        apikey: key,
+        Authorization: `Bearer ${accessToken || key}`,
+        "Content-Type": "application/json",
+        ...extraHeaders
+      };
+    }
+
+    class QueryBuilder {
+      constructor(table) {
+        this.table = table;
+        this.method = "GET";
+        this.body = null;
+        this.params = new URLSearchParams();
+        this.headers = {};
+        this.expectSingle = false;
+        this.expectMaybeSingle = false;
+        this.returnRepresentation = false;
+      }
+
+      select(cols = "*") {
+        this.params.set("select", cols);
+        this.returnRepresentation = true;
+        return this;
+      }
+
+      eq(col, val) {
+        this.params.set(col, `eq.${String(val)}`);
+        return this;
+      }
+
+      gte(col, val) {
+        this.params.set(col, `gte.${String(val)}`);
+        return this;
+      }
+
+      lte(col, val) {
+        this.params.set(col, `lte.${String(val)}`);
+        return this;
+      }
+
+      range(from, to) {
+        this.headers.Range = `${from}-${to}`;
+        this.headers["Range-Unit"] = "items";
+        return this;
+      }
+
+      order(col, opts = {}) {
+        this.params.set("order", `${col}.${opts.ascending === false ? "desc" : "asc"}`);
+        return this;
+      }
+
+      limit(n) {
+        this.params.set("limit", String(n));
+        return this;
+      }
+
+      insert(data) {
+        this.method = "POST";
+        this.body = data;
+        this.returnRepresentation = true;
+        return this;
+      }
+
+      update(data) {
+        this.method = "PATCH";
+        this.body = data;
+        return this;
+      }
+
+      upsert(data, opts = {}) {
+        this.method = "POST";
+        this.body = data;
+        this.returnRepresentation = true;
+        this.headers.Prefer = "resolution=merge-duplicates,return=representation";
+        if (opts.onConflict) this.params.set("on_conflict", opts.onConflict);
+        return this;
+      }
+
+      delete() {
+        this.method = "DELETE";
+        return this;
+      }
+
+      single() {
+        this.expectSingle = true;
+        return this.execute();
+      }
+
+      maybeSingle() {
+        this.expectMaybeSingle = true;
+        return this.execute();
+      }
+
+      then(resolve, reject) {
+        return this.execute().then(resolve, reject);
+      }
+
+      async execute() {
+        const qs = this.params.toString();
+        const endpoint = `${base}/rest/v1/${this.table}${qs ? "?" + qs : ""}`;
+        const headers = makeHeaders(this.headers);
+        if (this.returnRepresentation && !headers.Prefer) headers.Prefer = "return=representation";
+
+        const res = await fetch(endpoint, {
+          method: this.method,
+          headers,
+          body: this.body ? JSON.stringify(this.body) : undefined
+        });
+
+        const raw = await res.text();
+        let data = null;
+        try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
+
+        if (!res.ok) {
+          return {
+            data: null,
+            error: {
+              status: res.status,
+              code: data?.code || "HTTP_" + res.status,
+              message: (data && (data.message || data.details || data.hint)) || raw || res.statusText,
+              raw: data || raw
+            }
+          };
+        }
+
+        if (this.expectSingle || this.expectMaybeSingle) {
+          if (Array.isArray(data)) {
+            if (data.length === 0 && this.expectMaybeSingle) return { data: null, error: null };
+            if (data.length === 1) return { data: data[0], error: null };
+            return { data: null, error: { message: "Expected one row, got multiple rows" } };
+          }
+        }
+
+        return { data, error: null };
+      }
+    }
+
+    async function rpc(fn, args = {}) {
+      const endpoint = `${base}/rest/v1/rpc/${fn}`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: makeHeaders({ Prefer: "return=representation" }),
+        body: JSON.stringify(args || {})
+      });
+
+      const raw = await res.text();
+      let data = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch { data = raw; }
+
+      if (!res.ok) {
+        return {
+          data: null,
+          error: {
+            status: res.status,
+            code: data?.code || "HTTP_" + res.status,
+            message: (data && (data.message || data.details || data.hint)) || raw || res.statusText,
+            raw: data || raw
+          }
+        };
+      }
+
+      return { data, error: null };
+    }
+
+    return {
+      from(table) { return new QueryBuilder(table); },
+      rpc
+    };
+  }
+
+  const supabaseClient = createMiniSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // =========================================================
+  // GLOBAL STATE
+  // =========================================================
+  let map, marker, circle, geocoder;
+  let currentCenter = { lat: 28.6139, lng: 77.2090 };
+  let currentRadius = 100;
+  let currentAddress = "";
+  let currentUser = null;
+  let currentOrg = null;
+  let currentBranch = null;
+  let enabledFeatures = [];
+  let employees = [];
+  let attendanceHistory = [];
+  let historyPage = 1;
+  const historyPageSize = 100;
+  let historyHasNext = false;
+  let todayAttendanceByEmployee = {};
+  let employeeSearchTerm = "";
+  let appReady = false;
+  let googleMapLoaded = false;
+
+  // =========================================================
+  // SESSION + ROLE CHECK
+  // Expected localStorage currentSession examples:
+  // { email, phone, role, orgCode }
+  // =========================================================
+  function safeJsonParse(value) {
+    try {
+      return value ? JSON.parse(value) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function firstValue(...values) {
+    for (const value of values) {
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        return String(value).trim();
+      }
+    }
+    return "";
+  }
+
+  function normalizeRole(role) {
+    return String(role || "").trim().toLowerCase();
+  }
+
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+  }
+
+  function getSession() {
+    /*
+      Admin dashboard file me sessionStorage key "inlistSession" use ho rahi hai:
+      { userId, orgId, role, branchId }
+
+      Geo page pehle localStorage/currentSession dhoondh raha tha, isliye
+      admin se GPS Attendance open karne par "Login required" aa raha tha.
+      Ab same inlistSession first priority hai + old formats fallback me hain.
+    */
+
+    const sessionCandidates = [];
+    const params = new URLSearchParams(location.search);
+
+    // 1) URL ko FIRST priority do.
+    // Reason: same browser me purana admin/company session saved ho sakta hai.
+    // Jab employee/staff link se page open kare, URL/session params ko old storage se override nahi hona chahiye.
+    if (params.get("org_id") || params.get("orgId") || params.get("user_id") || params.get("employee_id") || params.get("emp_id")) {
+      const urlEmployeeId = firstValue(
+        params.get("employee_id"),
+        params.get("employeeId"),
+        params.get("emp_id"),
+        params.get("empId"),
+        params.get("staff_id"),
+        params.get("staffId")
+      );
+      const urlEmpCode = firstValue(
+        params.get("emp_code"),
+        params.get("empCode"),
+        params.get("employee_code"),
+        params.get("employeeCode")
+      );
+      const urlAccountType = firstValue(params.get("accountType"), params.get("account_type"), params.get("type"));
+      const urlRoleRaw = firstValue(params.get("role"), params.get("userRole"), urlAccountType);
+      const normalizedUrlRole = normalizeRole(urlRoleRaw);
+      const inferredRole = ["employee", "emp", "staff"].includes(normalizedUrlRole)
+        ? "employee"
+        : (normalizedUrlRole === "org_user" ? "org_user" : (urlRoleRaw || "admin"));
+
+      sessionCandidates.push({
+        key: "url",
+        value: {
+          accountType: urlAccountType,
+          orgId: params.get("org_id") || params.get("orgId") || "",
+          userId: params.get("user_id") || params.get("userId") || "",
+          employeeId: urlEmployeeId,
+          empId: urlEmployeeId,
+          empCode: urlEmpCode,
+          branchId: params.get("branch_id") || params.get("branchId") || "",
+          orgCode: params.get("org_code") || params.get("orgCode") || "",
+          email: params.get("email") || "",
+          phone: params.get("mobile") || params.get("phone") || "",
+          fullName: params.get("name") || params.get("full_name") || params.get("fullName") || "",
+          role: inferredRole
+        }
+      });
+    }
+
+    // 2) Admin dashboard/registration ka saved session
+    sessionCandidates.push({
+      key: "sessionStorage.inlistSession",
+      value: safeJsonParse(sessionStorage.getItem("inlistSession"))
+    });
+
+    // 3) Purane login formats fallback
+    [
+      "currentSession",
+      "inlist_current_session",
+      "loginSession",
+      "userSession",
+      "currentUser",
+      "loggedInUser",
+      "authUser",
+      "adminUser",
+      "orgUser",
+      "personalData"
+    ].forEach(key => {
+      sessionCandidates.push({
+        key: "localStorage." + key,
+        value: safeJsonParse(localStorage.getItem(key))
+      });
+    });
+
+    let rawSession = null;
+    let usedKey = "";
+
+    for (const item of sessionCandidates) {
+      if (item.value && typeof item.value === "object") {
+        rawSession = item.value;
+        usedKey = item.key;
+        break;
+      }
+    }
+
+    if (!rawSession) return null;
+
+    const nestedUser =
+      rawSession.user ||
+      rawSession.data ||
+      rawSession.profile ||
+      rawSession.employee ||
+      rawSession.admin ||
+      rawSession.orgUser ||
+      rawSession.session ||
+      {};
+
+    const merged = { ...rawSession, ...nestedUser };
+
+    const orgId = firstValue(
+      merged.orgId,
+      merged.org_id,
+      merged.organization_id,
+      merged.company_id
+    );
+
+    const branchId = firstValue(
+      merged.branchId,
+      merged.branch_id
+    );
+
+    const userId = firstValue(
+      merged.userId,
+      merged.user_id,
+      merged.id,
+      merged.org_user_id,
+      merged.admin_id
+    );
+
+    const employeeId = firstValue(
+      merged.employeeId,
+      merged.employee_id,
+      merged.empId,
+      merged.emp_id,
+      merged.staffId,
+      merged.staff_id
+    );
+
+    const empCode = firstValue(
+      merged.empCode,
+      merged.emp_code,
+      merged.employeeCode,
+      merged.employee_code
+    );
+
+    const email = firstValue(
+      merged.email,
+      merged.userEmail,
+      merged.adminEmail,
+      merged.loginEmail,
+      merged.orgEmail
+    ).toLowerCase();
+
+    const phone = firstValue(
+      merged.phone,
+      merged.mobile,
+      merged.number,
+      merged.contact,
+      merged.userPhone,
+      merged.userMobile,
+      merged.adminPhone,
+      merged.adminMobile
+    );
+
+    const orgCode = firstValue(
+      merged.orgCode,
+      merged.org_code,
+      merged.companyCode,
+      merged.company_code,
+      merged.organizationCode,
+      merged.organisationCode
+    );
+
+    let role = normalizeRole(firstValue(
+      merged.role,
+      merged.userRole,
+      merged.user_type,
+      merged.userType,
+      merged.type,
+      merged.accountType,
+      merged.loginType,
+      "admin"
+    ));
+
+    // Sirf employee/staff role par opener ko employee treat karo.
+    // Admin URL me employee_id/emp_id aa sakta hai, isliye id ke basis par role force nahi karna.
+    if (["employee", "emp", "staff"].includes(role)) {
+      role = "employee";
+    } else if (role === "org_user") {
+      role = "admin";
+    }
+
+    return {
+      ...merged,
+      _storageKey: usedKey,
+      orgId,
+      org_id: orgId,
+      branchId,
+      branch_id: branchId,
+      userId,
+      employeeId,
+      employee_id: employeeId,
+      empId: employeeId,
+      empCode,
+      emp_code: empCode,
+      email,
+      phone,
+      orgCode,
+      role
+    };
+  }
+
+  function saveNormalizedSession(session, orgUser, orgData, branchData) {
+    const normalized = {
+      userId: orgUser?.user_id || (orgUser?.viewer_type === "org_user" ? orgUser?.id : session.userId) || session.user_id || "",
+      employeeId: orgUser?.employee_id || (orgUser?.viewer_type === "employee" ? orgUser?.id : session.employeeId) || session.employee_id || session.empId || "",
+      empCode: orgUser?.emp_code || session.empCode || session.emp_code || "",
+      orgId: orgUser?.org_id || orgData?.id || session.orgId || session.org_id || "",
+      branchId: orgUser?.branch_id || branchData?.id || session.branchId || session.branch_id || "",
+      email: orgUser?.email || session.email || "",
+      phone: orgUser?.mobile || orgUser?.phone || session.phone || "",
+      role: orgUser?.role || session.role || "admin",
+      orgCode: orgData?.org_code || session.orgCode || "",
+      fullName: orgUser?.full_name || session.fullName || session.full_name || ""
+    };
+
+    // Dono jagah save kar rahe hain taki admin.html aur admingeo.html dono ko session mile.
+    sessionStorage.setItem("inlistSession", JSON.stringify(normalized));
+    localStorage.setItem("currentSession", JSON.stringify(normalized));
+    return normalized;
+  }
+
+  function getRpcSessionPayload() {
+    const session = getSession() || {};
+
+    // Important: RPC payload me sirf wahi params bhejo jo Supabase SQL functions
+    // me common/required hain. Extra params bhejne se PostgREST PGRST202/404
+    // deta hai agar function signature exact match nahi hota.
+    return {
+      p_org_id: session.orgId || session.org_id || null,
+      p_user_id: session.userId || session.user_id || null,
+      p_branch_id: session.branchId || session.branch_id || null,
+      p_email: session.email || null,
+      p_phone: session.phone || session.mobile || null,
+      p_role: session.role || "admin"
+    };
+  }
+
+  async function callRpc(name, args = {}) {
+    const { data, error } = await supabaseClient.rpc(name, args);
+    if (error) {
+      console.warn(`RPC ${name} failed:`, error);
+      return { data: null, error };
+    }
+    return { data, error: null };
+  }
+
+
+  function getViewerDisplayName(user, session) {
+    return firstValue(
+      user?.full_name,
+      user?.name,
+      user?.employee_name,
+      session?.fullName,
+      session?.full_name,
+      session?.name,
+      session?.employeeName,
+      session?.empName,
+      user?.emp_code,
+      session?.empCode,
+      session?.emp_code,
+      user?.email,
+      session?.email,
+      user?.phone,
+      session?.phone,
+      "User"
+    );
+  }
+
+  function getViewerRoleLabel(user, session) {
+    const role = normalizeRole(firstValue(user?.role, session?.role, session?.accountType, "user"));
+    if (["employee", "emp", "staff"].includes(role)) return "employee";
+    if (role === "org_user") return "admin";
+    return role || "user";
+  }
+
+  function renderViewerHeader(session) {
+    document.getElementById("adminName").innerText = getViewerDisplayName(currentUser, session);
+    document.getElementById("adminRole").innerText = getViewerRoleLabel(currentUser, session);
+    document.getElementById("orgName").innerText = currentOrg?.org_name || session?.orgName || session?.companyName || "--";
+    document.getElementById("orgCode").innerText = currentOrg?.org_code || session?.orgCode || session?.companyCode || "--";
+  }
+
+  async function loadBootstrapByRpc() {
+    const payload = getRpcSessionPayload();
+    if (!payload.p_org_id) return null;
+    const { data, error } = await callRpc("admingeo_bootstrap", payload);
+    if (error || !data) return null;
+    return data;
+  }
+
+  async function findOrgByCode(orgCode) {
+    if (!orgCode) return null;
+
+    const { data, error } = await supabaseClient
+      .from("organizations")
+      .select("*")
+      .eq("org_code", orgCode)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Org lookup failed:", error);
+      return null;
+    }
+
+    return data;
+  }
+
+  async function loadCurrentUser() {
+    const session = getSession();
+
+    if (!session) {
+      alert("Login required. Admin dashboard ka session nahi mila. Pehle admin.html/login page se login karo.");
+      location.href = "login.html";
+      return false;
+    }
+
+    const adminRoles = ["owner", "admin", "hr", "manager", "developer", "org_user"];
+    let sessionRole = normalizeRole(session.role || "admin");
+    if (session.accountType === "org_user" && !["employee", "emp", "staff"].includes(sessionRole)) {
+      sessionRole = "admin";
+    }
+
+    const hasAuthToken = !!getSupabaseAccessToken();
+    if (!hasAuthToken) {
+      console.warn("RLS warning: Supabase Auth access_token nahi mila. Custom/localStorage login RLS pass nahi karta. Neeche fallback chalega, lekin Supabase policies/RPC required hain.");
+    }
+
+    // Employee/staff bhi ye screen open kar sakte hain; unka naam header me dikhaya jayega.
+    // Mark/update actions RPC me permission validate hoti hai.
+
+    const boot = await loadBootstrapByRpc();
+    if (boot && boot.ok) {
+      currentUser = boot.user;
+      currentOrg = boot.org;
+      currentBranch = boot.branch;
+      enabledFeatures = boot.features || [];
+
+      saveNormalizedSession(session, currentUser, currentOrg, currentBranch);
+
+      const lat = Number(currentBranch?.lat || currentOrg?.lat || 28.6139);
+      const lng = Number(currentBranch?.lng || currentOrg?.lng || 77.2090);
+      currentCenter = {
+        lat: Number.isFinite(lat) ? lat : 28.6139,
+        lng: Number.isFinite(lng) ? lng : 77.2090
+      };
+      currentRadius = Math.min(200, Math.max(1, Number(currentBranch?.radius_meters || 100)));
+      currentAddress = currentBranch?.address || currentOrg?.address || "";
+
+      renderViewerHeader(session);
+      document.getElementById("branchNameDisplay").innerText = currentBranch?.branch_name || currentBranch?.branch_code || "MAIN";
+      document.getElementById("radiusSlider").value = currentRadius;
+      document.getElementById("radiusValue").innerText = currentRadius + " m";
+      document.getElementById("latDisplay").innerText = currentCenter.lat.toFixed(6);
+      document.getElementById("lngDisplay").innerText = currentCenter.lng.toFixed(6);
+      document.getElementById("addressDisplay").innerText = currentAddress || "Address not found";
+
+      if (!enabledFeatures.includes("geo_attendance")) {
+        document.getElementById("geoPanel").style.display = "none";
+        showToast("Geo Attendance feature disabled", true);
+      }
+      return true;
+    }
+
+    let orgFromCode = null;
+    if (session.orgCode) orgFromCode = await findOrgByCode(session.orgCode);
+
+    let data = null;
+
+    // 1) Exact id + org lookup. active filter intentionally nahi lagaya,
+    // kyunki kai schemas me active column nahi hota ya false/null hota hai.
+    if (session.orgId && session.userId && isUuid(session.userId)) {
+      const { data: userById, error } = await supabaseClient
+        .from("org_users")
+        .select("*")
+        .eq("id", session.userId)
+        .eq("org_id", session.orgId)
+        .maybeSingle();
+      if (error) console.error("User by id lookup failed:", error);
+      data = userById;
+    }
+
+    // 2) Phone/email fallback. URL me mobile/phone ho to bhi chalega.
+    if (!data && (session.email || session.phone) && (session.orgId || orgFromCode?.id)) {
+      let query = supabaseClient
+        .from("org_users")
+        .select("*")
+        .eq("org_id", session.orgId || orgFromCode.id);
+
+      if (session.email) query = query.eq("email", session.email);
+      else if (session.phone) query = query.eq("phone", session.phone);
+
+      const { data: users, error } = await query.limit(5);
+      if (error) console.error("Admin user email/phone lookup failed:", error);
+      else if (Array.isArray(users) && users.length) data = users[0];
+    }
+
+    // 3) Org + admin role fallback.
+    if (!data && (session.orgId || orgFromCode?.id)) {
+      const { data: users, error } = await supabaseClient
+        .from("org_users")
+        .select("*")
+        .eq("org_id", session.orgId || orgFromCode.id)
+        .limit(20);
+
+      if (error) console.error("Admin org lookup failed:", error);
+      else if (Array.isArray(users) && users.length) {
+        data = users.find(u => adminRoles.includes(normalizeRole(u.role))) || users[0];
+      }
+    }
+
+    // 4) Agar RLS ki wajah se org_users read block hai, page ko hard stop nahi karenge.
+    // Session se virtual admin banake org/branch load karenge. Actual fetch/store phir bhi
+    // RLS policy ya SECURITY DEFINER RPC par depend karega.
+    if (!data && session.orgId) {
+      console.warn("org_users row direct read nahi hui. Session fallback admin context use ho raha hai:", session);
+      data = {
+        id: session.userId || "session-admin",
+        org_id: session.orgId,
+        branch_id: session.branchId || null,
+        email: session.email || "",
+        phone: session.phone || "",
+        full_name: session.fullName || session.name || "Admin",
+        role: sessionRole === "org_user" ? "admin" : (sessionRole || "admin")
+      };
+    }
+
+    if (!data) {
+      console.warn("Geo page session mila, lekin org/user context resolve nahi hua:", session);
+      alert("Admin user not found. URL/session me valid org_id aur admin user_id bhejo.");
+      return false;
+    }
+
+    const role = normalizeRole(data.role);
+    if (!adminRoles.includes(role)) {
+      alert("Aap admin panel access nahi kar sakte.");
+      location.href = "emp.html";
+      return false;
+    }
+
+    currentUser = data;
+    currentOrg = data.organization || orgFromCode || null;
+    currentBranch = data.branch || null;
+
+    if (!currentOrg && currentUser.org_id) {
+      const { data: orgData, error: orgError } = await supabaseClient
+        .from("organizations")
+        .select("*")
+        .eq("id", currentUser.org_id)
+        .maybeSingle();
+      if (orgError) console.error("Org fetch failed:", orgError);
+      currentOrg = orgData;
+    }
+
+    // RLS ne organizations block kiya ho to minimum org object session se bana do.
+    if (!currentOrg && currentUser.org_id) {
+      currentOrg = {
+        id: currentUser.org_id,
+        org_name: session.orgName || session.companyName || "Organization",
+        org_code: session.orgCode || session.companyCode || "",
+        lat: session.lat || null,
+        lng: session.lng || null
+      };
+    }
+
+    if (!currentBranch && (session.branchId || currentUser.branch_id)) {
+      const { data: branchById, error: branchByIdError } = await supabaseClient
+        .from("org_branches")
+        .select("*")
+        .eq("id", session.branchId || currentUser.branch_id)
+        .maybeSingle();
+      if (branchByIdError) console.error("Branch by id fetch failed:", branchByIdError);
+      currentBranch = branchById;
+    }
+
+    if (!currentBranch && currentUser.org_id) {
+      const { data: branches, error: branchError } = await supabaseClient
+        .from("org_branches")
+        .select("*")
+        .eq("org_id", currentUser.org_id)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (branchError) console.error("Branch fetch failed:", branchError);
+      if (Array.isArray(branches) && branches.length) currentBranch = branches[0];
+    }
+
+    // Branch table read block/missing ho to org/session se fallback.
+    if (!currentBranch) {
+      currentBranch = {
+        id: session.branchId || null,
+        org_id: currentUser.org_id,
+        branch_name: session.branchName || "MAIN",
+        branch_code: session.branchCode || "MAIN",
+        lat: session.lat || currentOrg?.lat || 28.6139,
+        lng: session.lng || currentOrg?.lng || 77.2090,
+        radius_meters: session.radius_meters || session.radiusMeters || 100,
+        address: session.address || currentOrg?.address || ""
+      };
+      console.warn("Branch direct read nahi hui. Session/org fallback branch use ho raha hai:", currentBranch);
+    }
+
+    saveNormalizedSession(session, currentUser, currentOrg, currentBranch);
+
+    const lat = Number(currentBranch.lat || currentOrg?.lat || 28.6139);
+    const lng = Number(currentBranch.lng || currentOrg?.lng || 77.2090);
+    currentCenter = {
+      lat: Number.isFinite(lat) ? lat : 28.6139,
+      lng: Number.isFinite(lng) ? lng : 77.2090
+    };
+    currentRadius = Math.min(200, Math.max(1, Number(currentBranch.radius_meters || 100)));
+    currentAddress = currentBranch.address || currentOrg?.address || "";
+
+    renderViewerHeader(session);
+    document.getElementById("branchNameDisplay").innerText = currentBranch.branch_name || currentBranch.branch_code || "MAIN";
+    document.getElementById("radiusSlider").value = currentRadius;
+    document.getElementById("radiusValue").innerText = currentRadius + " m";
+    document.getElementById("latDisplay").innerText = currentCenter.lat.toFixed(6);
+    document.getElementById("lngDisplay").innerText = currentCenter.lng.toFixed(6);
+    document.getElementById("addressDisplay").innerText = currentAddress || "Address not found";
+
+    await loadEnabledFeatures();
+    return true;
+  }
+
+  async function loadEnabledFeatures() {
+    const { data, error } = await supabaseClient
+      .from("org_feature_access")
+      .select("is_enabled, features(feature_key, feature_name)")
+      .eq("org_id", currentUser.org_id);
+
+    if (error) {
+      console.error(error);
+      enabledFeatures = [];
+      return;
+    }
+
+    enabledFeatures = (data || [])
+      .filter(row => row.is_enabled && row.features)
+      .map(row => row.features.feature_key);
+
+    if (!enabledFeatures.includes("geo_attendance")) {
+      document.getElementById("geoPanel").style.display = "none";
+      showToast("Geo Attendance feature disabled", true);
+    }
+  }
+
+  // =========================================================
+  // GOOGLE MAP
+  // =========================================================
+  window.initMap = function initMap() {
+    googleMapLoaded = true;
+    if (!appReady) return;
+    buildMap(currentCenter);
+  };
+
+  function buildMap(center) {
+    if (!window.google || !window.google.maps) return;
+
+    geocoder = new google.maps.Geocoder();
+
+    map = new google.maps.Map(document.getElementById("map"), {
+      center,
+      zoom: 17,
+      mapTypeControl: true,
+      streetViewControl: false
+    });
+
+    // Custom HTML pin use kiya gaya hai:
+    // - google.maps.Marker deprecated warning nahi aayegi
+    // - AdvancedMarker ke liye Map ID warning bhi nahi aayegi
+    // - pin map par clearly visible rahega
+    marker = createCenterPin(center);
+
+    circle = new google.maps.Circle({
+      center,
+      radius: currentRadius,
+      fillColor: "#1f6e68",
+      fillOpacity: 0.2,
+      strokeColor: "#1f6e68",
+      strokeWeight: 2,
+      draggable: true,
+      clickable: true,
+      map
+    });
+
+    updateLocationInfo(center.lat, center.lng);
+
+    circle.addListener("dragend", () => {
+      const pos = circle.getCenter();
+      if (!pos) return;
+      setGeofenceCenter(pos.lat(), pos.lng());
+    });
+
+    map.addListener("click", (e) => {
+      setGeofenceCenter(e.latLng.lat(), e.latLng.lng());
+    });
+  }
+
+
+  function createCenterPin(position) {
+    class HtmlPinOverlay extends google.maps.OverlayView {
+      constructor(pos) {
+        super();
+        this.position = pos;
+        this.div = null;
+        this.isDragging = false;
+        this.setMap(map);
+      }
+
+      onAdd() {
+        this.div = document.createElement("div");
+        this.div.className = "geo-pin";
+        this.div.title = "Drag or click map to change geofence center";
+
+        const panes = this.getPanes();
+        panes.overlayMouseTarget.appendChild(this.div);
+
+        const startDrag = (event) => {
+          event.preventDefault();
+          this.isDragging = true;
+          map.setOptions({ draggable: false });
+        };
+
+        const moveDrag = (event) => {
+          if (!this.isDragging) return;
+
+          const touch = event.touches && event.touches[0] ? event.touches[0] : event;
+          const mapDiv = map.getDiv();
+          const rect = mapDiv.getBoundingClientRect();
+          const point = new google.maps.Point(touch.clientX - rect.left, touch.clientY - rect.top);
+          const projection = this.getProjection();
+          if (!projection) return;
+
+          const latLng = projection.fromContainerPixelToLatLng(point);
+          if (!latLng) return;
+
+          this.position = { lat: latLng.lat(), lng: latLng.lng() };
+          currentCenter = this.position;
+          this.draw();
+
+          if (circle) circle.setCenter(this.position);
+          document.getElementById("latDisplay").innerText = this.position.lat.toFixed(6);
+          document.getElementById("lngDisplay").innerText = this.position.lng.toFixed(6);
+        };
+
+        const endDrag = () => {
+          if (!this.isDragging) return;
+          this.isDragging = false;
+          map.setOptions({ draggable: true });
+          setGeofenceCenter(this.position.lat, this.position.lng);
+        };
+
+        this.div.addEventListener("mousedown", startDrag);
+        this.div.addEventListener("touchstart", startDrag, { passive: false });
+        document.addEventListener("mousemove", moveDrag);
+        document.addEventListener("touchmove", moveDrag, { passive: false });
+        document.addEventListener("mouseup", endDrag);
+        document.addEventListener("touchend", endDrag);
+      }
+
+      draw() {
+        if (!this.div) return;
+        const projection = this.getProjection();
+        if (!projection) return;
+
+        const point = projection.fromLatLngToDivPixel(
+          new google.maps.LatLng(this.position.lat, this.position.lng)
+        );
+
+        if (point) {
+          this.div.style.left = point.x + "px";
+          this.div.style.top = point.y + "px";
+        }
+      }
+
+      onRemove() {
+        if (this.div) {
+          this.div.remove();
+          this.div = null;
+        }
+      }
+
+      setPosition(pos) {
+        this.position = pos;
+        this.draw();
+      }
+
+      getPosition() {
+        return {
+          lat: () => this.position.lat,
+          lng: () => this.position.lng
+        };
+      }
+    }
+
+    return new HtmlPinOverlay(position);
+  }
+
+  function setGeofenceCenter(lat, lng) {
+    currentCenter = { lat, lng };
+
+    if (marker) {
+      if (marker.setPosition) marker.setPosition(currentCenter);
+      else marker.position = currentCenter;
+    }
+    if (circle) circle.setCenter(currentCenter);
+
+    document.getElementById("latDisplay").innerText = lat.toFixed(6);
+    document.getElementById("lngDisplay").innerText = lng.toFixed(6);
+
+    updateLocationInfo(lat, lng);
+    updateEmployeeList();
+  }
+
+  function updateLocationInfo(lat, lng) {
+    if (!geocoder) return Promise.resolve("");
+
+    return new Promise(resolve => {
+      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          currentAddress = results[0].formatted_address || "";
+          document.getElementById("addressDisplay").innerText = currentAddress;
+          resolve(currentAddress);
+        } else {
+          currentAddress = "";
+          document.getElementById("addressDisplay").innerText = "Address not found";
+          resolve("");
+        }
+      });
+    });
+  }
+
+  document.getElementById("radiusSlider").addEventListener("input", () => {
+    currentRadius = Number(document.getElementById("radiusSlider").value);
+    document.getElementById("radiusValue").innerText = currentRadius + " m";
+    if (circle) circle.setRadius(currentRadius);
+    updateEmployeeList();
+  });
+
+  async function getCurrentLocation() {
+    if (!navigator.geolocation) {
+      showToast("Geolocation supported nahi hai", true);
+      return;
+    }
+
+    const btn = document.getElementById("currentLocationBtn");
+    btn.disabled = true;
+    btn.innerText = "Getting Location...";
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = Number(position.coords.latitude);
+        const lng = Number(position.coords.longitude);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          showToast("Valid current location nahi mili", true);
+          btn.disabled = false;
+          btn.innerText = "📍 Current Location";
+          return;
+        }
+
+        currentCenter = { lat, lng };
+
+        if (map) {
+          map.setCenter(currentCenter);
+          map.setZoom(18);
+        }
+
+        if (marker) {
+          if (marker.setPosition) marker.setPosition(currentCenter);
+          else marker.position = currentCenter;
+        }
+
+        if (circle) {
+          circle.setCenter(currentCenter);
+        }
+
+        document.getElementById("latDisplay").innerText = lat.toFixed(6);
+        document.getElementById("lngDisplay").innerText = lng.toFixed(6);
+
+        await updateLocationInfo(lat, lng);
+        updateEmployeeList();
+
+        showToast("Current location loaded");
+        btn.disabled = false;
+        btn.innerText = "📍 Current Location";
+      },
+      (err) => {
+        console.error("Current location error:", err);
+        let msg = "Location access denied";
+        if (err.code === 1) msg = "Location permission allow karo";
+        if (err.code === 2) msg = "Current location unavailable hai";
+        if (err.code === 3) msg = "Location timeout ho gaya";
+        showToast(msg, true);
+        btn.disabled = false;
+        btn.innerText = "📍 Current Location";
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
+  }
+
+  async function updateGeofence() {
+    if (!currentBranch) return;
+
+    const btn = document.getElementById("updateGeofenceBtn");
+    btn.disabled = true;
+    btn.innerText = "Updating...";
+
+    // Agar marker drag/click ke turant baad update dabaya hai,
+    // to pehle latest address resolve kar lo.
+    if (!currentAddress && geocoder) {
+      await updateLocationInfo(currentCenter.lat, currentCenter.lng);
+    }
+
+    const addressToSave =
+      currentAddress ||
+      document.getElementById("addressDisplay").innerText ||
+      currentBranch.address ||
+      "";
+
+    let { error } = await callRpc("admingeo_update_geofence", {
+      ...getRpcSessionPayload(),
+      p_lat: currentCenter.lat,
+      p_lng: currentCenter.lng,
+      p_radius_meters: currentRadius,
+      p_address: addressToSave
+    });
+
+    if (error) {
+      const direct = await supabaseClient
+        .from("org_branches")
+        .update({
+          lat: currentCenter.lat,
+          lng: currentCenter.lng,
+          radius_meters: currentRadius,
+          address: addressToSave,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", currentBranch.id);
+      error = direct.error;
+    }
+
+    btn.disabled = false;
+    btn.innerText = "💾 Update Geofence";
+
+    if (error) {
+      console.error(error);
+      showToast("Geofence update failed. SQL RPC/policy run karo", true);
+      return;
+    }
+
+    currentBranch.lat = currentCenter.lat;
+    currentBranch.lng = currentCenter.lng;
+    currentBranch.radius_meters = currentRadius;
+    currentBranch.address = addressToSave;
+    currentAddress = addressToSave;
+    showToast("Geofence updated successfully");
+  }
+
+  // =========================================================
+  // EMPLOYEES
+  // =========================================================
+  function normalizeViewerText(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, " ");
+  }
+
+  function getEmpSearchKeys(emp) {
+    return {
+      id: String(emp?.id || "").trim(),
+      userId: String(emp?.user_id || emp?.org_user_id || emp?.admin_id || "").trim(),
+      empCode: normalizeViewerText(emp?.emp_code),
+      email: normalizeViewerText(emp?.email),
+      phone: String(emp?.mobile || emp?.phone || "").trim()
+    };
+  }
+
+  function getSessionSearchKeys() {
+    const session = getSession() || {};
+    return {
+      userId: String(session.userId || session.user_id || session.id || "").trim(),
+      employeeId: String(session.employeeId || session.employee_id || session.empId || session.emp_id || "").trim(),
+      empCode: normalizeViewerText(session.empCode || session.emp_code || session.employeeCode || session.employee_code),
+      email: normalizeViewerText(session.email || session.userEmail || session.loginEmail),
+      phone: String(session.phone || session.mobile || session.number || "").trim(),
+      role: normalizeViewerText(session.role || session.accountType || session.account_type || session.userRole)
+    };
+  }
+
+  function isSameAsCurrentViewer(emp, viewerEmployee) {
+    const s = getSessionSearchKeys();
+    const e = getEmpSearchKeys(emp);
+    const v = getEmpSearchKeys(viewerEmployee || {});
+
+    return Boolean(
+      (viewerEmployee && e.id && v.id && e.id === v.id) ||
+      (viewerEmployee && e.empCode && v.empCode && e.empCode === v.empCode) ||
+      (s.employeeId && e.id && s.employeeId === e.id) ||
+      (s.userId && e.id && s.userId === e.id) ||
+      (s.userId && e.userId && s.userId === e.userId) ||
+      (s.empCode && e.empCode && s.empCode === e.empCode) ||
+      (s.email && e.email && s.email === e.email) ||
+      (s.phone && e.phone && s.phone === e.phone)
+    );
+  }
+
+  function findViewerEmployee(allEmployees) {
+    const s = getSessionSearchKeys();
+    if (!Array.isArray(allEmployees)) return null;
+
+    // Sabse pehle employees table ke emp_code se opener identify karo.
+    if (s.empCode) {
+      const byCode = allEmployees.find(emp => normalizeViewerText(emp.emp_code) === s.empCode);
+      if (byCode) return byCode;
+    }
+
+    return allEmployees.find(emp => {
+      const e = getEmpSearchKeys(emp);
+      return Boolean(
+        (s.employeeId && e.id && s.employeeId === e.id) ||
+        (s.userId && e.id && s.userId === e.id) ||
+        (s.userId && e.userId && s.userId === e.userId) ||
+        (s.email && e.email && s.email === e.email) ||
+        (s.phone && e.phone && s.phone === e.phone)
+      );
+    }) || null;
+  }
+
+  function getEmployeeAuthority(emp, fallbackRole = "") {
+    const text = normalizeViewerText([
+      emp?.role,
+      emp?.emp_role,
+      emp?.employee_role,
+      emp?.department,
+      emp?.designation,
+      fallbackRole
+    ].filter(Boolean).join(" "));
+
+    if (/\b(owner|super admin|superadmin)\b/.test(text)) return "owner";
+    if (/\b(developer|devloper|dev|software developer)\b/.test(text)) return "developer";
+    if (/\b(admin|administrator)\b/.test(text)) return "admin";
+    if (/\b(hr|human resource|human resources)\b/.test(text)) return "hr";
+    if (/\b(operation manager|operations manager|opretion manager|operation head|operations head)\b/.test(text)) return "operation_manager";
+    if (/\b(finance|finace|accounts|accountant)\b/.test(text)) return "finance";
+    if (/\b(staff|employee|emp|worker)\b/.test(text)) return "staff";
+    return fallbackRole && ["owner", "developer", "admin", "hr"].includes(fallbackRole) ? fallbackRole : "staff";
+  }
+
+  function canViewerSeeEmployee(viewerAuthority, targetAuthority) {
+    // Admin/owner/developer: apna record hide hoga, baaki sabka dikhega.
+    if (["owner", "admin", "developer"].includes(viewerAuthority)) return true;
+
+    // HR: admin/owner/developer nahi dikhenge, baaki sab dikhega.
+    if (viewerAuthority === "hr") {
+      return !["owner", "admin", "developer"].includes(targetAuthority);
+    }
+
+    // Staff/employee: senior roles nahi dikhenge. Sirf staff-level employees dikhenge.
+    return !["owner", "admin", "developer", "hr", "operation_manager", "finance"].includes(targetAuthority);
+  }
+
+  async function loadEmployees() {
+    let data = null;
+    let error = null;
+
+    const rpcRes = await callRpc("admingeo_get_employees", getRpcSessionPayload());
+    if (rpcRes.data && !rpcRes.error) {
+      data = rpcRes.data;
+    } else {
+      const direct = await supabaseClient
+        .from("employees")
+        .select("*")
+        .eq("org_id", currentUser.org_id)
+        .eq("active", true)
+        .order("full_name", { ascending: true });
+      data = direct.data;
+      error = direct.error;
+    }
+
+    if (error) {
+      console.error(error);
+      showToast("Employees load failed. SQL RPC/policy run karo", true);
+      return;
+    }
+
+    const allEmployees = Array.isArray(data) ? data : [];
+    const sessionKeys = getSessionSearchKeys();
+    const viewerEmployee = findViewerEmployee(allEmployees);
+    const viewerAuthority = getEmployeeAuthority(viewerEmployee, sessionKeys.role);
+
+    employees = allEmployees
+      .filter(emp => {
+        // Jis employee/staff/admin ne screen open kiya, uska own data list me kabhi nahi dikhana.
+        if (isSameAsCurrentViewer(emp, viewerEmployee)) return false;
+
+        const targetAuthority = getEmployeeAuthority(emp, "");
+        return canViewerSeeEmployee(viewerAuthority, targetAuthority);
+      })
+      .map(emp => {
+        const empLat = Number(emp.live_lat || emp.last_lat || emp.lat || emp.latitude || currentCenter.lat);
+        const empLng = Number(emp.live_lng || emp.last_lng || emp.lng || emp.longitude || currentCenter.lng);
+        return {
+          ...emp,
+          lat: Number.isFinite(empLat) ? empLat : currentCenter.lat,
+          lng: Number.isFinite(empLng) ? empLng : currentCenter.lng
+        };
+      });
+
+    console.log("Geo employee filter:", {
+      viewer_emp_code: viewerEmployee?.emp_code || sessionKeys.empCode || "",
+      viewer_department: viewerEmployee?.department || "",
+      viewer_designation: viewerEmployee?.designation || "",
+      viewerAuthority,
+      total_from_db: allEmployees.length,
+      visible_after_filter: employees.length
+    });
+
+    updateEmployeeList();
+  }
+
+  function todayISO() {
+    // Local India/browser date use karo. UTC date se midnight ke aas-paas wrong date aa sakti hai.
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function isAttendanceWindowOpen() {
+    // Admin sirf current day ka attendance mark/unmark kar sakta hai.
+    // Previous day ka attendance next day expire maan liya jayega.
+    return true;
+  }
+
+  function getTodayAttendance(empId) {
+    return todayAttendanceByEmployee[String(empId)] || null;
+  }
+
+  function employeeMatchesSearch(emp, term) {
+    if (!term) return true;
+    const q = term.toLowerCase();
+    return [
+      emp.emp_code,
+      emp.full_name,
+      emp.email,
+      emp.mobile,
+      emp.department,
+      emp.designation
+    ].some(v => String(v || "").toLowerCase().includes(q));
+  }
+
+  function updateEmployeeList() {
+    const container = document.getElementById("employeeList");
+    container.innerHTML = "";
+
+    const filteredEmployees = employees.filter(emp => employeeMatchesSearch(emp, employeeSearchTerm));
+
+    if (!filteredEmployees.length) {
+      container.innerHTML = `<div class="employee-item"><span>No employees found</span></div>`;
+      return;
+    }
+
+    const attendanceOpen = isAttendanceWindowOpen();
+
+    filteredEmployees.forEach(emp => {
+      const distance = distanceBetween(emp.lat, emp.lng, currentCenter.lat, currentCenter.lng);
+      const within = distance <= currentRadius;
+      const markedAttendance = getTodayAttendance(emp.id);
+      const alreadyMarked = !!markedAttendance;
+
+      let actionButton = "";
+      if (!attendanceOpen) {
+        actionButton = `<button class="expired-btn" disabled>Expired</button>`;
+      } else if (alreadyMarked) {
+        actionButton = `<button class="unmark-btn" data-id="${emp.id}">↩ Unmark</button>`;
+      } else {
+        actionButton = `<button class="mark-btn" data-id="${emp.id}">📌 Mark Punch In</button>`;
+      }
+
+      const div = document.createElement("div");
+      div.className = "employee-item";
+      div.innerHTML = `
+        <div class="emp-info">
+          <div class="emp-name">${escapeHtml(emp.full_name)} (${escapeHtml(emp.emp_code)})</div>
+          <div class="emp-loc">${escapeHtml(emp.department || "-")} | ${escapeHtml(emp.designation || "-")}</div>
+          <div class="emp-loc">📍 ${emp.lat.toFixed(5)}, ${emp.lng.toFixed(5)}</div>
+          <div class="emp-loc">Distance: ${Math.round(distance)} m</div>
+          <span class="status-badge ${within ? "within" : "outside"}">${within ? "✅ Within Geofence" : "❌ Outside Geofence"}</span>
+          ${alreadyMarked ? `<span class="status-badge within" style="margin-left:6px;">Marked Today</span>` : ""}
+        </div>
+        ${actionButton}
+      `;
+      container.appendChild(div);
+    });
+
+    document.querySelectorAll(".mark-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const emp = employees.find(e => e.id === btn.dataset.id);
+        if (!emp) return;
+        await adminMarkPunchIn(emp, btn);
+      });
+    });
+
+    document.querySelectorAll(".unmark-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const emp = employees.find(e => e.id === btn.dataset.id);
+        if (!emp) return;
+        await adminUnmarkAttendance(emp, btn);
+      });
+    });
+  }
+
+  function distanceBetween(lat1, lng1, lat2, lng2) {
+    const R = 6371e3;
+    const p1 = lat1 * Math.PI / 180;
+    const p2 = lat2 * Math.PI / 180;
+    const dp = (lat2 - lat1) * Math.PI / 180;
+    const dl = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // =========================================================
+  // ADMIN MARK ATTENDANCE
+  // =========================================================
+  async function adminMarkPunchIn(emp, btn) {
+    const distance = Math.round(distanceBetween(emp.lat, emp.lng, currentCenter.lat, currentCenter.lng));
+    const within = distance <= currentRadius;
+
+    if (!within) {
+      const ok = confirm("Employee geofence ke bahar hai. Phir bhi attendance mark karni hai?");
+      if (!ok) return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = "Saving...";
+
+    const today = todayISO();
+
+    if (getTodayAttendance(emp.id)) {
+      showToast("Is employee ka aaj attendance already marked hai", true);
+      btn.disabled = false;
+      btn.innerText = "📌 Mark Punch In";
+      updateEmployeeList();
+      return;
+    }
+
+    const { data, error } = await callRpc("admingeo_mark_punch_in", {
+      ...getRpcSessionPayload(),
+      p_employee_id: emp.id,
+      p_lat: emp.lat,
+      p_lng: emp.lng,
+      p_distance_meters: distance
+    });
+
+    if (error) {
+      console.error(error);
+      showToast("Attendance save failed. SQL RPC/policy run karo", true);
+      btn.disabled = false;
+      btn.innerText = "📌 Mark Punch In";
+      return;
+    }
+
+    showToast(`Attendance saved: ${emp.full_name}`);
+    btn.disabled = false;
+    btn.innerText = "📌 Mark Punch In";
+    await loadHistory();
+  }
+
+  async function adminUnmarkAttendance(emp, btn) {
+    const todayRecord = getTodayAttendance(emp.id);
+
+    if (!todayRecord) {
+      showToast("Aaj ka attendance record nahi mila", true);
+      await loadHistory();
+      return;
+    }
+
+    if (todayRecord.attendance_date !== todayISO()) {
+      showToast("Old attendance expired hai. Unmark nahi ho sakta", true);
+      return;
+    }
+
+    const ok = confirm(`${emp.full_name} ka aaj ka attendance unmark/delete karna hai?`);
+    if (!ok) return;
+
+    btn.disabled = true;
+    btn.innerText = "Unmarking...";
+
+    let { error } = await callRpc("admingeo_unmark_attendance", {
+      ...getRpcSessionPayload(),
+      p_employee_id: emp.id,
+      p_attendance_id: todayRecord.id
+    });
+
+    if (error) {
+      const direct = await supabaseClient
+        .from("attendance")
+        .delete()
+        .eq("id", todayRecord.id)
+        .eq("org_id", currentUser.org_id)
+        .eq("employee_id", emp.id)
+        .eq("attendance_date", todayISO());
+      error = direct.error;
+    }
+
+    if (error) {
+      console.error(error);
+      showToast("Unmark failed. SQL RPC/policy run karo", true);
+      btn.disabled = false;
+      btn.innerText = "↩ Unmark";
+      return;
+    }
+
+    delete todayAttendanceByEmployee[String(emp.id)];
+    showToast(`Attendance unmarked: ${emp.full_name}`);
+    await loadHistory();
+  }
+
+  function calculateLate(roster) {
+    if (!roster || !roster.shift_start) return { isLate: false, lateMinutes: 0 };
+
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const shiftStart = new Date(`${today}T${roster.shift_start}`);
+    const grace = Number(roster.grace_minutes || 0);
+    const lateMinutes = Math.max(0, Math.floor((now - shiftStart) / 60000) - grace);
+
+    return {
+      isLate: lateMinutes > 0,
+      lateMinutes
+    };
+  }
+
+  // =========================================================
+  // HISTORY - PAGE WISE + DATE RANGE + LARGE CSV EXPORT
+  // =========================================================
+  function getHistoryDateFilters() {
+    const today = todayISO();
+    let from = String(document.getElementById("historyFromDate")?.value || "").trim();
+    let to = String(document.getElementById("historyToDate")?.value || "").trim();
+
+    from = /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : "";
+    to = /^\d{4}-\d{2}-\d{2}$/.test(to) ? to : "";
+
+    // Default: screen open hote hi sirf current date ka data.
+    if (!from && !to) {
+      from = today;
+      to = today;
+    }
+
+    // Agar user sirf From Date select kare to current date tak data.
+    // Example: From = 2026-06-01 aur aaj 2026-06-23 hai, to 2026-06-23 tak data.
+    if (from && !to) to = today;
+
+    // Agar user sirf To Date select kare to usi date ka data dikhao.
+    // Isse unlimited old data load nahi hoga aur page lag nahi karega.
+    if (!from && to) from = to;
+
+    // Galti se from > to ho jaye to swap kar do.
+    if (from && to && from > to) {
+      const temp = from;
+      from = to;
+      to = temp;
+    }
+
+    return { from, to };
+  }
+
+  function setDefaultHistoryDateRange() {
+    const today = todayISO();
+    const fromEl = document.getElementById("historyFromDate");
+    const toEl = document.getElementById("historyToDate");
+    if (fromEl && !fromEl.value) fromEl.value = today;
+    if (toEl && !toEl.value) toEl.value = today;
+  }
+
+  function normalizeRecordDate(value) {
+    if (!value) return "";
+    const s = String(value);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function getActiveOrgForAttendance() {
+    return String(currentUser?.org_id || currentOrg?.id || (getSession() || {}).orgId || "");
+  }
+
+  function buildAttendanceBaseQuery({ forExport = false, offset = 0, limit = historyPageSize } = {}) {
+    const orgId = getActiveOrgForAttendance();
+    const { from, to } = getHistoryDateFilters();
+
+    let query = supabaseClient
+      .from("attendance")
+      .select("*")
+      .eq("org_id", orgId);
+
+    // Attendance Records jis date par store hota hai wahi column use ho raha hai.
+    // Isi wajah se existing data flow nahi tootega, bas selected date range add hoga.
+    if (from) query = query.gte("attendance_date", from);
+    if (to) query = query.lte("attendance_date", to);
+
+    query = query.order("attendance_date", { ascending: false }).order("created_at", { ascending: false });
+
+    if (!forExport) {
+      const fromRow = Math.max(0, offset);
+      const toRow = fromRow + limit;
+      // 1 extra row isliye: next page hai ya nahi pata chal jaye.
+      query = query.range(fromRow, toRow);
+    } else {
+      query = query.range(offset, offset + limit - 1);
+    }
+
+    return query;
+  }
+
+  async function loadTodayAttendanceForButtons() {
+    const orgId = getActiveOrgForAttendance();
+    if (!orgId) return;
+
+    const { data, error } = await supabaseClient
+      .from("attendance")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("attendance_date", todayISO())
+      .limit(1000);
+
+    if (!error && Array.isArray(data)) {
+      todayAttendanceByEmployee = {};
+      data.forEach(row => {
+        todayAttendanceByEmployee[String(row.employee_id)] = row;
+      });
+    }
+  }
+
+  function dateRangeMatchesRow(row, from, to) {
+    const d = normalizeRecordDate(row.attendance_date || row.punch_in || row.created_at);
+    if (!d) return false;
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  }
+
+  function clientFilterHistoryRows(rows) {
+    const { from, to } = getHistoryDateFilters();
+    return (Array.isArray(rows) ? rows : []).filter(row => dateRangeMatchesRow(row, from, to));
+  }
+
+  async function fetchAttendanceChunkByColumn(column, offset, limit) {
+    const orgId = getActiveOrgForAttendance();
+    const { from, to } = getHistoryDateFilters();
+    let query = supabaseClient
+      .from("attendance")
+      .select("*")
+      .eq("org_id", orgId);
+
+    if (column === "attendance_date") {
+      if (from) query = query.gte("attendance_date", from);
+      if (to) query = query.lte("attendance_date", to);
+      query = query.order("attendance_date", { ascending: false });
+    } else {
+      const startTs = (from || todayISO()) + "T00:00:00";
+      const endTs = (to || todayISO()) + "T23:59:59.999";
+      query = query.gte(column, startTs).lte(column, endTs).order(column, { ascending: false });
+    }
+
+    return await query.range(offset, offset + limit);
+  }
+
+  async function fetchWorkingHistoryFallback() {
+    // Ye wahi old working flow hai jisse Attendance Records data aa raha tha.
+    const rpcRes = await callRpc("admingeo_get_history", getRpcSessionPayload());
+    if (rpcRes.data && !rpcRes.error) return { data: rpcRes.data, error: null };
+
+    const orgId = getActiveOrgForAttendance();
+    return await supabaseClient
+      .from("attendance")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+  }
+
+  async function loadHistory(page = historyPage) {
+    historyPage = Math.max(1, Number(page || 1));
+    const offset = (historyPage - 1) * historyPageSize;
+    const tbody = document.getElementById("historyBody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Loading records...</td></tr>`;
+
+    let rows = [];
+    let lastError = null;
+
+    // 1) Pehle proper date column se fetch.
+    for (const col of ["attendance_date", "punch_in", "created_at"]) {
+      const res = await fetchAttendanceChunkByColumn(col, offset, historyPageSize + 1);
+      if (res.error) {
+        lastError = res.error;
+        continue;
+      }
+      rows = Array.isArray(res.data) ? res.data : [];
+      if (rows.length) break;
+    }
+
+    // 2) Agar range query blank aa jaye, old working flow se data lo aur browser me date filter lagao.
+    if (!rows.length) {
+      const fallback = await fetchWorkingHistoryFallback();
+      if (fallback.error) lastError = fallback.error;
+      rows = clientFilterHistoryRows(fallback.data || []);
+      // fallback already limited hai, usme page-wise slice lagao
+      rows = rows.slice(offset, offset + historyPageSize + 1);
+    }
+
+    if (!rows.length && lastError) {
+      console.warn("History date query fallback blank/error:", lastError);
+    }
+
+    historyHasNext = rows.length > historyPageSize;
+    attendanceHistory = rows.slice(0, historyPageSize);
+
+    await loadTodayAttendanceForButtons();
+
+    if (!Object.keys(todayAttendanceByEmployee).length) {
+      todayAttendanceByEmployee = {};
+      attendanceHistory
+        .filter(row => normalizeRecordDate(row.attendance_date || row.punch_in || row.created_at) === todayISO())
+        .forEach(row => {
+          todayAttendanceByEmployee[String(row.employee_id)] = row;
+        });
+    }
+
+    renderHistory();
+    updateHistoryPager();
+    updateEmployeeList();
+  }
+
+  function updateHistoryPager() {
+    const prev = document.getElementById("historyPrevBtn");
+    const next = document.getElementById("historyNextBtn");
+    const info = document.getElementById("historyPageInfo");
+    const historyInfo = document.getElementById("historyInfo");
+    const { from, to } = getHistoryDateFilters();
+
+    if (prev) prev.disabled = historyPage <= 1;
+    if (next) next.disabled = !historyHasNext;
+    if (prev) prev.style.opacity = prev.disabled ? ".45" : "1";
+    if (next) next.style.opacity = next.disabled ? ".45" : "1";
+
+    const start = attendanceHistory.length ? ((historyPage - 1) * historyPageSize) + 1 : 0;
+    const end = ((historyPage - 1) * historyPageSize) + attendanceHistory.length;
+    if (info) info.innerText = `Page ${historyPage} • ${start}-${end}${historyHasNext ? "+" : ""}`;
+    if (historyInfo) historyInfo.innerText = `Showing ${attendanceHistory.length} records${from || to ? ` • Date range: ${from || "start"} to ${to || "today"}` : " • Latest records"}.`;
+  }
+
+  function renderHistory() {
+    const tbody = document.getElementById("historyBody");
+    tbody.innerHTML = "";
+
+    if (!attendanceHistory.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No attendance records yet.</td></tr>`;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    attendanceHistory.forEach(rec => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${escapeHtml(rec.employee_name || "-")} (${escapeHtml(rec.emp_code || "-")})</td>
+        <td>${escapeHtml(rec.attendance_date || "-")}</td>
+        <td>${rec.punch_in ? escapeHtml(new Date(rec.punch_in).toLocaleString()) : "-"}</td>
+        <td>${rec.punch_out ? escapeHtml(new Date(rec.punch_out).toLocaleString()) : "-"}</td>
+        <td>${rec.punch_in_lat && rec.punch_in_lng ? `${Number(rec.punch_in_lat).toFixed(5)}, ${Number(rec.punch_in_lng).toFixed(5)} (${rec.punch_in_distance_meters || 0} m)` : "-"}</td>
+        <td>${buildStatusBadge(rec)}</td>`;
+      fragment.appendChild(row);
+    });
+    tbody.appendChild(fragment);
+  }
+
+  function buildStatusBadge(rec) {
+    let label = rec.status || "not_started";
+    let cls = "neutral";
+
+    if (["present", "punched_in"].includes(label)) cls = "within";
+    if (["absent", "miss_punch", "half_day"].includes(label)) cls = "outside";
+
+    const lateText = rec.is_late ? ` | Late ${rec.late_minutes}m` : "";
+    return `<span class="status-badge ${cls}">${escapeHtml(label)}${lateText}</span>`;
+  }
+
+  function csvCell(value) {
+    const text = String(value ?? "");
+    if (/[",\n\r]/.test(text)) return '"' + text.replaceAll('"', '""') + '"';
+    return text;
+  }
+
+  function downloadCsvFile(filename, rows) {
+    const csv = rows.map(row => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportHistory() {
+    const btn = document.getElementById("exportHistoryBtn");
+    const { from, to } = getHistoryDateFilters();
+    const exportLimit = 5000;
+    const rangeText = `${from || todayISO()}_to_${to || todayISO()}`;
+
+    if (btn) { btn.disabled = true; btn.innerText = "Exporting..."; }
+
+    try {
+      let chosenColumn = "attendance_date";
+      let firstRows = [];
+      let firstError = null;
+
+      // Jo column me data mile wahi export ke liye use karo.
+      for (const col of ["attendance_date", "punch_in", "created_at"]) {
+        const res = await fetchAttendanceChunkByColumn(col, 0, exportLimit);
+        if (res.error) { firstError = res.error; continue; }
+        const rows = Array.isArray(res.data) ? res.data : [];
+        if (rows.length) { chosenColumn = col; firstRows = rows; break; }
+      }
+
+      if (!firstRows.length) {
+        // Last safe fallback: jo screen par dikh raha hai wahi export kar do.
+        firstRows = attendanceHistory || [];
+      }
+
+      if (!firstRows.length) {
+        if (firstError) console.warn("Export query failed:", firstError);
+        showToast("No history to export", true);
+        return;
+      }
+
+      let offset = 0;
+      let part = 1;
+      let totalExported = 0;
+      let currentRows = firstRows;
+
+      while (currentRows.length) {
+        const sheet = [[
+          "Employee", "Emp Code", "Date", "Punch In", "Punch Out", "Punch In Lat", "Punch In Lng",
+          "Distance", "Status", "Late", "Late Minutes", "Worked Minutes"
+        ]];
+
+        currentRows.forEach(r => {
+          sheet.push([
+            r.employee_name || "",
+            r.emp_code || "",
+            r.attendance_date || normalizeRecordDate(r.punch_in || r.created_at) || "",
+            r.punch_in ? new Date(r.punch_in).toLocaleString() : "",
+            r.punch_out ? new Date(r.punch_out).toLocaleString() : "",
+            r.punch_in_lat || "",
+            r.punch_in_lng || "",
+            r.punch_in_distance_meters || "",
+            r.status || "",
+            r.is_late ? "Yes" : "No",
+            r.late_minutes || 0,
+            r.worked_minutes || 0
+          ]);
+        });
+
+        downloadCsvFile(`Attendance_${rangeText}_part_${part}.csv`, sheet);
+        totalExported += currentRows.length;
+
+        if (currentRows.length < exportLimit || firstRows === attendanceHistory) break;
+        offset += exportLimit;
+        part++;
+        showToast(`Export part ${part - 1} done (${totalExported} records)`);
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        const res = await fetchAttendanceChunkByColumn(chosenColumn, offset, exportLimit);
+        if (res.error) throw res.error;
+        currentRows = Array.isArray(res.data) ? res.data : [];
+      }
+
+      showToast(`Export complete: ${totalExported} records`);
+    } catch (e) {
+      console.error(e);
+      showToast(e.message || "Export failed", true);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerText = "📎 Export CSV"; }
+    }
+  }
+
+  // =========================================================
+  // UTILS
+  // =========================================================
+  function showToast(msg, isErr = false) {
+    const old = document.querySelector(".toast");
+    if (old) old.remove();
+
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.style.background = isErr ? "#b91c1c" : "#1a5e58";
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function logout() {
+    localStorage.removeItem("currentSession");
+    sessionStorage.removeItem("inlistSession");
+    location.href = "login.html";
+  }
+
+
+  function waitForGoogleMapAndBuild() {
+    if (window.google && window.google.maps) {
+      buildMap(currentCenter);
+      return;
+    }
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries++;
+      if (window.google && window.google.maps) {
+        clearInterval(timer);
+        buildMap(currentCenter);
+      } else if (tries > 50) {
+        clearInterval(timer);
+        showToast("Google Map load nahi hua. API key / internet check karo", true);
+      }
+    }, 200);
+  }
+
+  // =========================================================
+  // EVENTS + INIT
+  // =========================================================
+  document.getElementById("employeeSearchInput").addEventListener("input", (e) => {
+    employeeSearchTerm = e.target.value.trim();
+    updateEmployeeList();
+  });
+
+  document.getElementById("currentLocationBtn").addEventListener("click", getCurrentLocation);
+  document.getElementById("updateGeofenceBtn").addEventListener("click", updateGeofence);
+  document.getElementById("exportHistoryBtn").addEventListener("click", exportHistory);
+  document.getElementById("historyApplyBtn").addEventListener("click", async () => {
+    historyPage = 1;
+    await loadHistory(1);
+    showToast("Date range applied");
+  });
+  document.getElementById("historyPrevBtn").addEventListener("click", async () => {
+    if (historyPage > 1) await loadHistory(historyPage - 1);
+  });
+  document.getElementById("historyNextBtn").addEventListener("click", async () => {
+    if (historyHasNext) await loadHistory(historyPage + 1);
+  });
+  document.getElementById("refreshBtn").addEventListener("click", async () => {
+    historyPage = 1;
+    await loadEmployees();
+    await loadHistory(1);
+    showToast("Refreshed");
+  });
+  document.getElementById("backBtn").addEventListener("click", () => location.href = "admin.html");
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    if (location.protocol === "file:") {
+      showToast("Is file ko file:// se nahi, local server http://localhost se chalao", true);
+    }
+
+    if (SUPABASE_URL === "YOUR_SUPABASE_URL" || SUPABASE_ANON_KEY === "YOUR_SUPABASE_ANON_KEY") {
+      showToast("Supabase URL/Key update karo", true);
+    }
+
+    const ok = await loadCurrentUser();
+    if (!ok) return;
+
+    appReady = true;
+
+    waitForGoogleMapAndBuild();
+
+    setDefaultHistoryDateRange();
+
+    await loadEmployees();
+    await loadHistory(1);
+  });
+</script>
+
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBGXP0a78tn4nKjyT5m1oP1DmVOYCubRpg&libraries=geometry,places&loading=async"></script>
+</body>
+</html>

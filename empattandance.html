@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Employee Roster & Attendance | Supabase</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+    body{min-height:100vh;background:linear-gradient(135deg,#eef5ff,#dbeafe);color:#0f172a}
+    .top{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,#0f3b35,#14532d);color:white;box-shadow:0 12px 28px rgba(15,23,42,.18)}
+    .top-inner{max-width:1180px;margin:auto;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .back{border:0;background:rgba(255,255,255,.16);color:white;border-radius:999px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .emp-pill{background:rgba(255,255,255,.18);padding:8px 16px;border-radius:999px;font-weight:800;font-size:14px;text-align:center}
+    .wrap{max-width:1180px;margin:auto;padding:22px 16px}
+    .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
+    @media(min-width:850px){.stats{grid-template-columns:repeat(5,1fr)}}
+    .stat{background:white;border-radius:20px;padding:13px;text-align:center;box-shadow:0 8px 22px rgba(15,23,42,.08);border-left:5px solid #64748b}
+    .stat b{font-size:25px;display:block}.stat span{font-size:11px;text-transform:uppercase;color:#64748b;font-weight:800}
+    .c-present{border-color:#16a34a}.c-half{border-color:#f97316}.c-absent{border-color:#dc2626}.c-miss{border-color:#7c3aed}.c-off{border-color:#0ea5e9}
+    .controls{background:white;border-radius:22px;padding:14px;margin-bottom:18px;box-shadow:0 8px 22px rgba(15,23,42,.08);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+    select,.btn{border:1px solid #dbe3ea;background:#f8fafc;padding:10px 13px;border-radius:14px;font-weight:800;outline:none}
+    .btn{cursor:pointer;background:#14532d;color:white;border:0;display:inline-flex;align-items:center;gap:6px}.btn.light{background:#e2e8f0;color:#0f172a}.btn.sky{background:#0284c7;color:#fff}
+    .calendar-card,.list-card{background:white;border-radius:24px;padding:16px;box-shadow:0 10px 28px rgba(15,23,42,.09)}
+    .week{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:12px;font-weight:900;color:#64748b;margin-bottom:8px}.week div{padding:8px 0}
+    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;justify-items:center}
+    .cell{width:64px;height:64px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;position:relative;background:#f8fafc;color:#0f172a;font-weight:900;box-shadow:0 2px 8px rgba(15,23,42,.08);transition:.15s;border:2px solid transparent;overflow:hidden}
+    .cell small{font-size:9px;font-weight:900;margin-top:2px;line-height:1}.cell:hover{transform:scale(.96);filter:brightness(.96)}
+    .empty{opacity:.25;cursor:default}.past-locked{opacity:.45!important;cursor:not-allowed!important;filter:grayscale(.35);box-shadow:none!important}.past-locked:hover{transform:none!important;filter:grayscale(.35)!important}.locked-text{color:#94a3b8;font-size:12px;font-weight:900}.today{box-shadow:0 0 0 2px white,0 0 0 4px #2563eb}.sunday{border-color:#dc2626}
+    .morning{background:#065f46;color:#fff}.evening{background:#92400e;color:#fff}.night{background:#f97316;color:#fff}.wo{background:#38bdf8;color:#fff}.present{background:#16a34a;color:#fff}.half-day{background:#f97316;color:#fff}.absent{background:#dc2626;color:#fff}.leave{background:#9ca3af;color:#fff}.holiday{background:#facc15;color:#1e293b}.coff{background:#ec4899;color:#fff}.miss-punch{background:#7c3aed;color:#fff}.no-roster{background:#e2e8f0;color:#475569}
+    .legend{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:15px;border-top:1px solid #e5e7eb;padding-top:13px;color:#475569;font-size:12px;font-weight:800}.dot{width:13px;height:13px;border-radius:999px;display:inline-block;margin-right:4px;vertical-align:-2px}.dcombo{background:linear-gradient(135deg,#065f46 0 50%,#92400e 50%)}
+    .hidden{display:none}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:12px;border-bottom:1px solid #eef2f7;text-align:left}th{background:#f8fafc;color:#475569}.badge{padding:5px 11px;border-radius:999px;color:white;font-size:12px;font-weight:900;display:inline-block}.action-link{border:0;background:#0284c7;color:white;border-radius:999px;padding:6px 12px;font-weight:900;cursor:pointer;font-size:12px}.toast{position:fixed;left:18px;bottom:18px;background:#14532d;color:white;border-radius:999px;padding:12px 18px;z-index:50;font-weight:900}.toast.err{background:#991b1b}
+
+    .detail-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:80;align-items:center;justify-content:center;padding:16px}
+    .detail-box{width:min(520px,100%);background:#fff;border-radius:26px;box-shadow:0 30px 80px rgba(15,23,42,.28);overflow:hidden}
+    .detail-head{background:linear-gradient(135deg,#0f3b35,#14532d);color:#fff;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .detail-head b{font-size:18px}.detail-close{border:0;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:20px}
+
+    .holiday-dot{position:absolute;right:7px;top:7px;width:10px;height:10px;border-radius:999px;background:#facc15;border:2px solid #fff;box-shadow:0 0 0 1px rgba(146,64,14,.25)}
+    .cell.holiday .holiday-dot,.cell.coff .holiday-dot{background:#facc15}
+    .holiday-popup-note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:16px;padding:12px;margin-top:12px;font-weight:800;line-height:1.5}
+    .detail-body{padding:18px}.detail-row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #eef2f7;padding:10px 0;color:#334155}.detail-row span:first-child{font-weight:900;color:#0f172a}.detail-actions{padding-top:16px;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}.disabled-note{color:#94a3b8;font-weight:900;font-size:13px}
+    @media(max-width:640px){.cell{width:43px;height:43px;font-size:12px}.cell small{display:none}.calendar{gap:4px}.week{font-size:10px}th,td{padding:9px;font-size:12px}}
+  </style>
+</head>
+<body>
+<header class="top"><div class="top-inner"><button class="back" id="backBtn"><span class="material-icons">arrow_back</span></button><div class="emp-pill" id="empLabel">Loading employee...</div><button class="back" id="refreshBtn"><span class="material-icons">refresh</span></button></div></header>
+<main class="wrap">
+  <div class="stats">
+    <div class="stat c-present"><b id="presentCount">0</b><span>Present</span></div>
+    <div class="stat c-half"><b id="halfCount">0</b><span>Half Day</span></div>
+    <div class="stat c-absent"><b id="absentCount">0</b><span>Absent</span></div>
+    <div class="stat c-miss"><b id="missCount">0</b><span>Miss Punch</span></div>
+    <div class="stat c-off"><b id="offCount">0</b><span>Leave / Off</span></div>
+  </div>
+
+  <div class="controls">
+    <div><select id="monthSelect"></select><select id="yearSelect"></select></div>
+    <div><button class="btn light" id="currentBtn"><span class="material-icons">today</span>Current</button><button class="btn sky" id="toggleBtn"><span class="material-icons">view_list</span>List View</button></div>
+  </div>
+
+  <section class="calendar-card" id="calendarView">
+    <div class="week"><div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div></div>
+    <div id="calendar" class="calendar"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:#16a34a"></i>Present</span>
+      <span><i class="dot" style="background:#f97316"></i>Half Day</span>
+      <span><i class="dot" style="background:#dc2626"></i>Absent</span>
+      <span><i class="dot" style="background:#7c3aed"></i>Miss Punch</span>
+      <span><i class="dot" style="background:#facc15"></i>Holiday / Yellow Dot</span>
+      <span><i class="dot" style="background:#9ca3af"></i>Leave</span>
+      <span><i class="dot" style="background:#ec4899"></i>C-Off</span>
+      <span><i class="dot" style="background:#38bdf8"></i>Week Off</span>
+    </div>
+  </section>
+
+  <section class="list-card hidden" id="listView">
+    <h3 style="margin-bottom:12px;display:flex;align-items:center;gap:7px"><span class="material-icons">calendar_month</span> Attendance List</h3>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Day</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Working Hours</th><th>Location</th><th>Late</th><th>Action</th></tr></thead><tbody id="listBody"></tbody></table></div>
+  </section>
+</main>
+
+
+<div class="detail-modal" id="detailModal">
+  <div class="detail-box">
+    <div class="detail-head">
+      <b id="detailTitle">Roster Detail</b>
+      <button class="detail-close" id="detailCloseBtn">×</button>
+    </div>
+    <div class="detail-body">
+      <div id="detailContent"></div>
+      <div class="detail-actions" id="detailActions"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{
+  auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'emp-attendance-roster-view-only'}
+});
+
+const state={orgId:'',orgCode:'',branchId:'',empId:'',empCode:'',org:null,emp:null,attendance:{},holidays:{},loading:false,isList:false};
+const $=id=>document.getElementById(id);
+function toast(msg,err=false){const old=document.querySelector('.toast'); if(old) old.remove(); const d=document.createElement('div'); d.className='toast'+(err?' err':''); d.textContent=msg; document.body.appendChild(d); setTimeout(()=>d.remove(),3500)}
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function fmtTime(v){if(!v)return'--'; const d=new Date(v); if(!Number.isNaN(d.getTime())) return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); return String(v).slice(0,5)}
+function getWorkingHours(a){
+  if(!a)return '--';
+  if(a.working_hours!==undefined && a.working_hours!==null && a.working_hours!=='') return Number(a.working_hours).toFixed(2)+' hr';
+  if(a.worked_hours!==undefined && a.worked_hours!==null && a.worked_hours!=='') return Number(a.worked_hours).toFixed(2)+' hr';
+  if(a.worked_minutes!==undefined && a.worked_minutes!==null && a.worked_minutes!=='') return (Number(a.worked_minutes)/60).toFixed(2)+' hr';
+  return '--';
+}
+function getLocationText(a){return a?(a.location||a.ward_location||a.duty_location||a.punch_in_location||'--'):'--'}
+function getLateText(a){
+  if(!a)return '--';
+  const min=Number(a.late_minutes||0);
+  if(a.is_late===true || min>0) return (min||0)+' min late';
+  return 'No';
+}
+function leaveTypeLabel(v){
+  const s=String(v||'').toLowerCase().replace(/[ -]/g,'_');
+  const m={cl:'CL',pl:'PL',el:'EL',earned_leave:'EL',paid:'Paid Leave',paid_leave:'Paid Leave',unpaid:'Unpaid Leave',unpaid_leave:'Unpaid Leave',coff:'C-Off',c_off:'C-Off',comp_off:'C-Off',week_off:'Week Off',wo:'Week Off'};
+  return m[s]||String(v||'').replace(/_/g,' ').replace(/\w/g,c=>c.toUpperCase());
+}
+function displayLabel(kind,raw,att){
+  const lt=att?.leave_type||att?.leaveType||'';
+  if(['leave','coff','wo'].includes(kind) && lt) return leaveTypeLabel(lt);
+  if(['cl','pl','el','earned_leave','paid_leave','unpaid_leave'].includes(String(raw||'').toLowerCase())) return leaveTypeLabel(raw);
+  return shiftLabel(kind,raw);
+}
+function dateISO(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function daysInMonth(y,m){return new Date(y,m+1,0).getDate()}
+function dayName(dateStr){return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date(dateStr+'T00:00:00').getDay()]}
+function todayLocalISO(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`}
+function isPastDate(dateStr){return String(dateStr)<todayLocalISO()}
+function uuidLike(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||''))}
+function readObj(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){return {}}}
+
+function getLogin(){
+  const qs=new URLSearchParams(location.search);
+  const cur={...readObj('inlist_employee_login_v2'),...readObj('currentEmployee'),...readObj('currentSession')};
+  state.orgId=(qs.get('org_id')||cur.org_id||cur.orgId||localStorage.getItem('org_id')||localStorage.getItem('orgId')||'').trim();
+  state.orgCode=(qs.get('org_code')||qs.get('org')||cur.org_code||cur.orgCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||localStorage.getItem('current_org_code')||'').toUpperCase().trim();
+  state.branchId=(qs.get('branch_id')||cur.branch_id||cur.branchId||localStorage.getItem('branch_id')||localStorage.getItem('branchId')||'').trim();
+  state.empId=(qs.get('emp_id')||qs.get('employee_id')||cur.emp_id||cur.employee_id||cur.empId||localStorage.getItem('emp_id')||localStorage.getItem('employee_id')||localStorage.getItem('empId')||'').trim();
+  state.empCode=(qs.get('emp_code')||qs.get('emp')||cur.emp_code||cur.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||localStorage.getItem('current_emp_code')||'').toUpperCase().trim();
+  if(state.orgId&&uuidLike(state.orgId)) localStorage.setItem('org_id',state.orgId);
+  if(state.orgCode) localStorage.setItem('org_code',state.orgCode);
+  if(state.branchId&&uuidLike(state.branchId)) localStorage.setItem('branch_id',state.branchId);
+  if(state.empId&&uuidLike(state.empId)) localStorage.setItem('emp_id',state.empId);
+  if(state.empCode) localStorage.setItem('emp_code',state.empCode);
+  if(!uuidLike(state.orgId)&&!state.orgCode) throw new Error('ORG_NOT_FOUND: URL me org_id/org_code nahi mila');
+  if(!uuidLike(state.empId)&&!state.empCode) throw new Error('EMPLOYEE_NOT_FOUND: URL me emp_id/emp_code nahi mila');
+}
+
+async function fetchScreenData(start,end){
+  getLogin();
+  const payload={
+    p_org_id: uuidLike(state.orgId) ? state.orgId : null,
+    p_org_code: state.orgCode || null,
+    p_emp_id: uuidLike(state.empId) ? state.empId : null,
+    p_emp_code: state.empCode || null,
+    p_start_date: start,
+    p_end_date: end
+  };
+  const {data,error}=await sb.rpc('app_emp_attendance_roster_screen_data',payload);
+  if(error){console.error('RPC failed:',error,payload); throw new Error(error.message||'RPC_FAILED')}
+  const out=Array.isArray(data)?(data[0]||{}):(data||{});
+  if(out.error) throw new Error(out.error + (out.debug ? ' | '+JSON.stringify(out.debug) : ''));
+  return out;
+}
+
+
+
+async function loadOrgHolidaysDirect(start,end){
+  // Direct org_holidays load: RPC holidays na bheje tab bhi yellow dot/popup chalega.
+  // RLS ke liye x-org-id / x-org-code headers yahi set hain.
+  if(!state.orgId && !state.orgCode) return;
+
+  const holidayClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'emp-roster-holiday-direct'},
+    global:{headers:{'x-org-id':state.orgId||'', 'x-org-code':state.orgCode||''}}
+  });
+
+  let q = holidayClient
+    .from('org_holidays')
+    .select('id,org_id,org_code,holiday_date,holiday_name,holiday_type,description,active,created_at')
+    .gte('holiday_date', start)
+    .lte('holiday_date', end)
+    .order('holiday_date', {ascending:true});
+
+  if(uuidLike(state.orgId)) q = q.eq('org_id', state.orgId);
+  else if(state.orgCode) q = q.eq('org_code', state.orgCode);
+
+  // active column agar table me hai to true rows hi lenge. Agar old table me issue aaye to fallback niche hai.
+  let {data,error} = await q.eq('active', true);
+
+  if(error){
+    console.warn('org_holidays active=true load failed, fallback without active:', error);
+    let q2 = holidayClient
+      .from('org_holidays')
+      .select('id,org_id,org_code,holiday_date,holiday_name,holiday_type,description,active,created_at')
+      .gte('holiday_date', start)
+      .lte('holiday_date', end)
+      .order('holiday_date', {ascending:true});
+    if(uuidLike(state.orgId)) q2 = q2.eq('org_id', state.orgId);
+    else if(state.orgCode) q2 = q2.eq('org_code', state.orgCode);
+    const res2 = await q2;
+    data = res2.data;
+    error = res2.error;
+  }
+
+  if(error){
+    console.error('org_holidays direct load error:', error);
+    toast('Holiday table load nahi hua: '+(error.message||'RLS/permission issue'), true);
+    return;
+  }
+
+  state.holidays = state.holidays || {};
+  (data||[]).forEach(h=>{
+    const k = h.holiday_date || h.holyday_date || h.date;
+    if(k) state.holidays[k] = h;
+  });
+
+  console.log('Direct org_holidays loaded:', data||[]);
+}
+
+function applyPayload(res){
+  state.org=res.org||res.organization||null;
+  state.emp=res.employee||res.emp||null;
+  if(!state.org) throw new Error('ORG_NOT_FOUND');
+  if(!state.emp) throw new Error('EMPLOYEE_NOT_FOUND');
+  state.orgId=state.org.id||state.orgId;
+  state.orgCode=(state.org.org_code||state.orgCode||'').toUpperCase();
+  state.empId=state.emp.id||state.empId;
+  state.empCode=(state.emp.emp_code||state.empCode||'').toUpperCase();
+  localStorage.setItem('org_id',state.orgId); localStorage.setItem('org_code',state.orgCode);
+  localStorage.setItem('emp_id',state.empId); localStorage.setItem('emp_code',state.empCode);
+  $('empLabel').innerHTML=`🧑‍💼 ${esc(state.emp.full_name||state.emp.name||'Employee')} (${esc(state.emp.emp_code||state.empCode)})`;
+  state.attendance={}; state.holidays={};
+  (res.attendance||res.attendances||[]).forEach(a=>{const k=a.attendance_date||a.date||a.work_date; if(k) state.attendance[k]=a;});
+  (res.holidays||res.holyday||res.org_holyday||[]).forEach(h=>{const k=h.holiday_date||h.holyday_date||h.date; if(k) state.holidays[k]=h;});
+}
+
+async function loadMonth(){
+  if(state.loading)return; state.loading=true;
+  try{
+    const y=Number($('yearSelect').value), m=Number($('monthSelect').value);
+    const start=dateISO(y,m,1), end=dateISO(y,m,daysInMonth(y,m));
+    const data=await fetchScreenData(start,end);
+    applyPayload(data);
+    await loadOrgHolidaysDirect(start,end);
+    renderAll();
+    if(Object.keys(state.attendance).length===0) toast('Is month me attendance rows 0 mile.', true);
+  }catch(e){
+    console.error(e); toast(e.message||'Data load failed',true); $('empLabel').textContent='Load failed';
+    $('calendar').innerHTML=`<div style="grid-column:1/-1;padding:30px;color:#991b1b;font-weight:900;line-height:1.5">${esc(e.message||e)}<br><br>Fix: Supabase SQL Editor me app_emp_attendance_roster_screen_data RPC run karo.</div>`;
+  } finally {state.loading=false;}
+}
+
+function statusClass(kind){return {present:'present',half_day:'half-day',miss_punch:'miss-punch',holiday:'holiday',coff:'coff',wo:'wo',absent:'absent',leave:'leave',no_data:'no-roster'}[kind]||'no-roster'}
+function shiftLabel(kind,raw){return {present:'Present',half_day:'Half Day',miss_punch:'Miss Punch',holiday:'Holiday',coff:'C-Off',wo:'Week Off',absent:'Absent',leave:'Leave',no_data:'No Attendance'}[kind] || raw || 'No Attendance'}
+function attendanceKind(status){
+  const s=String(status||'').toLowerCase().replace(/[_ -]/g,'_');
+  if(['present','punched_in','punch_in','checked_in'].includes(s)) return 'present';
+  if(['half_day','halfday'].includes(s)) return 'half_day';
+  if(['miss_punch','misspunch','missing_punch'].includes(s)) return 'miss_punch';
+  if(['absent'].includes(s)) return 'absent';
+  if(['leave','on_leave','cl','pl','el','earned_leave','paid_leave','unpaid_leave'].includes(s)) return 'leave';
+  if(['week_off','wo','weekly_off'].includes(s)) return 'wo';
+  if(['holiday'].includes(s)) return 'holiday';
+  if(['coff','c_off','comp_off','compensatory_off'].includes(s)) return 'coff';
+  return '';
+}
+
+function isAttendanceHoliday(att){
+  if(!att) return false;
+  const status=String(att.status||'').toLowerCase().replace(/[_ -]/g,'_');
+  const leaveType=String(att.leave_type||att.leaveType||att.attendance_type||'').toLowerCase().replace(/[_ -]/g,'_');
+  const source=String(att.source||att.attendance_source||'').toLowerCase();
+  return status==='holiday' || status==='paid_holiday' || leaveType==='holiday' || leaveType==='paid_holiday' || source.includes('holiday');
+}
+
+function getHolidayName(holiday){
+  return holiday?.holiday_name||holiday?.holyday_name||holiday?.name||'Holiday';
+}
+
+function getDayKind(dateStr){
+  const attRow=state.attendance[dateStr];
+  const holiday=state.holidays[dateStr];
+
+  // Rule 1: Agar attendance me employee ko Holiday/Holiday Leave diya gaya hai,
+  // tabhi pura date circle yellow hoga.
+  if(isAttendanceHoliday(attRow)){
+    return {
+      kind:'holiday',
+      raw:attRow?.leave_type||attRow?.status||getHolidayName(holiday),
+      att:attRow,
+      holiday,
+      holidaySource:'attendance'
+    };
+  }
+
+  // Rule 2: Normal attendance status ko priority do. Holiday table ka record
+  // sirf yellow dot marker ke liye attach rahega, pura circle yellow nahi hoga.
+  const ak=attendanceKind(attRow?.status);
+  if(ak){
+    return {kind:ak,raw:attRow.status,att:attRow,holiday,holidaySource:'table'};
+  }
+
+  const wd=new Date(dateStr+'T00:00:00').getDay();
+  if(wd===0) return {kind:'wo',raw:'Week Off',att:attRow,holiday,holidaySource:'table'};
+
+  // Rule 3: Sirf holiday table me holiday hai, attendance me holiday leave nahi hai,
+  // to cell normal/no-attendance rahega aur yellow dot popup detail dikhayega.
+  return {kind:'no_data',raw:'No Attendance',att:attRow,holiday,holidaySource:'table'};
+}
+
+function renderCalendar(){
+  const y=Number($('yearSelect').value), m=Number($('monthSelect').value), cal=$('calendar'); cal.innerHTML='';
+  const first=new Date(y,m,1).getDay(), dim=daysInMonth(y,m), today=todayLocalISO();
+  for(let i=0;i<first;i++){const e=document.createElement('div');e.className='cell empty';cal.appendChild(e)}
+  for(let d=1;d<=dim;d++){
+    const ds=dateISO(y,m,d), info=getDayKind(ds), wd=new Date(ds+'T00:00:00').getDay();
+    const cell=document.createElement('div'); cell.className=`cell ${statusClass(info.kind)}`;
+    if(ds===today) cell.classList.add('today'); if(wd===0) cell.classList.add('sunday');
+    const markerHtml = (info.holiday && info.holidaySource !== 'attendance') ? '<i class="holiday-dot" title="Holiday added"></i>' : '';
+    const smallLabel = info.holiday && info.kind==='no_data' ? 'Holiday' : displayLabel(info.kind,info.raw,info.att).split(' ')[0];
+    cell.innerHTML=`${markerHtml}<span>${d}</span><small>${esc(smallLabel)}</small>`;
+    cell.title=`${ds}\n${displayLabel(info.kind,info.raw,info.att)}${info.holiday ? '\nHoliday: '+getHolidayName(info.holiday) : ''}`;
+    if(isPastDate(ds)){cell.classList.add('past-locked'); cell.title+='\nPast date: detail only'}
+    cell.onclick=()=>openRosterDetail(ds,info); cal.appendChild(cell);
+  }
+}
+function renderList(){
+  const y=Number($('yearSelect').value), m=Number($('monthSelect').value), body=$('listBody'); body.innerHTML='';
+  for(let d=1;d<=daysInMonth(y,m);d++){
+    const ds=dateISO(y,m,d), info=getDayKind(ds), a=info.att, label=displayLabel(info.kind,info.raw,a), cls=statusClass(info.kind);
+    const action=info.kind==='miss_punch'?`<button class="action-link" style="background:#7c3aed" onclick="openRosterDetail('${ds}', null)">View / Miss Punch</button>`:`<button class="action-link" style="background:#64748b" onclick="openRosterDetail('${ds}', null)">View</button>`;
+    body.insertAdjacentHTML('beforeend',`<tr><td>${ds}</td><td>${dayName(ds)}</td><td><span class="badge ${cls}">${esc(label)}</span></td><td>${esc(fmtTime(a?.punch_in||a?.punch_in_time||a?.check_in||a?.in_time))}</td><td>${esc(fmtTime(a?.punch_out||a?.punch_out_time||a?.check_out||a?.out_time))}</td><td>${esc(getWorkingHours(a))}</td><td>${esc(getLocationText(a))}</td><td>${esc(getLateText(a))}</td><td>${action}</td></tr>`)
+  }
+}
+function renderStats(){let present=0,half=0,absent=0,miss=0,off=0; const y=Number($('yearSelect').value),m=Number($('monthSelect').value); for(let d=1;d<=daysInMonth(y,m);d++){const k=getDayKind(dateISO(y,m,d)).kind; if(k==='present')present++; else if(k==='half_day')half++; else if(k==='absent')absent++; else if(k==='miss_punch')miss++; else if(['leave','wo','holiday','coff'].includes(k))off++;} $('presentCount').textContent=present; $('halfCount').textContent=half; $('absentCount').textContent=absent; $('missCount').textContent=miss; $('offCount').textContent=off;}
+function renderAll(){renderStats(); renderCalendar(); renderList()}
+function openRosterDetail(dateStr,info){
+  const data=info||getDayKind(dateStr), a=data.att||{}, label=displayLabel(data.kind,data.raw,a), cls=statusClass(data.kind), wd=dayName(dateStr);
+  const pin=a.punch_in||a.punch_in_time||a.check_in||a.in_time||'';
+  const pout=a.punch_out||a.punch_out_time||a.check_out||a.out_time||'';
+  const note=data.holidaySource==='attendance'
+    ? 'Is date par employee ko attendance me Holiday Leave diya gaya hai, isliye date full yellow show ho rahi hai.'
+    : (data.holiday
+      ? 'Is date par holiday table me holiday added hai. Attendance me Holiday Leave nahi diya gaya, isliye calendar par sirf yellow dot marker show ho raha hai.'
+      : (data.kind==='miss_punch'?'Is date par Miss Punch hai. Neeche button se Miss Punch screen open hogi.':'Sirf required attendance detail show ho rahi hai.'));
+  const h=data.holiday||null;
+  const holidayHtml=h?`
+    <div class="holiday-popup-note">
+      <div style="font-size:15px;margin-bottom:6px">🎉 ${esc(getHolidayName(h))}</div>
+      <div>Type: ${esc(h.holiday_type||h.type||'Holiday')}</div>
+      <div>Show Type: ${data.holidaySource==='attendance' ? 'Full Yellow (Attendance Holiday Leave)' : 'Yellow Dot (Holiday Table Only)'}</div>
+      ${h.description?`<div>Description: ${esc(h.description)}</div>`:''}
+    </div>`:'';
+  $('detailTitle').innerHTML=`${esc(dateStr)} • ${esc(wd)}`;
+  $('detailContent').innerHTML=`
+    <div class="detail-row"><span>Status</span><b><span class="badge ${cls}">${esc(label)}</span></b></div>
+    <div class="detail-row"><span>Punch In</span><b>${esc(fmtTime(pin))}</b></div>
+    <div class="detail-row"><span>Punch Out</span><b>${esc(fmtTime(pout))}</b></div>
+    <div class="detail-row"><span>Working Hours</span><b>${esc(getWorkingHours(a))}</b></div>
+    <div class="detail-row"><span>Location</span><b>${esc(getLocationText(a))}</b></div>
+    <div class="detail-row"><span>Late</span><b>${esc(getLateText(a))}</b></div>
+    <div style="margin-top:12px;color:#64748b;font-weight:800;font-size:13px;line-height:1.5">${esc(note)}</div>
+    ${holidayHtml}`;
+  if(data.kind==='miss_punch'){$('detailActions').innerHTML=`<button class="btn sky" style="background:#7c3aed" onclick="openMissPunch('${dateStr}')"><span class="material-icons">error</span>Open Miss Punch</button>`}else{$('detailActions').innerHTML=`<span class="disabled-note">No action available</span>`}
+  $('detailModal').style.display='flex';
+}
+function closeRosterDetail(){ $('detailModal').style.display='none'; }
+function openMissPunch(dateStr){const url=`miss.html?date=${encodeURIComponent(dateStr)}&emp_id=${encodeURIComponent(state.empId)}&emp_code=${encodeURIComponent(state.empCode)}&org_id=${encodeURIComponent(state.orgId)}&org_code=${encodeURIComponent(state.orgCode)}`; window.location.href=url;}
+function populateSelectors(){const ms=$('monthSelect'),ys=$('yearSelect'),now=new Date(); const names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; ms.innerHTML=''; ys.innerHTML=''; names.forEach((n,i)=>ms.insertAdjacentHTML('beforeend',`<option value="${i}">${n}</option>`)); for(let y=now.getFullYear()-2;y<=now.getFullYear()+2;y++)ys.insertAdjacentHTML('beforeend',`<option value="${y}">${y}</option>`); ms.value=now.getMonth(); ys.value=now.getFullYear()}
+function toggleView(){state.isList=!state.isList; $('calendarView').classList.toggle('hidden',state.isList); $('listView').classList.toggle('hidden',!state.isList); $('toggleBtn').innerHTML=state.isList?'<span class="material-icons">calendar_month</span>Calendar View':'<span class="material-icons">view_list</span>List View'}
+$('detailCloseBtn').onclick=closeRosterDetail; $('detailModal').onclick=(e)=>{if(e.target===$('detailModal')) closeRosterDetail()};
+$('backBtn').onclick=()=>history.back(); $('refreshBtn').onclick=()=>loadMonth(); $('monthSelect').onchange=loadMonth; $('yearSelect').onchange=loadMonth; $('currentBtn').onclick=()=>{const n=new Date();$('monthSelect').value=n.getMonth();$('yearSelect').value=n.getFullYear();loadMonth()}; $('toggleBtn').onclick=toggleView;
+populateSelectors(); loadMonth();
+</script>
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Company Profile · Supabase</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+    body{background:radial-gradient(ellipse at 20% 30%,#0f2f2c,#051c1a);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem;color:#1e3a3a}
+    .profile-wrap{width:100%;max-width:1080px;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-radius:2.2rem;box-shadow:0 30px 90px rgba(0,0,0,.5);border:1px solid rgba(220,235,231,.4);max-height:98vh;display:flex;flex-direction:column;overflow:hidden}
+    .cover{position:relative;min-height:154px;background:linear-gradient(135deg,#1a5e58 0%,#0d4a44 55%,#1a3a35 100%);border-radius:2.2rem 2.2rem 0 0;overflow:hidden;flex-shrink:0}
+    .cover:after{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='70' height='70' viewBox='0 0 70 70' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Cpath d='M15 15h5v5h-5zM45 15h5v5h-5zM15 45h5v5h-5zM45 45h5v5h-5zM30 30h10v10H30z'/%3E%3C/g%3E%3C/svg%3E")}
+    .cover-content{position:relative;z-index:1;height:100%;padding:1.15rem 1.55rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+    .cover-left{display:flex;align-items:center;gap:1rem;min-width:0}.logo-big{width:74px;height:74px;border-radius:1.25rem;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:2px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;color:#fff;font-size:2rem;box-shadow:0 8px 32px rgba(0,0,0,.2);flex-shrink:0}
+    .cover h2{color:#fff;font-size:1.35rem;font-weight:850;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}.cover p{color:rgba(255,255,255,.78);font-size:.78rem;margin-top:3px}
+    .cover-actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;justify-content:flex-end}.status-pill{display:inline-flex;align-items:center;gap:6px;padding:.35rem .8rem;border-radius:999px;font-size:.68rem;font-weight:800;background:rgba(255,255,255,.12);color:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.14)}.dot{width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.18)}
+    button{font:inherit}.top-btn{padding:.43rem .9rem;border-radius:2rem;border:1px solid rgba(255,255,255,.16);font-weight:750;font-size:.72rem;cursor:pointer;background:rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;gap:7px;transition:.2s}.top-btn:hover{background:rgba(255,255,255,.26);transform:translateY(-1px)}.top-btn.white{background:#fff;color:#1a5e58}.top-btn.white:hover{background:#f0f8f6}.top-btn.back{background:rgba(0,0,0,.16)}
+    .scroll-area{flex:1;overflow-y:auto;padding:0 2rem 1rem}.scroll-area::-webkit-scrollbar{width:4px}.scroll-area::-webkit-scrollbar-thumb{background:#b8d5ce;border-radius:9px}
+    .profile-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;padding:1rem 0 .7rem;border-bottom:1px solid #eef5f3}.name{font-size:1.22rem;font-weight:850}.org-code{font-weight:750;color:#5b8a82;font-size:.82rem}.meta{display:flex;gap:.8rem;flex-wrap:wrap;margin-top:5px}.meta span{font-size:.72rem;color:#5b8a82;display:flex;align-items:center;gap:5px}.meta i{color:#1f6e68;font-size:.68rem}.head-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+    .small-btn{padding:.43rem .88rem;border-radius:2rem;border:none;font-weight:750;font-size:.72rem;cursor:pointer;background:#f0f8f6;color:#1e3a3a;display:flex;align-items:center;gap:6px;transition:.2s}.small-btn:hover{background:#e0efeb}.small-btn.primary{background:#1f6e68;color:#fff}.small-btn.primary:hover{background:#0f4a44}.small-btn.danger{background:#fee2e2;color:#991b1b}.small-btn.danger:hover{background:#fecaca}.small-btn.dark{background:#1e3a3a;color:#fff}
+    .tabs{display:flex;gap:.2rem;border-bottom:2px solid #e0efeb;padding-top:.8rem;overflow-x:auto}.tab-btn{background:transparent;border:none;padding:.48rem 1rem;font-weight:750;font-size:.76rem;color:#5b8a82;cursor:pointer;border-bottom:3px solid transparent;transition:.2s;white-space:nowrap;display:flex;align-items:center;gap:6px}.tab-btn.active{color:#1e5a4c;border-bottom-color:#1f6e68}.tab-btn:hover{color:#1e5a4c;background:rgba(31,110,104,.04)}.tab-pane{display:none;animation:fadeUp .25s ease;padding-top:1rem}.tab-pane.active{display:block}@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.info-card{background:#f9fdfc;border-radius:1.15rem;padding:.88rem 1rem;border:1px solid #e0efeb;min-width:0}.label{font-size:.62rem;font-weight:800;color:#5b8a82;text-transform:uppercase;letter-spacing:.45px}.value{font-size:.92rem;font-weight:700;color:#1e3a3a;margin-top:4px;display:flex;align-items:center;gap:7px;word-break:break-word}.value i{color:#1f6e68;font-size:.82rem;width:20px;flex-shrink:0}.about-text{font-weight:450!important;font-size:.86rem!important;line-height:1.65!important;display:block!important}
+    .insight-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.7rem;margin-top:.8rem}.insight{background:#fff;border:1px solid #e0efeb;border-radius:1rem;padding:.72rem;text-align:center}.insight .num{font-size:1.17rem;font-weight:900;color:#1f6e68}.insight .lbl{font-size:.56rem;font-weight:800;color:#5b8a82;text-transform:uppercase;letter-spacing:.35px;margin-top:2px}
+    .qr-layout{display:grid;grid-template-columns:285px 1fr;gap:1rem;align-items:stretch}.qr-card{background:#fff;border:1px solid #e0efeb;border-radius:1.4rem;padding:1rem;text-align:center}.qr-box{width:210px;height:210px;margin:.6rem auto;background:#f8fafc;border:1px dashed #b8d5ce;border-radius:1rem;display:flex;align-items:center;justify-content:center;overflow:hidden}.qr-box img{width:200px;height:200px;object-fit:contain}.code-chip{display:inline-flex;gap:7px;align-items:center;background:#f0f8f6;color:#0f4a44;border:1px solid #d1e8e1;border-radius:999px;padding:.35rem .75rem;font-size:.78rem;font-weight:850;margin-top:.4rem}.link-box{background:#f9fdfc;border:1px solid #e0efeb;border-radius:1.1rem;padding:.8rem;margin-top:.7rem;font-size:.78rem;color:#42655f;word-break:break-all}.qr-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.8rem}.qr-actions .small-btn{justify-content:center;flex:1;min-width:118px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}.feature-card,.policy-card,.contact-card{background:#fff;border:1px solid #e0efeb;border-radius:1.15rem;padding:.9rem .72rem;transition:.22s}.policy-card,.contact-card{text-align:center;cursor:pointer}.feature-card:hover,.policy-card:hover,.contact-card:hover{border-color:#1f6e68;transform:translateY(-3px);box-shadow:0 6px 20px rgba(31,110,104,.08)}.feature-card .icon,.policy-card .icon,.contact-card .icon{font-size:1.3rem;color:#1f6e68;margin-bottom:6px}.feature-card .title,.policy-card .title,.contact-card .title{font-weight:800;font-size:.78rem}.feature-card .desc,.policy-card .desc,.contact-card .desc{font-size:.64rem;color:#5b8a82;margin-top:3px;line-height:1.35}.feature-card .go{margin-top:.65rem}
+    .setup-item{display:flex;gap:.75rem;align-items:flex-start;background:#f9fdfc;border:1px solid #e0efeb;border-radius:1rem;padding:.8rem}.setup-item .icon{width:34px;height:34px;border-radius:50%;background:#f0f8f6;color:#1f6e68;display:flex;align-items:center;justify-content:center;flex-shrink:0}.setup-item strong{font-size:.82rem}.setup-item p{font-size:.7rem;color:#5b8a82;margin-top:2px;line-height:1.35}
+    .dev-panel{display:grid;grid-template-columns:1.15fr .85fr;gap:1rem}.dev-box{background:#f9fdfc;border:1px solid #e0efeb;border-radius:1.15rem;padding:1rem}.switch-row{display:flex;justify-content:space-between;gap:1rem;align-items:center;background:#fff;border:1px solid #e0efeb;border-radius:1rem;padding:.75rem;margin-top:.6rem}.switch-row strong{font-size:.82rem}.switch-row p{font-size:.67rem;color:#5b8a82;margin-top:2px}.switch{position:relative;width:44px;height:24px;flex-shrink:0}.switch input{display:none}.slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:999px;transition:.2s}.slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.25)}.switch input:checked+.slider{background:#1f6e68}.switch input:checked+.slider:before{transform:translateX(20px)}
+    .status-list{display:grid;gap:.55rem}.status-item{display:flex;justify-content:space-between;gap:1rem;background:#fff;border:1px solid #e0efeb;border-radius:.9rem;padding:.65rem .75rem;font-size:.78rem}.ok{color:#047857;font-weight:800}.warn{color:#b45309;font-weight:800}.bad{color:#b91c1c;font-weight:800}
+    .logout-section{padding-top:.6rem;border-top:1px solid #eef5f3;flex-shrink:0;margin:0 2rem 1.2rem}.logout-btn{width:100%;background:#1e3a3a;border:none;border-radius:2rem;padding:.86rem;color:#fff;font-weight:800;font-size:.9rem;display:flex;align-items:center;justify-content:center;gap:12px;cursor:pointer;transition:.25s}.logout-btn:hover{background:#b91c1c;transform:scale(1.01)}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:5000;padding:1.5rem}.modal-overlay.show{display:flex}.modal-box{background:#fff;border-radius:1.6rem;padding:1.6rem;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.4);animation:fadeUp .25s ease}.modal-box h3{font-size:1.15rem;margin-bottom:.35rem;display:flex;align-items:center;gap:10px}.modal-box h3 i{color:#1f6e68}.modal-box .sub{font-size:.8rem;color:#5b8a82;margin-bottom:1rem}.modal-box .content{font-size:.85rem;line-height:1.75}.modal-actions{display:flex;gap:.6rem;margin-top:1.2rem;justify-content:flex-end}.modal-actions button{padding:.45rem 1.5rem;border-radius:2rem;border:none;font-weight:750;cursor:pointer;background:#f0f8f6;color:#1e3a3a}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a5e58;color:#fff;padding:10px 24px;border-radius:40px;font-size:.82rem;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.2);z-index:9999;max-width:90%;text-align:center}.toast.error{background:#b91c1c}.muted{color:#6b8f89}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    @media(max-width:820px){body{padding:.7rem;align-items:flex-start}.profile-wrap{border-radius:1.6rem;max-height:none}.cover{border-radius:1.6rem 1.6rem 0 0}.cover-content{padding:1rem;flex-direction:column;align-items:flex-start}.cover-actions{width:100%;justify-content:flex-start}.logo-big{width:54px;height:54px;font-size:1.45rem}.cover h2{font-size:1.05rem;max-width:260px}.scroll-area{padding:0 1rem 1rem}.profile-head{flex-direction:column}.overview-grid,.qr-layout,.grid2,.dev-panel{grid-template-columns:1fr}.insight-grid{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:1fr 1fr}.logout-section{margin:0 1rem 1rem}}
+    @media(max-width:460px){.grid3{grid-template-columns:1fr}.tab-btn{font-size:.68rem;padding:.42rem .75rem}.head-actions,.qr-actions{width:100%}.small-btn{flex:1;justify-content:center}.qr-box{width:190px;height:190px}.qr-box img{width:180px;height:180px}}
+  </style>
+</head>
+<body>
+  <div class="profile-wrap">
+    <div class="cover">
+      <div class="cover-content">
+        <div class="cover-left">
+          <div class="logo-big"><i class="fas fa-building"></i></div>
+          <div>
+            <h2 id="coverOrgName">Company Profile</h2>
+            <p id="coverSub">Supabase connected organization profile</p>
+          </div>
+        </div>
+        <div class="cover-actions">
+          <button class="top-btn back" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+          <span class="status-pill"><span class="dot" id="statusDot"></span><span id="activeText">Active</span></span>
+          <button class="top-btn" id="refreshBtn"><i class="fas fa-rotate-right"></i> Refresh</button>
+          <button class="top-btn white" id="shareTopBtn"><i class="fas fa-share-alt"></i> Share</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="scroll-area">
+      <div class="profile-head">
+        <div>
+          <div class="name"><span id="orgName">Loading...</span> · <span class="org-code" id="orgCode">ORG</span></div>
+          <div class="meta">
+            <span><i class="fas fa-industry"></i><span id="orgType">Organization</span></span>
+            <span><i class="fas fa-users"></i><span id="empCount">0 employees</span></span>
+            <span><i class="fas fa-calendar-alt"></i><span id="createdAt">Since -</span></span>
+            <span><i class="fas fa-map-marker-alt"></i><span id="shortAddress">Address not set</span></span>
+          </div>
+        </div>
+        <div class="head-actions">
+          <button class="small-btn" id="copyCodeBtn"><i class="fas fa-copy"></i> Copy Code</button>
+          <button class="small-btn primary" id="shareBtn"><i class="fas fa-share-alt"></i> Share Link</button>
+          <button class="small-btn dark" id="devOpenBtn"><i class="fas fa-code"></i> Dev Control</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview"><i class="fas fa-info-circle"></i> Overview</button>
+        <button class="tab-btn" data-tab="qr"><i class="fas fa-qrcode"></i> QR & Share</button>
+        <button class="tab-btn" data-tab="features"><i class="fas fa-layer-group"></i> Features</button>
+        <button class="tab-btn" data-tab="setup"><i class="fas fa-screwdriver-wrench"></i> Setup</button>
+        <button class="tab-btn" data-tab="developer"><i class="fas fa-user-shield"></i> Developer</button>
+        <button class="tab-btn" data-tab="policies"><i class="fas fa-gavel"></i> Policies</button>
+      </div>
+
+      <div class="tab-pane active" id="tab-overview">
+        <div class="overview-grid">
+          <div class="info-card"><div class="label">Organization Email</div><div class="value"><i class="fas fa-envelope"></i><span id="orgEmail">-</span></div></div>
+          <div class="info-card"><div class="label">Mobile / Phone</div><div class="value"><i class="fas fa-phone"></i><span id="orgPhone">-</span></div></div>
+          <div class="info-card"><div class="label">Organization Code</div><div class="value"><i class="fas fa-key"></i><span id="orgCode2">-</span></div></div>
+          <div class="info-card"><div class="label">Geo Radius</div><div class="value"><i class="fas fa-location-crosshairs"></i><span id="geoRadius">-</span></div></div>
+          <div class="info-card"><div class="label">Full Address</div><div class="value"><i class="fas fa-map-marker-alt"></i><span id="fullAddress">-</span></div></div>
+          <div class="info-card"><div class="label">Active Staff Limit</div><div class="value"><i class="fas fa-user-check"></i><span id="empLimit">-</span></div></div>
+          <div class="info-card"><div class="label">Latitude / Longitude</div><div class="value"><i class="fas fa-location-dot"></i><span id="latLng">-</span></div></div>
+          <div class="info-card"><div class="label">Owner / Admin Role</div><div class="value"><i class="fas fa-user-shield"></i><span id="ownerRole">-</span></div></div>
+          <div class="info-card" style="grid-column:1/-1"><div class="label">About</div><div class="value about-text" id="aboutText">Organization profile Supabase se load ho raha hai.</div></div>
+        </div>
+        <div class="insight-grid">
+          <div class="insight"><div class="num" id="branchCount">0</div><div class="lbl">Branches</div></div>
+          <div class="insight"><div class="num" id="activeEmpCount">0</div><div class="lbl">Active Staff</div></div>
+          <div class="insight"><div class="num" id="adminUserCount">0</div><div class="lbl">Admin Users</div></div>
+          <div class="insight"><div class="num" id="remainingStaff">-</div><div class="lbl">Limit Left</div></div>
+          <div class="insight"><div class="num" id="profileStatus">OK</div><div class="lbl">Profile</div></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-qr">
+        <div class="qr-layout">
+          <div class="qr-card">
+            <div class="label">Scan Organization QR</div>
+            <div class="qr-box"><img id="qrImg" alt="Organization QR" /></div>
+            <div class="code-chip"><i class="fas fa-key"></i><span id="qrOrgCode">-</span></div>
+          </div>
+          <div class="info-card">
+            <div class="label">Shareable Link</div>
+            <div class="value" style="margin-top:.5rem"><i class="fas fa-link"></i> Link includes org_code automatically</div>
+            <div class="link-box" id="shareLinkBox">-</div>
+            <div class="qr-actions">
+              <button class="small-btn primary" id="copyLinkBtn"><i class="fas fa-copy"></i> Copy Link</button>
+              <button class="small-btn" id="downloadQrBtn"><i class="fas fa-download"></i> Download QR</button>
+              <button class="small-btn" id="openLinkBtn"><i class="fas fa-up-right-from-square"></i> Open Link</button>
+            </div>
+            <p class="muted" style="font-size:.76rem;line-height:1.6;margin-top:1rem">QR scan karne par same page open hoga aur URL me <b>org_code</b> + <b>org_id</b> jayega.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-features">
+        <div class="grid3">
+          <div class="feature-card"><div class="icon"><i class="fas fa-building-circle-check"></i></div><div class="title">Profile Verify</div><div class="desc">Email, phone, address, radius aur staff limit complete hai ya nahi check.</div><button class="small-btn go" data-jump="developer"><i class="fas fa-wrench"></i> Check</button></div>
+          <div class="feature-card"><div class="icon"><i class="fas fa-location-crosshairs"></i></div><div class="title">Geo Setup</div><div class="desc">Lat/lng aur radius status. Developer baad me yahi se edit screen open kar sakta hai.</div><button class="small-btn go" data-open="geo"><i class="fas fa-map-location-dot"></i> Manage</button></div>
+          <div class="feature-card"><div class="icon"><i class="fas fa-users-gear"></i></div><div class="title">Staff Control</div><div class="desc">Active staff limit aur employee count status.</div><button class="small-btn go" data-open="staff"><i class="fas fa-users"></i> Staff</button></div>
+          <div class="feature-card"><div class="icon"><i class="fas fa-qrcode"></i></div><div class="title">QR Share</div><div class="desc">QR download/copy/share, org code ke sath.</div><button class="small-btn go" data-jump="qr"><i class="fas fa-qrcode"></i> QR</button></div>
+          <div class="feature-card"><div class="icon"><i class="fas fa-toggle-on"></i></div><div class="title">Module Lock</div><div class="desc">Developer control tab me future modules lock/unlock preview.</div><button class="small-btn go" data-jump="developer"><i class="fas fa-lock"></i> Control</button></div>
+          <div class="feature-card"><div class="icon"><i class="fas fa-shield-halved"></i></div><div class="title">RLS Safe</div><div class="desc">RPC se data fetch. Direct select fallback sirf safe columns par.</div><button class="small-btn go" data-action="security"><i class="fas fa-shield-alt"></i> Security</button></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-setup">
+        <div class="grid2">
+          <div class="setup-item"><div class="icon"><i class="fas fa-database"></i></div><div><strong>Supabase RPC</strong><p><b>app_get_org_profile_public</b> function se address/radius/limit safe load hoga. Neeche SQL file run karna zaroori hai.</p></div></div>
+          <div class="setup-item"><div class="icon"><i class="fas fa-qrcode"></i></div><div><strong>QR Sharing</strong><p>Share link me org_code + org_id automatically attach hota hai.</p></div></div>
+          <div class="setup-item"><div class="icon"><i class="fas fa-arrow-left"></i></div><div><strong>Back Button</strong><p>return_page URL me ho to wahi open; nahi to browser back/admin.html fallback.</p></div></div>
+          <div class="setup-item"><div class="icon"><i class="fas fa-right-from-bracket"></i></div><div><strong>Real Logout</strong><p>Supabase auth signOut, localStorage/sessionStorage clear, fir inbox.html.</p></div></div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-developer">
+        <div class="dev-panel">
+          <div class="dev-box">
+            <div class="label">Developer Control Preview</div>
+            <p class="muted" style="font-size:.76rem;margin-top:.35rem;line-height:1.6">Ye abhi UI control panel hai. Baad me aap isse Supabase table/RPC se connect karke organization level lock/unlock kar sakte ho.</p>
+            <div class="switch-row"><div><strong>Organization Profile Enabled</strong><p>Profile page open/close control.</p></div><label class="switch"><input type="checkbox" checked data-dev-flag="profile_enabled"><span class="slider"></span></label></div>
+            <div class="switch-row"><div><strong>QR Share Enabled</strong><p>QR aur share button access.</p></div><label class="switch"><input type="checkbox" checked data-dev-flag="qr_enabled"><span class="slider"></span></label></div>
+            <div class="switch-row"><div><strong>Geo Required</strong><p>Geo radius missing ho to warning.</p></div><label class="switch"><input type="checkbox" checked data-dev-flag="geo_required"><span class="slider"></span></label></div>
+            <div class="switch-row"><div><strong>Staff Limit Lock</strong><p>Limit cross hone par future lock.</p></div><label class="switch"><input type="checkbox" data-dev-flag="limit_lock"><span class="slider"></span></label></div>
+            <div class="qr-actions">
+              <button class="small-btn primary" id="saveDevPreview"><i class="fas fa-floppy-disk"></i> Save Local Preview</button>
+              <button class="small-btn" id="copyDevJson"><i class="fas fa-code"></i> Copy JSON</button>
+            </div>
+          </div>
+          <div class="dev-box">
+            <div class="label">Data Health</div>
+            <div class="status-list" style="margin-top:.7rem">
+              <div class="status-item"><span>RPC</span><span id="rpcStatus" class="warn">Checking</span></div>
+              <div class="status-item"><span>Address</span><span id="addressStatus" class="warn">Checking</span></div>
+              <div class="status-item"><span>Geo Radius</span><span id="radiusStatus" class="warn">Checking</span></div>
+              <div class="status-item"><span>Staff Limit</span><span id="limitStatus" class="warn">Checking</span></div>
+              <div class="status-item"><span>Org Code</span><span id="codeStatus" class="warn">Checking</span></div>
+            </div>
+            <div class="link-box mono" id="debugBox" style="margin-top:.8rem">Loading debug...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-policies">
+        <div class="grid3">
+          <div class="policy-card" data-action="privacy"><div class="icon"><i class="fas fa-shield-alt"></i></div><div class="title">Privacy</div><div class="desc">Data safety</div></div>
+          <div class="policy-card" data-action="terms"><div class="icon"><i class="fas fa-file-contract"></i></div><div class="title">Terms</div><div class="desc">Rules & conditions</div></div>
+          <div class="policy-card" data-action="security"><div class="icon"><i class="fas fa-lock"></i></div><div class="title">Security</div><div class="desc">RLS + RPC</div></div>
+          <div class="policy-card" data-action="contact"><div class="icon"><i class="fas fa-address-book"></i></div><div class="title">Contact</div><div class="desc">Org contact</div></div>
+          <div class="policy-card" data-action="support"><div class="icon"><i class="fas fa-headset"></i></div><div class="title">Support</div><div class="desc">Help desk</div></div>
+          <div class="policy-card" data-action="developer"><div class="icon"><i class="fas fa-code"></i></div><div class="title">Developer Note</div><div class="desc">Control plan</div></div>
+        </div>
+      </div>
+
+      <div style="text-align:center;font-size:.62rem;color:#b8d5ce;padding:.75rem 0 .2rem"><i class="fas fa-database"></i> Supabase Organization Profile · Developer Ready</div>
+    </div>
+
+    <div class="logout-section">
+      <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay"><div class="modal-box"><h3 id="modalTitle"><i class="fas fa-info-circle"></i> Details</h3><div class="sub" id="modalSub">Information</div><div class="content" id="modalContent"><p>Loading...</p></div><div class="modal-actions"><button id="modalClose">Close</button></div></div></div>
+
+  <script>
+    // ================== SUPABASE CONFIG ==================
+    const SUPABASE_URL = 'https://tovpcbzztvkiwamimrxt.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (id) => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+    let currentOrg = null;
+    let counts = { total:0, active:0, admins:0, branches:0 };
+    let shareUrl = location.href;
+    let usedRpc = false;
+
+    function val(v, fallback='-'){ return (v === null || v === undefined || String(v).trim() === '') ? fallback : String(v); }
+    function toast(msg, err=false){ const old=document.querySelector('.toast'); if(old)old.remove(); const t=document.createElement('div'); t.className='toast'+(err?' error':''); t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3500); }
+    function setText(id, text){ const el=$(id); if(el) el.textContent = text; }
+    function yearFromDate(d){ if(!d) return '-'; const dt = new Date(d); return isNaN(dt) ? '-' : dt.getFullYear(); }
+    function firstAddressLine(address){ const s=val(address,'Address not set'); return s.length>38 ? s.slice(0,38)+'...' : s; }
+    function pick(o, keys, fallback=''){ for(const k of keys){ if(o && o[k] !== undefined && o[k] !== null && String(o[k]).trim() !== '') return o[k]; } return fallback; }
+    function isTruthy(v){ return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true' || String(v).toLowerCase() === 'active' || String(v).toLowerCase() === 'yes'; }
+
+    function buildShareUrl(orgCode){
+      const url = new URL(location.href);
+      url.searchParams.set('org_code', orgCode || params.get('org_code') || '');
+      if(currentOrg?.id) url.searchParams.set('org_id', currentOrg.id);
+      return url.toString();
+    }
+
+    function updateQr(orgCode){
+      shareUrl = buildShareUrl(orgCode);
+      setText('shareLinkBox', shareUrl);
+      setText('qrOrgCode', orgCode || '-');
+      $('qrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(shareUrl)}`;
+    }
+
+    async function copyText(text, msg){
+      try{ await navigator.clipboard.writeText(text); toast(msg || 'Copied'); }
+      catch(e){ prompt('Copy manually:', text); }
+    }
+
+    function buildOrgQuery(selectCols){
+      const orgId = params.get('org_id');
+      const orgCode = params.get('org_code');
+      let q = sb.from('organizations').select(selectCols).limit(1);
+      if(orgId) q = q.eq('id', orgId);
+      else if(orgCode) q = q.eq('org_code', orgCode);
+      else throw new Error('URL me org_id ya org_code nahi mila');
+      return q;
+    }
+
+    async function fetchOrgSafe(){
+      const orgId = params.get('org_id') || null;
+      const orgCode = params.get('org_code') || null;
+
+      usedRpc = false;
+      try{
+        const { data, error } = await sb.rpc('app_get_org_profile_public', { p_org_id: orgId, p_org_code: orgCode });
+        if(!error && data){
+          usedRpc = true;
+          return Array.isArray(data) ? data[0] : data;
+        }
+        if(error) console.warn('RPC app_get_org_profile_public fallback:', error.message || error);
+      }catch(e){ console.warn('RPC call failed, direct fallback:', e.message || e); }
+
+      // Direct fallback only uses safe columns. Address/radius/limit ke liye RPC SQL run karna best hai.
+      const selects = [
+        'id,org_name,org_code,email,phone,address,created_at',
+        'id,org_name,org_code,email,phone,created_at',
+        'id,org_name,org_code,created_at',
+        'id,org_name,org_code',
+        'id,org_code'
+      ];
+      let lastError = null;
+      for(const cols of selects){
+        const { data, error } = await buildOrgQuery(cols).maybeSingle();
+        if(!error) return data;
+        lastError = error;
+        console.warn('organizations select fallback:', error.message || error);
+      }
+      throw lastError || new Error('Organization load failed');
+    }
+
+    async function loadOrg(){
+      setText('orgName','Loading...');
+      try{
+        let data = await fetchOrgSafe();
+        if(!data){
+          data = { id: params.get('org_id') || '', org_code: params.get('org_code') || '', org_name: params.get('org_name') || localStorage.getItem('org_name') || 'Organization', created_at: '' };
+        }
+        currentOrg = normalizeOrg(data);
+        renderOrg(currentOrg);
+        await loadCounts(currentOrg.id);
+        renderHealth();
+        updateQr(currentOrg.org_code);
+        toast('Organization loaded');
+      }catch(err){
+        console.error(err);
+        setText('orgName','Organization not found');
+        setText('coverOrgName','Organization not found');
+        setText('coverSub', err.message || 'Supabase load failed');
+        updateQr(params.get('org_code') || '');
+        toast(err.message || 'Supabase load failed', true);
+      }
+    }
+
+    function normalizeOrg(o){
+      return {
+        id: pick(o, ['id','org_id'], params.get('org_id') || ''),
+        org_name: pick(o, ['org_name','name','organization_name','company_name'], 'Organization'),
+        org_code: pick(o, ['org_code','code','organization_code'], params.get('org_code') || ''),
+        org_type: pick(o, ['org_type','type','organization_type'], 'Organization'),
+        email: pick(o, ['email','org_email','company_email','owner_email'], params.get('email') || localStorage.getItem('email') || ''),
+        phone: pick(o, ['phone','mobile','org_phone','org_mobile','company_phone','contact','contact_number'], params.get('mobile') || localStorage.getItem('mobile') || ''),
+        address: pick(o, ['address','org_address','company_address','location','full_address'], ''),
+        radius_meters: pick(o, ['radius_meters','geo_radius','geofence_radius','radius','radius_meter','radius_mtr'], ''),
+        emp_limit: pick(o, ['emp_limit','employee_limit','staff_limit','active_staff_limit','max_employees','emp_limit_count'], ''),
+        lat: pick(o, ['lat','latitude','org_lat'], ''),
+        lng: pick(o, ['lng','lon','longitude','org_lng'], ''),
+        owner_role: pick(o, ['owner_role','role','admin_role'], params.get('actual_role') || params.get('role') || ''),
+        active: pick(o, ['active','is_active','status'], true),
+        created_at: pick(o, ['created_at','createdAt','created_on'], '')
+      };
+    }
+
+    function renderOrg(o){
+      const isActive = isTruthy(o.active);
+      setText('coverOrgName', val(o.org_name,'Organization'));
+      setText('coverSub', `${val(o.org_code,'ORG')} · ${val(o.org_type,'Organization')}`);
+      setText('orgName', val(o.org_name,'Organization'));
+      setText('orgCode', val(o.org_code,'ORG'));
+      setText('orgCode2', val(o.org_code));
+      setText('orgType', val(o.org_type,'Organization'));
+      setText('orgEmail', val(o.email));
+      setText('orgPhone', val(o.phone));
+      setText('createdAt', 'Since ' + yearFromDate(o.created_at));
+      setText('shortAddress', firstAddressLine(o.address));
+      setText('fullAddress', val(o.address,'Address not set'));
+      setText('geoRadius', o.radius_meters ? `${o.radius_meters} meters` : 'Not set');
+      setText('empLimit', o.emp_limit ? `${o.emp_limit} staff` : 'No limit set');
+      setText('latLng', (o.lat && o.lng) ? `${o.lat}, ${o.lng}` : 'Not set');
+      setText('ownerRole', val(o.owner_role));
+      setText('activeText', isActive ? 'Active' : 'Inactive');
+      $('statusDot').style.background = isActive ? '#4ade80' : '#f59e0b';
+      setText('aboutText', `${val(o.org_name,'Organization')} ka organization code ${val(o.org_code,'-')} hai. QR scan/share link se org_code automatically URL me chala jayega. Developer control ke liye alag tab ready hai.`);
+      updateQr(o.org_code);
+    }
+
+    async function loadCounts(orgId){
+      counts = { total:0, active:0, admins:0, branches:0 };
+      if(!orgId){ renderCounts(); return; }
+      try{
+        const [totalRes, activeRes, adminRes, branchListRes] = await Promise.allSettled([
+          sb.from('employees').select('id', { count:'exact', head:true }).eq('org_id', orgId),
+          sb.from('employees').select('id', { count:'exact', head:true }).eq('org_id', orgId).eq('active', true),
+          sb.from('employees').select('id', { count:'exact', head:true }).eq('org_id', orgId).eq('employee_type', 'admin_user'),
+          sb.from('employees').select('branch_id').eq('org_id', orgId).not('branch_id','is',null).limit(1000)
+        ]);
+        const totalVal = totalRes.status==='fulfilled' ? totalRes.value : {};
+        const activeVal = activeRes.status==='fulfilled' ? activeRes.value : {};
+        const adminVal = adminRes.status==='fulfilled' ? adminRes.value : {};
+        const branchVal = branchListRes.status==='fulfilled' ? branchListRes.value : {};
+        counts.total = totalVal.error ? 0 : (totalVal.count || 0);
+        counts.active = activeVal.error ? 0 : (activeVal.count || 0);
+        counts.admins = adminVal.error ? 0 : (adminVal.count || 0);
+        counts.branches = branchVal.error ? 0 : new Set((branchVal.data || []).map(x => x.branch_id).filter(Boolean)).size;
+      }catch(e){ console.warn('Count load failed', e); }
+      renderCounts();
+    }
+
+    function renderCounts(){
+      setText('empCount', `${counts.total} employees`);
+      setText('activeEmpCount', counts.active);
+      setText('adminUserCount', counts.admins);
+      setText('branchCount', counts.branches);
+      const limit = Number(currentOrg?.emp_limit || 0);
+      setText('remainingStaff', limit ? Math.max(limit - counts.active, 0) : '-');
+      setText('profileStatus', currentOrg?.org_code ? (missingImportant().length ? 'FIX' : 'OK') : 'FIX');
+    }
+
+    function missingImportant(){
+      const m = [];
+      if(!currentOrg?.org_code) m.push('org_code');
+      if(!currentOrg?.address) m.push('address');
+      if(!currentOrg?.radius_meters) m.push('geo radius');
+      if(!currentOrg?.emp_limit) m.push('staff limit');
+      return m;
+    }
+
+    function setStatus(id, ok, labelOk='OK', labelBad='Missing'){
+      const el=$(id); if(!el) return;
+      el.textContent = ok ? labelOk : labelBad;
+      el.className = ok ? 'ok' : 'bad';
+    }
+
+    function renderHealth(){
+      setStatus('rpcStatus', usedRpc, 'Connected', 'Use SQL');
+      setStatus('addressStatus', !!currentOrg?.address);
+      setStatus('radiusStatus', !!currentOrg?.radius_meters);
+      setStatus('limitStatus', !!currentOrg?.emp_limit);
+      setStatus('codeStatus', !!currentOrg?.org_code);
+      const debug = {
+        used_rpc: usedRpc,
+        org_id: currentOrg?.id || '',
+        org_code: currentOrg?.org_code || '',
+        missing: missingImportant(),
+        current_page: location.pathname.split('/').pop()
+      };
+      setText('debugBox', JSON.stringify(debug, null, 2));
+    }
+
+    const MODAL_DATA = {
+      privacy: ['<i class="fas fa-shield-alt"></i> Privacy','Data safety','<p>Organization profile me sirf org profile, QR, setup aur developer control data show hota hai. Attendance/overtime/rating/activity yahan remove hai.</p>'],
+      terms: ['<i class="fas fa-file-contract"></i> Terms','Usage rules','<p>Share link me organization code jata hai. Admin sensitive data public link me share na karein.</p>'],
+      security: ['<i class="fas fa-lock"></i> Security','Supabase RLS','<p>Best method RPC hai. SQL function <b>app_get_org_profile_public</b> run karne ke baad address/radius/limit reliably load honge.</p>'],
+      contact: ['<i class="fas fa-address-book"></i> Contact','Organization contact',()=>`<p><b>${val(currentOrg?.org_name,'Organization')}</b><br>Email: ${val(currentOrg?.email)}<br>Phone: ${val(currentOrg?.phone)}<br>Address: ${val(currentOrg?.address,'Address not set')}</p>`],
+      support: ['<i class="fas fa-headset"></i> Support','Help desk','<p>Developer setup ke liye SQL run karein, fir page refresh karein. Missing fields Supabase organizations row me update honi chahiye.</p>'],
+      developer: ['<i class="fas fa-code"></i> Developer Note','Future control','<p>Developer Control tab abhi local preview save karta hai. Baad me isko <b>org_developer_controls</b> table/RPC se connect kiya ja sakta hai.</p>']
+    };
+
+    function openModal(title, sub, content){
+      $('modalTitle').innerHTML=title; $('modalSub').textContent=sub;
+      $('modalContent').innerHTML=typeof content === 'function' ? content() : content;
+      $('modalOverlay').classList.add('show');
+    }
+
+    function jumpTab(name){
+      const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
+      if(btn) btn.click();
+    }
+
+    async function doLogout(){
+      if(!confirm('Logout karke inbox.html par jana hai?')) return;
+      try{ await sb.auth.signOut(); }catch(e){ console.warn('signOut skipped', e); }
+      try{
+        const keepKeys = [];
+        keepKeys.forEach(k => { const v=localStorage.getItem(k); localStorage.clear(); if(v!==null)localStorage.setItem(k,v); });
+        sessionStorage.clear();
+      }catch(e){}
+      location.replace('inbox.html');
+    }
+
+    function goBack(){
+      const returnPage = params.get('return_page');
+      if(returnPage){
+        const qp = new URLSearchParams(params);
+        qp.delete('return_page');
+        location.href = returnPage + (returnPage.includes('?') ? '&' : '?') + qp.toString();
+        return;
+      }
+      if(history.length > 1) history.back();
+      else location.href = 'admin.html?' + params.toString();
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+      $('tab-'+btn.dataset.tab).classList.add('active');
+    }));
+    document.querySelectorAll('.policy-card').forEach(card=>card.addEventListener('click',()=>{
+      const d = MODAL_DATA[card.dataset.action]; if(d) openModal(d[0],d[1],d[2]);
+    }));
+    document.querySelectorAll('[data-jump]').forEach(b=>b.addEventListener('click',()=>jumpTab(b.dataset.jump)));
+    document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{ const d=MODAL_DATA[b.dataset.action]; if(d) openModal(d[0],d[1],d[2]); }));
+    document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>toast(`${b.dataset.open} control screen baad me connect kar sakte ho`)));
+
+    $('modalClose').addEventListener('click',()=>$('modalOverlay').classList.remove('show'));
+    $('modalOverlay').addEventListener('click',e=>{ if(e.target === $('modalOverlay')) $('modalOverlay').classList.remove('show'); });
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('modalOverlay').classList.remove('show'); });
+    $('refreshBtn').addEventListener('click',loadOrg);
+    $('backBtn').addEventListener('click',goBack);
+    $('devOpenBtn').addEventListener('click',()=>jumpTab('developer'));
+    $('copyCodeBtn').addEventListener('click',()=>copyText(currentOrg?.org_code || params.get('org_code') || '', 'Org code copied'));
+    $('shareBtn').addEventListener('click',shareNow); $('shareTopBtn').addEventListener('click',shareNow);
+    $('copyLinkBtn').addEventListener('click',()=>copyText(shareUrl,'Share link copied'));
+    $('openLinkBtn').addEventListener('click',()=>window.open(shareUrl,'_blank'));
+    $('downloadQrBtn').addEventListener('click',()=>{ const a=document.createElement('a'); a.href=$('qrImg').src; a.download=`org-qr-${currentOrg?.org_code || 'code'}.png`; a.target='_blank'; a.click(); });
+    $('logoutBtn').addEventListener('click',doLogout);
+    $('saveDevPreview').addEventListener('click',()=>{
+      const flags = {};
+      document.querySelectorAll('[data-dev-flag]').forEach(x=>flags[x.dataset.devFlag]=x.checked);
+      localStorage.setItem('org_dev_control_preview', JSON.stringify(flags));
+      toast('Developer preview saved locally');
+    });
+    $('copyDevJson').addEventListener('click',()=>{
+      const flags = {};
+      document.querySelectorAll('[data-dev-flag]').forEach(x=>flags[x.dataset.devFlag]=x.checked);
+      copyText(JSON.stringify({ org_id: currentOrg?.id || '', org_code: currentOrg?.org_code || '', controls: flags }, null, 2), 'Developer JSON copied');
+    });
+
+    async function shareNow(){
+      if(navigator.share){
+        try{ await navigator.share({ title: currentOrg?.org_name || 'Organization Profile', text: `Org Code: ${currentOrg?.org_code || ''}`, url: shareUrl }); return; }catch(e){}
+      }
+      copyText(shareUrl,'Share link copied');
+    }
+
+    loadOrg();
+  </script>
+</body>
+</html>

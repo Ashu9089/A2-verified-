@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Employee QR Punch | Supabase</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif}
+body{min-height:100vh;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);padding:22px;color:#123}
+.card{max-width:850px;margin:auto;background:#fff;border-radius:28px;box-shadow:0 25px 45px rgba(0,0,0,.35);overflow:hidden}
+.head{background:#0a2c2f;color:#fff;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.back{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:999px;padding:9px 17px;cursor:pointer;font-weight:800}
+.body{padding:24px}.emp{background:#f1f8f6;border-radius:18px;padding:13px;margin-bottom:18px;font-weight:800;color:#14532d;line-height:1.6}
+#reader{width:100%;max-width:420px;margin:14px auto;border-radius:18px;overflow:hidden}
+.input-row{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}input{flex:1;min-width:220px;padding:12px 15px;border-radius:999px;border:1px solid #cbd5e1}button{border:0;border-radius:999px;padding:12px 18px;font-weight:900;cursor:pointer}
+.primary{background:#1f6e68;color:#fff}.light{background:#e2e8f0;color:#0f172a}.status{margin-top:16px;padding:14px;border-radius:18px;background:#f8fafc;color:#334155;line-height:1.6;font-weight:700}
+.geo{margin:12px 0;padding:12px 14px;border-radius:18px;background:#fff7ed;color:#7c2d12;line-height:1.6;font-weight:800;border:1px solid #fed7aa}
+.okbox{background:#ecfdf5;color:#14532d;border-color:#86efac}.errbox{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+.toast{position:fixed;left:18px;bottom:18px;background:#14532d;color:#fff;border-radius:999px;padding:12px 18px;z-index:99;font-weight:900}.toast.err{background:#991b1b}
+button:disabled{opacity:.6;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head"><button class="back" onclick="history.back()">← Back</button><h2>QR Attendance Punch</h2><button class="back" id="refreshBtn">Refresh</button></div>
+  <div class="body">
+    <div class="emp" id="empBox">Loading employee...</div>
+    <div class="geo" id="geoBox">Company geofence loading...</div>
+    <button class="primary" id="startScanBtn">Start Camera Scan</button>
+    <button class="light" id="stopScanBtn">Stop</button>
+    <div id="reader"></div>
+    <div class="input-row"><input id="tokenInput" placeholder="QR token manually paste karo"><button class="primary" id="submitTokenBtn">Submit QR Punch</button></div>
+    <div class="status" id="statusBox">QR scan karo ya token paste karo. Valid QR + geofence ke andar hone par attendance table me punch save hoga.</div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const $=id=>document.getElementById(id);
+let scanner=null;
+let busy=false;
+let companyGeo=null;
+
+function apiHeaders(extra={}){
+  return {apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json',...extra};
+}
+
+async function sbRpc(fn,args){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:apiHeaders(),body:JSON.stringify(args||{})});
+  const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}
+  if(!r.ok)throw new Error(d?.message||d?.details||d?.hint||t||r.statusText);
+  return d;
+}
+
+async function sbSelect(table,query){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+query,{method:'GET',headers:apiHeaders({Prefer:'return=representation'})});
+  const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}
+  if(!r.ok)throw new Error(d?.message||d?.details||d?.hint||t||r.statusText);
+  return d;
+}
+
+function toast(m,e=false){const old=document.querySelector('.toast');if(old)old.remove();const d=document.createElement('div');d.className='toast'+(e?' err':'');d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),3000)}
+function setStatus(html){$('statusBox').innerHTML=html}
+function setGeo(html,ok=false,err=false){$('geoBox').className='geo '+(ok?'okbox':'')+(err?'errbox':'');$('geoBox').innerHTML=html}
+
+function getLogin(){
+  let cur={};
+  try{cur=JSON.parse(localStorage.getItem('inlist_employee_login_v2')||localStorage.getItem('currentEmployee')||localStorage.getItem('currentSession')||sessionStorage.getItem('inlistSession')||'{}')}catch(e){}
+  const params=new URLSearchParams(location.search);
+  return{
+    org_code:String(params.get('org_code')||params.get('orgCode')||cur.org_code||cur.orgCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||'HOSP001').toUpperCase(),
+    emp_code:String(params.get('emp_code')||params.get('empCode')||cur.emp_code||cur.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||'EMP001').toUpperCase(),
+    branch_id:String(params.get('branch_id')||params.get('branchId')||cur.branch_id||cur.branchId||localStorage.getItem('branch_id')||'')
+  };
+}
+
+function distanceMeters(lat1,lng1,lat2,lng2){
+  const R=6371000;
+  const p1=lat1*Math.PI/180,p2=lat2*Math.PI/180;
+  const dp=(lat2-lat1)*Math.PI/180,dl=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function getCurrentPosition(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation) return reject(new Error('Location/GPS browser me support nahi hai.'));
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy}),
+      err=>reject(new Error(err.message||'Location permission denied.')),
+      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+    );
+  });
+}
+
+async function loadCompanyGeofence(){
+  const login=getLogin();
+  try{
+    const orgRows=await sbSelect('organizations','select=id,org_code,org_name,lat,lng,radius_meters,address&org_code=eq.'+encodeURIComponent(login.org_code)+'&limit=1');
+    const org=Array.isArray(orgRows)&&orgRows.length?orgRows[0]:null;
+    if(!org) throw new Error('Company/org_code nahi mila: '+login.org_code);
+
+    let branch=null;
+    if(login.branch_id){
+      try{
+        const br=await sbSelect('org_branches','select=id,branch_name,branch_code,lat,lng,radius_meters,address&org_id=eq.'+encodeURIComponent(org.id)+'&id=eq.'+encodeURIComponent(login.branch_id)+'&limit=1');
+        branch=Array.isArray(br)&&br.length?br[0]:null;
+      }catch(e){console.warn('Branch fetch skipped:',e.message)}
+    }
+
+    const lat=Number(branch?.lat ?? org.lat);
+    const lng=Number(branch?.lng ?? org.lng);
+    const radius=Number(branch?.radius_meters ?? org.radius_meters ?? 100);
+
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) throw new Error('Company lat/lng set nahi hai. Admin geofence screen se lat/lng save karo.');
+
+    companyGeo={
+      org_id:org.id,
+      org_code:org.org_code,
+      org_name:org.org_name||org.org_code,
+      branch_id:branch?.id||login.branch_id||null,
+      branch_name:branch?.branch_name||branch?.branch_code||'MAIN',
+      lat,lng,
+      radius:Math.max(1,Math.min(200,Number.isFinite(radius)?radius:100)),
+      address:branch?.address||org.address||''
+    };
+
+    setGeo(`🏢 <b>${companyGeo.org_name}</b> | Branch: ${companyGeo.branch_name}<br>📍 Company Lat/Lng: ${companyGeo.lat.toFixed(6)}, ${companyGeo.lng.toFixed(6)}<br>⭕ Radius: ${companyGeo.radius} meter`,true);
+    return companyGeo;
+  }catch(e){
+    companyGeo=null;
+    setGeo('❌ '+e.message,false,true);
+    throw e;
+  }
+}
+
+async function checkInsideGeofence(){
+  if(!companyGeo) await loadCompanyGeofence();
+  setStatus('Current location checking... Permission allow karein.');
+  const pos=await getCurrentPosition();
+  const dist=Math.round(distanceMeters(pos.lat,pos.lng,companyGeo.lat,companyGeo.lng));
+  const inside=dist<=companyGeo.radius;
+  const msg=`Your Location: ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}<br>Accuracy: ${Math.round(pos.accuracy||0)} m<br>Distance from company: ${dist} m<br>Allowed radius: ${companyGeo.radius} m`;
+  if(!inside){
+    setStatus(`<b style="color:#991b1b">Geofence ke bahar ho.</b><br>${msg}<br>QR punch allowed nahi hai.`);
+    throw new Error(`Aap company radius ke bahar hain. Distance ${dist}m, allowed ${companyGeo.radius}m.`);
+  }
+  setStatus(`<b style="color:#14532d">Geofence ke andar ho.</b><br>${msg}<br>Punch saving...`);
+  return {pos,dist};
+}
+
+async function submitToken(token){
+  if(busy)return;
+  token=String(token||'').trim();
+  if(!token)return toast('QR token missing',true);
+  busy=true;
+  $('submitTokenBtn').disabled=true;
+  $('startScanBtn').disabled=true;
+  setStatus('Geofence checking...');
+  try{
+    const login=getLogin();
+    const geo=await checkInsideGeofence();
+    const args={
+      p_org_code:login.org_code,
+      p_emp_code:login.emp_code,
+      p_token:token,
+      p_device_id:localStorage.getItem('inlist_verified_device_id_v1')||null,
+      p_lat:geo.pos.lat,
+      p_lng:geo.pos.lng,
+      p_distance_meters:geo.dist
+    };
+
+    let data;
+    try{
+      data=await sbRpc('app_qr_attendance_punch',args);
+    }catch(firstErr){
+      // Agar RPC me p_lat/p_lng params abhi add nahi hain, old signature se retry karega.
+      if(String(firstErr.message||'').includes('Could not find the function') || String(firstErr.message||'').includes('PGRST202')){
+        data=await sbRpc('app_qr_attendance_punch',{
+          p_org_code:login.org_code,
+          p_emp_code:login.emp_code,
+          p_token:token,
+          p_device_id:localStorage.getItem('inlist_verified_device_id_v1')||null
+        });
+      }else{
+        throw firstErr;
+      }
+    }
+
+    setStatus(`<b>Saved!</b><br>Status: ${data.status||'-'}<br>Date: ${data.attendance_date||'-'}<br>Punch In: ${data.punch_in||'--'}<br>Punch Out: ${data.punch_out||'--'}<br>Distance: ${geo.dist} m`);
+    toast('QR attendance saved');
+  }catch(e){
+    setStatus('<b>Error:</b> '+e.message);
+    toast(e.message,true);
+  }finally{
+    busy=false;
+    $('submitTokenBtn').disabled=false;
+    $('startScanBtn').disabled=false;
+  }
+}
+
+async function startScan(){
+  if(scanner) return;
+  scanner=new Html5Qrcode('reader');
+  await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:250,height:250}}, async decoded=>{
+    $('tokenInput').value=decoded;
+    await stopScan();
+    submitToken(decoded);
+  });
+}
+async function stopScan(){if(scanner){try{await scanner.stop()}catch(e){} scanner.clear(); scanner=null}}
+
+$('startScanBtn').onclick=()=>startScan().catch(e=>toast(e.message,true));
+$('stopScanBtn').onclick=stopScan;
+$('submitTokenBtn').onclick=()=>submitToken($('tokenInput').value);
+$('refreshBtn').onclick=()=>location.reload();
+
+const l=getLogin();
+$('empBox').innerHTML=`Employee: ${l.emp_code} | Org: ${l.org_code}<br><span style="font-weight:700;color:#475569">QR punch se pehle current GPS company radius ke andar hona zaruri hai.</span>`;
+loadCompanyGeofence().catch(()=>{});
+</script>
+</body>
+</html>

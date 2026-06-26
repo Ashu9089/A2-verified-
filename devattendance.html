@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Developer · Attendance Permission Control</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+body{min-height:100vh;background:radial-gradient(circle at top left,#0f3d3a,#061a19 55%,#03100f);padding:24px;color:#14302e;display:flex;align-items:flex-start;justify-content:center}
+.card{width:100%;max-width:1180px;background:rgba(255,255,255,.97);border-radius:28px;box-shadow:0 24px 80px rgba(0,0,0,.38);padding:24px;border:1px solid #d9eeea}
+.header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:1.35rem;color:#14302e;display:flex;gap:10px;align-items:center}.sub{font-size:.82rem;color:#5b837e;margin-top:4px;line-height:1.45}.pill{background:#e6f5f1;color:#0f6b61;border:1px solid #c8e8e1;border-radius:999px;padding:8px 14px;font-weight:700;font-size:.78rem}.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin:14px 0}.box{border:1px solid #dcefeb;background:#f8fdfc;border-radius:18px;padding:14px}.box h3{font-size:.9rem;margin-bottom:10px;color:#14302e}.row{display:grid;grid-template-columns:180px 1fr;gap:12px;align-items:center;margin:10px 0}label{font-size:.78rem;font-weight:700;color:#24514d}input,select,textarea{width:100%;border:1px solid #cfe7e2;border-radius:12px;padding:10px 12px;font-size:.86rem;outline:none;background:#fff}input:focus,select:focus,textarea:focus{border-color:#1f6e68;box-shadow:0 0 0 3px rgba(31,110,104,.1)}textarea{min-height:80px;resize:vertical}.switch{display:flex;align-items:center;gap:10px}.switch input{width:18px;height:18px;accent-color:#1f6e68}.quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.quick button,.actions button,.miniBtn{border:none;border-radius:999px;padding:9px 14px;font-weight:800;font-size:.78rem;cursor:pointer}.quick button,.miniBtn{background:#eef8f6;color:#0f5f58;border:1px solid #cfe7e2}.quick button:hover,.miniBtn:hover{background:#dff2ee}.actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px}.primary{background:#1f6e68;color:white}.primary:hover{background:#0f4a44}.danger{background:#fee2e2;color:#991b1b}.neutral{background:#edf7f5;color:#14302e}.status{margin-top:14px;padding:12px 14px;border-radius:14px;background:#eef8f6;border:1px solid #cfe7e2;font-size:.84rem;color:#17413d}.status.err{background:#fee2e2;border-color:#fecaca;color:#991b1b}.preview{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}.metric{background:#fff;border:1px solid #dcefeb;border-radius:14px;padding:12px}.metric b{display:block;font-size:1.1rem;color:#0f6b61}.metric span{font-size:.72rem;color:#5b837e}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#164f49;color:#fff;padding:10px 20px;border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:.84rem;z-index:9999}.toast.err{background:#b91c1c}
+.companyTop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.searchWrap{position:relative;flex:1;min-width:230px}.searchWrap span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#6b8f89}.searchWrap input{padding-left:36px}.companyList{border:1px solid #dcefeb;border-radius:16px;background:white;overflow:hidden}.companyHead,.companyRow{display:grid;grid-template-columns:1.4fr .75fr .55fr;gap:8px;align-items:center}.companyHead{background:#edf7f5;color:#24514d;font-size:.72rem;font-weight:900;text-transform:uppercase;letter-spacing:.3px;padding:10px 12px}.companyBody{max-height:330px;overflow:auto}.companyRow{padding:10px 12px;border-top:1px solid #eef6f4;font-size:.84rem}.companyRow:hover{background:#f8fdfc}.companyName b{display:block;color:#14302e}.companyName small,.muted{display:block;color:#6b8f89;font-size:.72rem;margin-top:2px}.selectedCompany{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.selectedChip{background:#fff;border:1px solid #dcefeb;border-radius:14px;padding:10px}.selectedChip b{display:block;font-size:.74rem;color:#6b8f89}.selectedChip span{font-weight:900;color:#14302e;font-size:.9rem;word-break:break-word}.pager{display:flex;justify-content:space-between;gap:10px;align-items:center;padding-top:10px;font-size:.78rem;color:#5b837e}.badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 8px;background:#e6f5f1;color:#0f6b61;font-weight:800;font-size:.7rem}.hidden{display:none!important}@media(max-width:860px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}.preview{grid-template-columns:repeat(2,1fr)}.companyHead,.companyRow{grid-template-columns:1fr .55fr}.companyHead div:nth-child(2),.companyRow div:nth-child(2){display:none}.selectedCompany{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div>
+      <h1>🛠 Developer Attendance Permission</h1>
+      <div class="sub">Company list se organization select karo, phir attendance edit day limit / future permission / feature lock save karo.</div>
+    </div>
+    <div class="pill" id="scopeText">Select company</div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h3>Company List</h3>
+      <div class="companyTop">
+        <div class="searchWrap"><span>🔍</span><input id="companySearch" placeholder="Search company name / org code..." /></div>
+        <button class="miniBtn" onclick="loadCompanies(1)">Search</button>
+        <button class="miniBtn" onclick="clearCompanySearch()">Reset</button>
+      </div>
+      <div class="companyList">
+        <div class="companyHead"><div>Company</div><div>Org Code</div><div>Select</div></div>
+        <div class="companyBody" id="companyBody"><div style="padding:18px;color:#6b8f89">Loading companies...</div></div>
+      </div>
+      <div class="pager">
+        <button class="miniBtn" id="prevCompany" onclick="prevCompanyPage()">Prev</button>
+        <span id="companyPageText">Page 1</span>
+        <button class="miniBtn" id="nextCompany" onclick="nextCompanyPage()">Next</button>
+      </div>
+      <div class="quick">
+        <button onclick="fillFromUrl()">Use URL Params</button>
+        <button onclick="loadCurrent()">Load Selected Permission</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h3>Selected Company</h3>
+      <div class="selectedCompany">
+        <div class="selectedChip"><b>Company Name</b><span id="selOrgName">—</span></div>
+        <div class="selectedChip"><b>Org Code</b><span id="selOrgCode">—</span></div>
+        <div class="selectedChip"><b>Org ID</b><span id="selOrgId">—</span></div>
+        <div class="selectedChip"><b>Branch</b><span id="selBranchId">All branches</span></div>
+      </div>
+      <input id="orgId" type="hidden" />
+      <input id="orgCode" type="hidden" />
+      <input id="orgName" type="hidden" />
+      <div class="row"><label>Branch ID</label><input id="branchId" placeholder="optional branch uuid / blank = all branches" /></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h3>Feature Control</h3>
+      <div class="row"><label>Permission Enabled</label><div class="switch"><input type="checkbox" id="enabled" checked><span>Attendance update allowed</span></div></div>
+      <div class="row"><label>Feature Locked</label><div class="switch"><input type="checkbox" id="featureLocked"><span>पूरी attendance edit feature lock</span></div></div>
+      <div class="row"><label>Future Attendance</label><div class="switch"><input type="checkbox" id="allowFuture"><span>Future date update allow</span></div></div>
+      <div class="row"><label>Lifetime Edit</label><div class="switch"><input type="checkbox" id="unlimitedHistory"><span>Previous day limit हटाएं</span></div></div>
+    </div>
+
+    <div class="box">
+      <h3>Previous Day Limit</h3>
+      <div class="row"><label>Days Limit</label><input type="number" id="previousDays" min="0" value="7" /></div>
+      <div class="quick">
+        <button onclick="setDays(0)">Only Today</button>
+        <button onclick="setDays(7)">7 Days</button>
+        <button onclick="setDays(8)">8 Days</button>
+        <button onclick="setDays(30)">1 Month</button>
+        <button onclick="setUnlimited()">Lifetime</button>
+        <button onclick="lockAll()">Lock Feature</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>Permission Preview</h3>
+    <div class="preview">
+      <div class="metric"><b id="mEnabled">Yes</b><span>Enabled</span></div>
+      <div class="metric"><b id="mLimit">7</b><span>Past Days</span></div>
+      <div class="metric"><b id="mFuture">No</b><span>Future Allowed</span></div>
+      <div class="metric"><b id="mLock">No</b><span>Feature Locked</span></div>
+    </div>
+  </div>
+
+  <div class="box" style="margin-top:14px">
+    <h3>Remark / Reason</h3>
+    <textarea id="remarks" placeholder="Example: Temporary permission for audit correction"></textarea>
+  </div>
+
+  <div class="actions">
+    <button class="neutral" onclick="openAttendanceScreen()">Open Attendance Screen</button>
+    <button class="danger" onclick="resetDefault()">Reset Default 7 Days</button>
+    <button class="primary" onclick="saveSetting()">Save Permission</button>
+  </div>
+  <div class="status" id="statusBox">Ready.</div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true,autoRefreshToken:true}});
+
+const COMPANY_PAGE_SIZE = 20;
+let companyPage = 1;
+let companyHasMore = false;
+let selectedCompany = null;
+
+function qp(k, f=''){return new URL(location.href).searchParams.get(k)||f}
+function val(id){return document.getElementById(id).value.trim()}
+function setVal(id,v){document.getElementById(id).value=v||''}
+function checked(id){return document.getElementById(id).checked}
+function setChecked(id,v){document.getElementById(id).checked=!!v; refreshPreview()}
+function toast(msg,err=false){const old=document.querySelector('.toast'); if(old) old.remove(); const t=document.createElement('div'); t.className='toast'+(err?' err':''); t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3500)}
+function statusMsg(msg,err=false){const s=document.getElementById('statusBox'); s.className='status'+(err?' err':''); s.textContent=msg}
+function esc(str){if(str===null||str===undefined||str==='')return '—';return String(str).replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]||m))}
+function refreshPreview(){document.getElementById('mEnabled').textContent=checked('enabled')?'Yes':'No'; document.getElementById('mLimit').textContent=checked('unlimitedHistory')?'Lifetime':(val('previousDays')||'0'); document.getElementById('mFuture').textContent=checked('allowFuture')?'Yes':'No'; document.getElementById('mLock').textContent=checked('featureLocked')?'Yes':'No'}
+['enabled','featureLocked','allowFuture','unlimitedHistory','previousDays','branchId'].forEach(id=>document.addEventListener('input',e=>{if(e.target.id===id){refreshPreview(); updateSelectedUi();}}));
+document.getElementById('companySearch').addEventListener('keydown',e=>{if(e.key==='Enter')loadCompanies(1)});
+
+function updateSelectedUi(){
+  document.getElementById('selOrgName').textContent=val('orgName')||'—';
+  document.getElementById('selOrgCode').textContent=val('orgCode')||'—';
+  document.getElementById('selOrgId').textContent=val('orgId')||'—';
+  document.getElementById('selBranchId').textContent=val('branchId')||'All branches';
+  document.getElementById('scopeText').textContent=(val('orgCode')||'Select company')+' · '+(val('branchId')?'Branch scope':'All branches');
+}
+function selectCompany(org){
+  selectedCompany=org;
+  setVal('orgId',org.id);
+  setVal('orgCode',org.org_code||'');
+  setVal('orgName',org.org_name||org.name||'');
+  updateSelectedUi();
+  toast('Selected: '+(org.org_name||org.org_code||org.id));
+  loadCurrent();
+}
+function fillFromUrl(){
+  setVal('orgId',qp('org_id'));
+  setVal('orgCode',qp('org_code'));
+  setVal('orgName',qp('org_name')||qp('company')||'');
+  setVal('branchId',qp('branch_id'));
+  updateSelectedUi();
+  if(val('orgId')) loadCurrent();
+}
+function clearCompanySearch(){document.getElementById('companySearch').value=''; loadCompanies(1)}
+function prevCompanyPage(){if(companyPage>1)loadCompanies(companyPage-1)}
+function nextCompanyPage(){if(companyHasMore)loadCompanies(companyPage+1)}
+
+async function loadCompanies(page=1){
+  companyPage=page;
+  const body=document.getElementById('companyBody');
+  body.innerHTML='<div style="padding:18px;color:#6b8f89">Loading companies...</div>';
+  const search=val('companySearch')||null;
+  let data=null,error=null;
+  const rpc=await sb.rpc('dev_list_organizations',{p_search:search,p_limit:COMPANY_PAGE_SIZE,p_offset:(page-1)*COMPANY_PAGE_SIZE});
+  if(!rpc.error){data=rpc.data||[]} else {
+    console.warn('dev_list_organizations fallback:',rpc.error);
+    let q=sb.from('organizations').select('id, org_name, org_code, email, phone, created_at',{count:'exact'}).order('org_name',{ascending:true}).range((page-1)*COMPANY_PAGE_SIZE,(page*COMPANY_PAGE_SIZE));
+    if(search){const s=`%${search}%`; q=q.or(`org_name.ilike.${s},org_code.ilike.${s},email.ilike.${s},phone.ilike.${s}`)}
+    const res=await q; data=res.data; error=res.error;
+  }
+  if(error){body.innerHTML='<div style="padding:18px;color:#991b1b">Company load failed: '+esc(error.message)+'</div>'; return}
+  const rows=data||[];
+  companyHasMore=rows.length>COMPANY_PAGE_SIZE;
+  const shown=rows.slice(0,COMPANY_PAGE_SIZE);
+  if(!shown.length){body.innerHTML='<div style="padding:18px;color:#6b8f89">No company found.</div>'} else {
+    body.innerHTML=shown.map(o=>`
+      <div class="companyRow">
+        <div class="companyName"><b>${esc(o.org_name||o.name||'Unnamed Company')}</b><small>${esc(o.email||o.phone||o.id)}</small></div>
+        <div><span class="badge">${esc(o.org_code||'—')}</span></div>
+        <div><button class="miniBtn" onclick='selectCompany(${JSON.stringify({id:o.id,org_name:o.org_name||o.name||'',org_code:o.org_code||''}).replace(/'/g,"&#39;")})'>Select</button></div>
+      </div>`).join('');
+  }
+  document.getElementById('companyPageText').textContent='Page '+page+(companyHasMore?' · more':'');
+  document.getElementById('prevCompany').disabled=page<=1;
+  document.getElementById('nextCompany').disabled=!companyHasMore;
+}
+
+function setDays(n){setChecked('unlimitedHistory',false); setVal('previousDays',String(n)); setChecked('featureLocked',false); setChecked('enabled',true); refreshPreview()}
+function setUnlimited(){setChecked('unlimitedHistory',true); setChecked('featureLocked',false); setChecked('enabled',true); refreshPreview()}
+function lockAll(){setChecked('featureLocked',true); setChecked('enabled',false); refreshPreview()}
+function resetDefault(){setChecked('enabled',true); setChecked('featureLocked',false); setChecked('allowFuture',false); setChecked('unlimitedHistory',false); setVal('previousDays','7'); setVal('remarks','Default 7 days previous attendance edit only.'); refreshPreview()}
+
+async function loadCurrent(){
+  const orgId=val('orgId'); if(!orgId){toast('Pehle company select karo',true); return}
+  statusMsg('Loading current permission...');
+  const branchId=val('branchId')||null;
+  const {data,error}=await sb.rpc('app_get_attendance_edit_permission',{p_org_id:orgId,p_branch_id:branchId});
+  if(error){statusMsg(error.message,true); toast('Load failed',true); return}
+  const r=Array.isArray(data)?data[0]:data;
+  if(r){
+    setChecked('enabled',r.enabled!==false); setChecked('featureLocked',!!r.feature_locked); setChecked('allowFuture',!!r.allow_future); setChecked('unlimitedHistory',!!r.unlimited_history); setVal('previousDays',r.previous_days_limit ?? 7); setVal('remarks',r.remarks||'');
+    statusMsg('Loaded for '+(val('orgName')||val('orgCode')||orgId)+'. Last update: '+(r.updated_at||'default')+(r.updated_by_name?' by '+r.updated_by_name:''));
+  } else statusMsg('No setting found. Default 7 days active.');
+  refreshPreview();
+}
+
+async function saveSetting(){
+  const orgId=val('orgId'); if(!orgId){toast('Pehle company select karo',true); return}
+  const payload={
+    p_org_id: orgId,
+    p_org_name: val('orgName')||null,
+    p_org_code: val('orgCode')||null,
+    p_branch_id: val('branchId')||null,
+    p_enabled: checked('enabled'),
+    p_feature_locked: checked('featureLocked'),
+    p_previous_days_limit: checked('unlimitedHistory') ? null : Number(val('previousDays')||7),
+    p_unlimited_history: checked('unlimitedHistory'),
+    p_allow_future: checked('allowFuture'),
+    p_remarks: val('remarks')||null,
+    p_updated_by: qp('user_id')||qp('emp_id')||null,
+    p_updated_by_name: qp('name')||qp('email')||'Developer'
+  };
+  statusMsg('Saving permission for '+(val('orgName')||val('orgCode')||orgId)+'...');
+  const {data,error}=await sb.rpc('dev_save_attendance_edit_permission',payload);
+  if(error){statusMsg(error.message,true); toast('Save failed',true); return}
+  statusMsg('Saved successfully for '+(val('orgName')||val('orgCode')||orgId)+'. Attendance screen refresh karne par new rule apply hoga.');
+  toast('Permission saved ✅');
+}
+function openAttendanceScreen(){
+  const q=new URLSearchParams(location.search); if(val('orgId')) q.set('org_id',val('orgId')); if(val('orgCode')) q.set('org_code',val('orgCode')); if(val('branchId')) q.set('branch_id',val('branchId'));
+  location.href='adminshift.html?'+q.toString();
+}
+
+refreshPreview(); fillFromUrl(); loadCompanies(1);
+</script>
+</body>
+</html>
