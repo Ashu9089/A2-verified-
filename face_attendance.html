@@ -788,7 +788,7 @@ async function saveAttendance(action){
     const payload={
       org_id:ORG_ID, branch_id:employee.branch_id||BRANCH_ID||null, employee_id:employee.id, roster_id:roster.id||null,
       org_code:ORG_CODE||null, emp_code:employee.emp_code||null, employee_name:employee.name||null, email:employee.email||null, mobile:employee.mobile||null,
-      attendance_date:d, punch_in:nowIso, punch_in_time:now.toTimeString().slice(0,8),
+      attendance_date:d, punch_in:nowIso, punch_in_time:nowIso,
       punch_in_lat:currentLocation.lat, punch_in_lng:currentLocation.lng, punch_in_distance_meters:currentDistance,
       status:late.isLate?'late':'present', is_late:late.isLate, late_minutes:late.lateMinutes,
       source:'face_attendance', attendance_source:'face_attendance', correction_source:'face_attendance',
@@ -807,7 +807,7 @@ async function saveAttendance(action){
     const workedMinutes=Math.max(0,Math.floor((now-inDate)/60000));
     const workedHours=Number((workedMinutes/60).toFixed(2));
     const payload={
-      punch_out:nowIso, punch_out_time:now.toTimeString().slice(0,8),
+      punch_out:nowIso, punch_out_time:nowIso,
       punch_out_lat:currentLocation.lat, punch_out_lng:currentLocation.lng, punch_out_distance_meters:currentDistance,
       worked_minutes:workedMinutes, worked_hours:workedHours, working_hours:workedHours,
       status:todayAttendance.is_late?'late':'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
@@ -822,7 +822,7 @@ async function saveAttendance(action){
   updateUI();
 }
 async function insertAttendanceWithFallback(payload){
-  const payloads=[payload, strip(payload,['org_code','employee_name','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']), strip(payload,['org_code','employee_name','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])];
+  const payloads=[payload, strip(payload,['org_code','employee_name','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']), strip(payload,['org_code','employee_name','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']), strip(payload,['punch_in_time','punch_out_time','org_code','employee_name','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])];
   let lastErr=null;
   for(const p of payloads){
     const {error}=await sb.from('attendance').insert(p);
@@ -832,7 +832,7 @@ async function insertAttendanceWithFallback(payload){
   throw lastErr || new Error('Attendance insert failed');
 }
 async function updateAttendanceWithFallback(id,payload){
-  const payloads=[payload, strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
+  const payloads=[payload, strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by']), strip(payload,['punch_out_time','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
   let lastErr=null;
   for(const p of payloads){
     const {error}=await sb.from('attendance').update(p).eq('id',id);
