@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Face Attendance · OrgConnect</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
   <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
@@ -115,6 +116,15 @@ const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5c
 const FACE_BUCKET = 'employee-face';
 const ATTENDANCE_FACE_BUCKET = 'employee-face'; // same bucket, attendance folder me save hoga
 
+// REAL FACE MATCH CONFIG
+// face-api.js me Euclidean distance kam hota hai to face match better hota hai.
+// 0.45 strict, 0.55 balanced, 0.60 loose. Hospital attendance ke liye 0.55 safe starting point hai.
+const FACE_MATCH_THRESHOLD = 0.55;
+const FACE_MODEL_URLS = [
+  'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights',
+  'https://justadudewhohacks.github.io/face-api.js/models'
+];
+
 function getParam(name){ return new URLSearchParams(location.search).get(name); }
 const ORG_ID = getParam('org_id');
 let ORG_CODE = getParam('org_code');
@@ -144,6 +154,97 @@ let geofence = null;
 let cameraStream = null;
 let capturedBlob = null;
 let isScanning = false;
+let faceModelsLoaded = false;
+let registeredFaceDescriptor = null;
+let lastFaceMatch = null;
+
+
+async function loadFaceApiModels(){
+  if(faceModelsLoaded) return true;
+  if(!window.faceapi) throw new Error('Face recognition library load nahi hui. Internet/CDN check karo.');
+  let lastErr = null;
+  for(const url of FACE_MODEL_URLS){
+    try{
+      setCheck('faceCheck','warn','Face AI model loading...');
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(url),
+        faceapi.nets.faceLandmark68Net.loadFromUri(url),
+        faceapi.nets.faceRecognitionNet.loadFromUri(url)
+      ]);
+      faceModelsLoaded = true;
+      console.log('Face AI models loaded from', url);
+      return true;
+    }catch(e){
+      lastErr = e;
+      console.warn('Face model load failed from', url, e);
+    }
+  }
+  throw lastErr || new Error('Face AI model load failed');
+}
+
+function getFaceOptions(){
+  return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.45 });
+}
+
+function euclideanDistance(a,b){
+  if(!a || !b || a.length !== b.length) return 999;
+  let sum = 0;
+  for(let i=0;i<a.length;i++) sum += Math.pow(Number(a[i]) - Number(b[i]), 2);
+  return Math.sqrt(sum);
+}
+function faceDistanceToPercent(distance){
+  const d = Number(distance);
+  if(!Number.isFinite(d)) return 0;
+  return Math.max(0, Math.min(100, Math.round((1 - d) * 100)));
+}
+
+async function loadImageForFace(url){
+  if(!url) throw new Error('Registered face image URL missing hai.');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.referrerPolicy = 'no-referrer';
+  img.src = url;
+  await new Promise((resolve,reject)=>{
+    img.onload = resolve;
+    img.onerror = () => reject(new Error('Registered face image load nahi hui. Storage public URL/CORS check karo.'));
+  });
+  return img;
+}
+
+async function descriptorFromImageElement(el){
+  await loadFaceApiModels();
+  const result = await faceapi
+    .detectSingleFace(el, getFaceOptions())
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+  if(!result || !result.descriptor) throw new Error('Face detect nahi hua. Clear front face chahiye.');
+  return Array.from(result.descriptor);
+}
+
+async function loadRegisteredFaceDescriptor(){
+  if(registeredFaceDescriptor) return registeredFaceDescriptor;
+  if(!faceRegistration || !faceRegistration.face_image_url){
+    throw new Error('Registered face image nahi mila. Pehle admin se face register karwayein.');
+  }
+  const img = await loadImageForFace(faceRegistration.face_image_url);
+  registeredFaceDescriptor = await descriptorFromImageElement(img);
+  return registeredFaceDescriptor;
+}
+
+async function verifyCapturedFace(){
+  await loadFaceApiModels();
+  const canvas = document.getElementById('canvasPreview');
+  const liveDescriptor = await descriptorFromImageElement(canvas);
+  const regDescriptor = await loadRegisteredFaceDescriptor();
+  const distance = euclideanDistance(liveDescriptor, regDescriptor);
+  const score = faceDistanceToPercent(distance);
+  const matched = distance <= FACE_MATCH_THRESHOLD;
+  lastFaceMatch = { matched, distance:Number(distance.toFixed(4)), score };
+  if(!matched){
+    throw new Error(`Face mismatch: ${score}% match. Attendance reject. Registered employee ka face scan karo.`);
+  }
+  return lastFaceMatch;
+}
 
 function todayISO(){
   const d = new Date();
@@ -489,9 +590,21 @@ async function loadFaceRegistration(){
     });
     faceRegistration=rows[0]||null;
   }catch(e){ console.warn('face registration unavailable:', e); faceRegistration=null; }
-  const ok = !!(faceRegistration && (faceRegistration.registered===true || faceRegistration.face_status==='registered' || faceRegistration.face_image_url));
-  setCheck('faceCheck', ok?'ok':'bad', ok?'Registered face found':'Face not registered');
-  return ok;
+  const ok = !!(faceRegistration && faceRegistration.face_image_url && (faceRegistration.registered===true || faceRegistration.face_status==='registered' || faceRegistration.face_image_url));
+  if(!ok){
+    setCheck('faceCheck','bad','Face not registered');
+    return false;
+  }
+  try{
+    await loadFaceApiModels();
+    await loadRegisteredFaceDescriptor();
+    setCheck('faceCheck','ok','Registered face loaded<br><small>Live face match required</small>');
+    return true;
+  }catch(e){
+    console.warn('registered face descriptor error:', e);
+    setCheck('faceCheck','bad',`${esc(e.message || 'Face AI load failed')}<br><small>Attendance blocked</small>`);
+    return false;
+  }
 }
 
 async function loadRoster(){
@@ -686,7 +799,7 @@ function updateUI(){
 }
 
 function checksReady(){
-  const faceOk=!!(faceRegistration && (faceRegistration.registered===true || faceRegistration.face_status==='registered' || faceRegistration.face_image_url));
+  const faceOk=!!(faceModelsLoaded && registeredFaceDescriptor && faceRegistration && faceRegistration.face_image_url);
   const rosterOk=!!roster;
   const geoOk=!!(currentLocation && currentDistance!==null && geofence && currentDistance <= getAllowedRadius());
   return {faceOk,rosterOk,geoOk,all:faceOk&&rosterOk&&geoOk};
@@ -804,6 +917,9 @@ async function scanFace(){
   stopCamera();
 
   try{
+    setScanStatus('🧠 Matching face...','scanning');
+    setCameraStatus('Face Matching','yellow');
+    await verifyCapturedFace();
     await saveAttendance(state.action);
     document.getElementById('faceOverlay').className='face-overlay success';
     setScanStatus('✅ Verified','success');
@@ -846,6 +962,7 @@ async function saveAttendance(action){
       org_code:finalOrgCode, emp_code:finalEmpCode, employee_name:finalEmployeeName, email:employee.email||'', mobile:employee.mobile||'',
       attendance_date:d, punch_in:nowIso, punch_in_time:nowIso,
       punch_in_lat:currentLocation.lat, punch_in_lng:currentLocation.lng, punch_in_distance_meters:currentDistance,
+      face_verified:true, face_match_score:lastFaceMatch ? lastFaceMatch.score : null, face_match_distance:lastFaceMatch ? lastFaceMatch.distance : null,
       status:late.isLate?'late':'present', is_late:late.isLate, late_minutes:late.lateMinutes,
       source:'face_attendance', attendance_source:'face_attendance', correction_source:'face_attendance',
       remarks: faceUrl ? `Face attendance punch in. image=${faceUrl}` : 'Face attendance punch in',
@@ -855,7 +972,7 @@ async function saveAttendance(action){
     };
     await insertAttendanceWithFallback(payload);
     await loadTodayAttendance();
-    showResult(true, late.isLate?'Late Punch In Marked':'Punch In Marked', `<strong>Punch In:</strong> ${fmtTime(nowIso)}<br><strong>Roster:</strong> ${esc(roster.shift_name||'Shift')} ${esc(String(roster.shift_start||'').slice(0,5))}<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Status:</strong> ${late.isLate?'Late ('+late.lateMinutes+' min)':'Present'}`);
+    showResult(true, late.isLate?'Late Punch In Marked':'Punch In Marked', `<strong>Punch In:</strong> ${fmtTime(nowIso)}<br><strong>Roster:</strong> ${esc(roster.shift_name||'Shift')} ${esc(String(roster.shift_start||'').slice(0,5))}<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Face Match:</strong> ${lastFaceMatch ? lastFaceMatch.score : '--'}%<br><strong>Status:</strong> ${late.isLate?'Late ('+late.lateMinutes+' min)':'Present'}`);
     showToast(`✅ Punch In saved at ${fmtTime(nowIso)}`);
   } else if(action==='punch_out'){
     if(!todayAttendance || !todayAttendance.id) throw new Error('Punch out ke liye pehle punch in record chahiye.');
@@ -865,6 +982,7 @@ async function saveAttendance(action){
     const payload={
       punch_out:nowIso, punch_out_time:nowIso,
       punch_out_lat:currentLocation.lat, punch_out_lng:currentLocation.lng, punch_out_distance_meters:currentDistance,
+      face_verified:true, face_match_score:lastFaceMatch ? lastFaceMatch.score : null, face_match_distance:lastFaceMatch ? lastFaceMatch.distance : null,
       worked_minutes:workedMinutes, working_hours:workedHours,
       status:todayAttendance.is_late?'late':'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
       updated_by_name:finalEmployeeName, updated_by_emp_code:finalEmpCode, updated_at:nowIso,
@@ -872,7 +990,7 @@ async function saveAttendance(action){
     };
     await updateAttendanceWithFallback(todayAttendance.id, payload);
     await loadTodayAttendance();
-    showResult(true, 'Punch Out Marked', `<strong>Punch Out:</strong> ${fmtTime(nowIso)}<br><strong>Worked:</strong> ${workedHours} hours<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m`);
+    showResult(true, 'Punch Out Marked', `<strong>Punch Out:</strong> ${fmtTime(nowIso)}<br><strong>Worked:</strong> ${workedHours} hours<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Face Match:</strong> ${lastFaceMatch ? lastFaceMatch.score : '--'}%`);
     showToast(`✅ Punch Out saved at ${fmtTime(nowIso)}`);
   }
   updateUI();
@@ -880,9 +998,9 @@ async function saveAttendance(action){
 async function insertAttendanceWithFallback(payload){
   const payloads=[
     payload,
-    strip(payload,['department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']),
-    strip(payload,['email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']),
-    strip(payload,['punch_in_time','punch_out_time','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])
+    strip(payload,['face_verified','face_match_score','face_match_distance','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']),
+    strip(payload,['face_verified','face_match_score','face_match_distance','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']),
+    strip(payload,['face_verified','face_match_score','face_match_distance','punch_in_time','punch_out_time','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])
   ];
   let lastErr=null;
   for(const p of payloads){
@@ -893,7 +1011,7 @@ async function insertAttendanceWithFallback(payload){
   throw lastErr || new Error('Attendance insert failed');
 }
 async function updateAttendanceWithFallback(id,payload){
-  const payloads=[payload, strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by']), strip(payload,['punch_out_time','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
+  const payloads=[payload, strip(payload,['face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by']), strip(payload,['face_verified','face_match_score','face_match_distance','punch_out_time','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
   let lastErr=null;
   for(const p of payloads){
     const {error}=await sb.from('attendance').update(p).eq('id',id);
