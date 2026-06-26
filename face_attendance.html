@@ -445,68 +445,73 @@ async function loadFaceRegistration(){
 }
 
 async function loadRoster(){
-  const d=todayISO();
-  roster=null;
+  const d = todayISO();
+  roster = null;
 
-  // Roster table/column fallback. Tumhare DB me generally "rosters" table hai,
-  // lekin agar column names different hon to ye variants try karega.
-  const tableNames=['rosters','employee_rosters','employee_roster','staff_rosters'];
-  const dateCols=['roster_date','date','duty_date','shift_date'];
-  const empCols=['employee_id','emp_id'];
-  const branchCols=['branch_id'];
+  // FIX: DB me actual table public.rosters hai.
+  // employee_roster / staff_rosters tables exist nahi karti, isliye un par query karne se 404 console spam aa raha tha.
+  // Ab sirf rosters table use hoga.
+  let lastErr = null;
 
-  let lastErr=null;
-  for(const table of tableNames){
-    for(const dateCol of dateCols){
-      for(const empCol of empCols){
-        try{
-          let q=sb.from(table).select('*').eq('org_id',ORG_ID).eq(empCol,employee.id).eq(dateCol,d);
-          if(BRANCH_ID) q=q.eq('branch_id',BRANCH_ID);
-          const res=await q.limit(1);
-          if(!res.error && res.data && res.data.length){
-            roster=res.data[0];
-            roster.roster_date = roster.roster_date || roster.date || roster.duty_date || roster.shift_date || d;
-            roster.shift_start = roster.shift_start || roster.start_time || roster.start || roster.roster_start;
-            roster.shift_end = roster.shift_end || roster.end_time || roster.end || roster.roster_end;
-            roster.shift_name = roster.shift_name || roster.shift || roster.shift_type || 'Shift';
-            break;
-          }
-          if(res.error) lastErr=res.error;
-        }catch(e){ lastErr=e; }
-      }
-      if(roster) break;
-    }
-    if(roster) break;
+  function normalizeRoster(r){
+    if(!r) return null;
+    r.roster_date = r.roster_date || d;
+    r.shift_start = r.shift_start || r.start_time || r.start || r.roster_start;
+    r.shift_end = r.shift_end || r.end_time || r.end || r.roster_end;
+    r.shift_name = r.shift_name || r.shift || r.shift_type || 'Shift';
+    return r;
   }
 
-  // Branch strict filter ki wajah se roster miss ho sakta hai, isliye branch filter ke bina ek aur try.
+  try{
+    let q = sb
+      .from('rosters')
+      .select('*')
+      .eq('org_id', ORG_ID)
+      .eq('employee_id', employee.id)
+      .eq('roster_date', d);
+
+    if(BRANCH_ID) q = q.eq('branch_id', BRANCH_ID);
+
+    const res = await q.limit(1);
+    if(!res.error && res.data && res.data.length){
+      roster = normalizeRoster(res.data[0]);
+    }else if(res.error){
+      lastErr = res.error;
+      console.warn('rosters strict branch query failed:', res.error);
+    }
+  }catch(e){
+    lastErr = e;
+    console.warn('rosters strict branch exception:', e);
+  }
+
+  // Branch filter ki wajah se miss ho sakta hai, isliye branch ke bina ek fallback.
   if(!roster){
-    for(const table of tableNames){
-      for(const dateCol of dateCols){
-        for(const empCol of empCols){
-          try{
-            const res=await sb.from(table).select('*').eq('org_id',ORG_ID).eq(empCol,employee.id).eq(dateCol,d).limit(1);
-            if(!res.error && res.data && res.data.length){
-              roster=res.data[0];
-              roster.roster_date = roster.roster_date || roster.date || roster.duty_date || roster.shift_date || d;
-              roster.shift_start = roster.shift_start || roster.start_time || roster.start || roster.roster_start;
-              roster.shift_end = roster.shift_end || roster.end_time || roster.end || roster.roster_end;
-              roster.shift_name = roster.shift_name || roster.shift || roster.shift_type || 'Shift';
-              break;
-            }
-          }catch(e){ lastErr=e; }
-        }
-        if(roster) break;
+    try{
+      const res = await sb
+        .from('rosters')
+        .select('*')
+        .eq('org_id', ORG_ID)
+        .eq('employee_id', employee.id)
+        .eq('roster_date', d)
+        .limit(1);
+
+      if(!res.error && res.data && res.data.length){
+        roster = normalizeRoster(res.data[0]);
+      }else if(res.error){
+        lastErr = res.error;
+        console.warn('rosters no-branch fallback failed:', res.error);
       }
-      if(roster) break;
+    }catch(e){
+      lastErr = e;
+      console.warn('rosters no-branch fallback exception:', e);
     }
   }
 
   if(roster){
-    setCheck('rosterCheck','ok',`${rosterText(roster)}<br><small>${esc(todayISO())}</small>`);
+    setCheck('rosterCheck','ok',`${rosterText(roster)}<br><small>${esc(d)}</small>`);
   }else{
     console.warn('roster not found. last error:', lastErr);
-    setCheck('rosterCheck','bad',`Aaj ka roster nahi mila<br><small>${esc(todayISO())} · emp ${esc(employee.emp_code||employee.id)}</small>`);
+    setCheck('rosterCheck','bad',`Aaj ka roster nahi mila<br><small>${esc(d)} · emp ${esc(employee.emp_code||employee.id)}</small>`);
   }
   return !!roster;
 }
