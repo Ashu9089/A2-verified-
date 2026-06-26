@@ -865,7 +865,7 @@ async function saveAttendance(action){
     const payload={
       punch_out:nowIso, punch_out_time:nowIso,
       punch_out_lat:currentLocation.lat, punch_out_lng:currentLocation.lng, punch_out_distance_meters:currentDistance,
-      worked_minutes:workedMinutes, worked_hours:workedHours, working_hours:workedHours,
+      worked_minutes:workedMinutes, working_hours:workedHours,
       status:todayAttendance.is_late?'late':'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
       updated_by_name:finalEmployeeName, updated_by_emp_code:finalEmpCode, updated_at:nowIso,
       remarks: faceUrl ? `Face attendance punch out. image=${faceUrl}` : 'Face attendance punch out'
