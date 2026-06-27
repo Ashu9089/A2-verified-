@@ -6,6 +6,41 @@
   <title>Face Register · OrgConnect</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module">
+    import { FaceDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+    let detector = null;
+
+    async function initAIFaceDetector() {
+      if (detector) return detector;
+      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+      detector = await FaceDetector.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite",
+          delegate: "GPU"
+        },
+        runningMode: "VIDEO",
+        minDetectionConfidence: 0.65
+      });
+      return detector;
+    }
+
+    async function detectVideoFace(video) {
+      const d = await initAIFaceDetector();
+      const result = d.detectForVideo(video, performance.now());
+      return result && result.detections ? result.detections : [];
+    }
+
+    async function detectCanvasFace(canvas) {
+      const d = await initAIFaceDetector();
+      await d.setOptions({ runningMode: "IMAGE" });
+      const result = d.detect(canvas);
+      await d.setOptions({ runningMode: "VIDEO" });
+      return result && result.detections ? result.detections : [];
+    }
+
+    window.AIFace = { initAIFaceDetector, detectVideoFace, detectCanvasFace };
+  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 
   <style>
@@ -106,6 +141,14 @@
     .modal-actions .btn-cancel{background:#f0f8f6;color:#1e3a3a}.modal-actions .btn-cancel:hover{background:#e0efeb}
     .modal-actions .btn-confirm{background:#1f6e68;color:#fff}.modal-actions .btn-confirm:hover{background:#0f4a44}
     .modal-actions .btn-danger{background:#b91c1c;color:#fff}.modal-actions .btn-danger:hover{background:#991b1b}
+
+    .ai-panel{position:absolute;left:1rem;right:1rem;top:1rem;z-index:3;display:flex;gap:.5rem;flex-wrap:wrap;pointer-events:none}
+    .ai-chip{background:rgba(0,0,0,.62);color:rgba(255,255,255,.9);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:.25rem .75rem;font-size:.6rem;font-weight:800;backdrop-filter:blur(6px)}
+    .ai-chip.ok{background:rgba(15,123,92,.82)}.ai-chip.bad{background:rgba(185,28,28,.82)}.ai-chip.warn{background:rgba(146,64,14,.82)}
+    .ai-guide{position:absolute;left:50%;top:72%;transform:translate(-50%,-50%);z-index:3;background:rgba(0,0,0,.68);color:#fff;border-radius:1rem;padding:.55rem 1rem;font-size:.72rem;font-weight:800;text-align:center;display:none;max-width:90%;box-shadow:0 10px 25px rgba(0,0,0,.28)}
+    .face-overlay.ai-ok{border-color:#4ade80;box-shadow:0 0 42px rgba(74,222,128,.25)}
+    .face-overlay.ai-bad{border-color:#ef4444;box-shadow:0 0 42px rgba(239,68,68,.18)}
+
     @media(max-width:860px){.face-body{flex-direction:column;padding:1rem}.face-left{width:100%;max-height:240px}.face-card{max-height:none;border-radius:1.6rem}.face-header{padding:.8rem 1.2rem}.face-header h2{font-size:1.1rem}.camera-box{min-height:260px}.face-overlay{width:140px;height:180px}.emp-details{flex-direction:column;align-items:stretch}.emp-details .right{justify-content:center}.search-box{flex-direction:column}.filter-group{justify-content:center}}
     @media(max-width:480px){body{padding:.6rem}.face-card{border-radius:1.2rem}.face-header .right button{font-size:.6rem;padding:.25rem .7rem}.face-body{padding:.8rem}.camera-controls{gap:.4rem}.camera-controls button{padding:.3rem .8rem;font-size:.65rem}.face-overlay{width:100px;height:140px}.emp-details .left{flex-direction:column;text-align:center}}
   </style>
@@ -161,6 +204,13 @@
           <div class="camera-status" id="cameraStatus">
             <span class="dot"></span> Ready
           </div>
+
+          <div class="ai-panel" id="aiPanel">
+            <span class="ai-chip warn" id="aiFaceChip">AI Face: Ready</span>
+            <span class="ai-chip warn" id="aiLiveChip">Liveness: Pending</span>
+            <span class="ai-chip warn" id="aiQualityChip">Quality: Pending</span>
+          </div>
+          <div class="ai-guide" id="aiGuide">AI check ke liye face frame me rakhein</div>
 
           <div class="camera-controls">
             <button class="btn-cancel" id="cancelCaptureBtn" style="display:none;"><i class="fas fa-times"></i> Cancel</button>
@@ -303,6 +353,14 @@ let capturedDataUrl = null;
 let currentFilter = 'all';
 let cameraStream = null;
 let isCameraOpen = false;
+
+let aiScanTimer = null;
+let aiReadyToCapture = false;
+let aiLastFaceBox = null;
+let aiCenterHistory = [];
+let aiChallengeStep = 'left';
+let aiChallengeDone = false;
+let aiCheckBusy = false;
 
 const STATUS_LABELS = {
   registered: 'Done ✓',
@@ -664,6 +722,7 @@ function selectEmployee(id) {
 }
 
 function resetCameraUiForEmployee(emp) {
+  resetAIState();
   document.getElementById('videoPreview').style.display = 'none';
   document.getElementById('canvasPreview').style.display = 'none';
   document.getElementById('captureBtn').style.display = 'inline-flex';
@@ -709,6 +768,179 @@ function resetCameraUiForEmployee(emp) {
   }
 }
 
+
+// ─────────────────────────────────────────────────────────────
+// AI FACE DETECTION + LIVENESS
+// ─────────────────────────────────────────────────────────────
+function setAIChip(id, text, state) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'ai-chip ' + (state || 'warn');
+}
+
+function resetAIState() {
+  aiReadyToCapture = false;
+  aiLastFaceBox = null;
+  aiCenterHistory = [];
+  aiChallengeStep = 'left';
+  aiChallengeDone = false;
+  aiCheckBusy = false;
+  if (aiScanTimer) clearInterval(aiScanTimer);
+  aiScanTimer = null;
+  setAIChip('aiFaceChip', 'AI Face: Ready', 'warn');
+  setAIChip('aiLiveChip', 'Liveness: Pending', 'warn');
+  setAIChip('aiQualityChip', 'Quality: Pending', 'warn');
+  const guide = document.getElementById('aiGuide');
+  if (guide) { guide.style.display = 'none'; guide.textContent = 'AI check ke liye face frame me rakhein'; }
+  const overlay = document.getElementById('faceOverlay');
+  if (overlay) overlay.classList.remove('ai-ok', 'ai-bad');
+}
+
+function getBoxFromDetection(det) {
+  const b = det && det.boundingBox;
+  if (!b) return null;
+  return {
+    x: b.originX || 0,
+    y: b.originY || 0,
+    w: b.width || 0,
+    h: b.height || 0
+  };
+}
+
+function getFrameQuality(video, box) {
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 720;
+  if (!box || !box.w || !box.h) return { ok:false, reason:'Face clear nahi hai' };
+  const areaRatio = (box.w * box.h) / (w * h);
+  const cx = (box.x + box.w / 2) / w;
+  const cy = (box.y + box.h / 2) / h;
+  if (areaRatio < 0.10) return { ok:false, reason:'Face camera ke paas lao' };
+  if (areaRatio > 0.65) return { ok:false, reason:'Face bahut zoom hai' };
+  if (cx < 0.20 || cx > 0.80 || cy < 0.15 || cy > 0.85) return { ok:false, reason:'Face center me rakho' };
+  return { ok:true, reason:'Quality OK' };
+}
+
+function updateLivenessByMovement(video, box) {
+  const w = video.videoWidth || 640;
+  const cx = (box.x + box.w / 2) / w;
+  aiCenterHistory.push(cx);
+  if (aiCenterHistory.length > 60) aiCenterHistory.shift();
+
+  const guide = document.getElementById('aiGuide');
+  if (guide) guide.style.display = 'block';
+
+  if (aiChallengeStep === 'left') {
+    if (guide) guide.textContent = 'AI Liveness: face thoda LEFT move karein';
+    setAIChip('aiLiveChip', 'Liveness: Move Left', 'warn');
+    if (cx < 0.42) aiChallengeStep = 'right';
+    return false;
+  }
+  if (aiChallengeStep === 'right') {
+    if (guide) guide.textContent = 'AI Liveness: ab face RIGHT move karein';
+    setAIChip('aiLiveChip', 'Liveness: Move Right', 'warn');
+    if (cx > 0.58) aiChallengeStep = 'center';
+    return false;
+  }
+  if (aiChallengeStep === 'center') {
+    if (guide) guide.textContent = 'AI Liveness: face center me rakhein';
+    setAIChip('aiLiveChip', 'Liveness: Center', 'warn');
+    if (cx > 0.44 && cx < 0.56) {
+      aiChallengeDone = true;
+      if (guide) guide.textContent = '✅ AI live face verified. Ab Take Photo dabayein.';
+      setAIChip('aiLiveChip', 'Liveness: OK', 'ok');
+      return true;
+    }
+    return false;
+  }
+  return aiChallengeDone;
+}
+
+async function runLiveAICheck() {
+  if (aiCheckBusy || !isCameraOpen) return;
+  const video = document.getElementById('videoPreview');
+  const captureBtn = document.getElementById('captureBtn');
+  const overlay = document.getElementById('faceOverlay');
+  aiCheckBusy = true;
+
+  try {
+    if (!window.AIFace || !video || video.readyState < 2) return;
+    const detections = await window.AIFace.detectVideoFace(video);
+
+    if (!detections.length) {
+      aiReadyToCapture = false;
+      setAIChip('aiFaceChip', 'AI Face: Not Found', 'bad');
+      setAIChip('aiQualityChip', 'Quality: Pending', 'warn');
+      setAIChip('aiLiveChip', 'Liveness: Pending', 'warn');
+      if (overlay) { overlay.classList.remove('ai-ok'); overlay.classList.add('ai-bad'); }
+      if (captureBtn) { captureBtn.disabled = true; captureBtn.innerHTML = '<i class="fas fa-robot"></i> Face Not Found'; }
+      return;
+    }
+
+    if (detections.length > 1) {
+      aiReadyToCapture = false;
+      setAIChip('aiFaceChip', 'AI Face: Multiple', 'bad');
+      setAIChip('aiQualityChip', 'Quality: One face only', 'bad');
+      if (overlay) { overlay.classList.remove('ai-ok'); overlay.classList.add('ai-bad'); }
+      if (captureBtn) { captureBtn.disabled = true; captureBtn.innerHTML = '<i class="fas fa-user-slash"></i> One Face Only'; }
+      return;
+    }
+
+    const box = getBoxFromDetection(detections[0]);
+    aiLastFaceBox = box;
+    const q = getFrameQuality(video, box);
+    setAIChip('aiFaceChip', 'AI Face: Found', 'ok');
+
+    if (!q.ok) {
+      aiReadyToCapture = false;
+      setAIChip('aiQualityChip', 'Quality: ' + q.reason, 'bad');
+      if (overlay) { overlay.classList.remove('ai-ok'); overlay.classList.add('ai-bad'); }
+      if (captureBtn) { captureBtn.disabled = true; captureBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Adjust Face'; }
+      return;
+    }
+
+    setAIChip('aiQualityChip', 'Quality: OK', 'ok');
+    const liveOk = updateLivenessByMovement(video, box);
+    aiReadyToCapture = !!liveOk;
+
+    if (overlay) {
+      overlay.classList.toggle('ai-ok', aiReadyToCapture);
+      overlay.classList.toggle('ai-bad', !aiReadyToCapture);
+    }
+    if (captureBtn) {
+      captureBtn.disabled = !aiReadyToCapture;
+      captureBtn.innerHTML = aiReadyToCapture
+        ? '<i class="fas fa-camera"></i> Take Photo'
+        : '<i class="fas fa-robot"></i> AI Checking...';
+    }
+  } catch (err) {
+    console.error('AI face check error:', err);
+    aiReadyToCapture = false;
+    setAIChip('aiFaceChip', 'AI Face: Error', 'bad');
+    if (captureBtn) { captureBtn.disabled = true; captureBtn.innerHTML = '<i class="fas fa-triangle-exclamation"></i> AI Error'; }
+  } finally {
+    aiCheckBusy = false;
+  }
+}
+
+function startAIScanLoop() {
+  resetAIState();
+  const guide = document.getElementById('aiGuide');
+  if (guide) { guide.style.display = 'block'; guide.textContent = 'AI face detector load ho raha hai...'; }
+  const captureBtn = document.getElementById('captureBtn');
+  if (captureBtn) { captureBtn.disabled = true; captureBtn.innerHTML = '<i class="fas fa-robot"></i> AI Loading...'; }
+  if (aiScanTimer) clearInterval(aiScanTimer);
+  aiScanTimer = setInterval(runLiveAICheck, 350);
+}
+
+async function validateCapturedCanvasAI(canvas) {
+  if (!window.AIFace) return { ok:false, reason:'AI model load nahi hua' };
+  const detections = await window.AIFace.detectCanvasFace(canvas);
+  if (!detections.length) return { ok:false, reason:'Captured photo me face detect nahi hua' };
+  if (detections.length > 1) return { ok:false, reason:'Captured photo me multiple faces hain' };
+  return { ok:true, reason:'AI captured face OK' };
+}
+
 // ─────────────────────────────────────────────────────────────
 // CAMERA
 // ─────────────────────────────────────────────────────────────
@@ -738,12 +970,13 @@ async function startCamera() {
 
     document.getElementById('canvasPreview').style.display = 'none';
     document.getElementById('cameraPlaceholder').style.display = 'none';
-    document.getElementById('captureBtn').innerHTML = '<i class="fas fa-camera"></i> Take Photo';
-    document.getElementById('captureBtn').disabled = false;
+    document.getElementById('captureBtn').innerHTML = '<i class="fas fa-robot"></i> AI Loading...';
+    document.getElementById('captureBtn').disabled = true;
     document.getElementById('cancelCaptureBtn').style.display = 'inline-flex';
     document.getElementById('registerBtn').style.display = 'none';
     document.getElementById('faceOverlay').style.display = 'block';
-    setCameraStatus('Camera Live', 'green');
+    setCameraStatus('AI Camera Live', 'green');
+    startAIScanLoop();
   } catch (err) {
     console.error('camera error:', err);
     showToast('Camera permission allow karo. HTTPS/live server par open karo.', true);
@@ -751,12 +984,17 @@ async function startCamera() {
   }
 }
 
-function capturePhoto() {
+async function capturePhoto() {
   const video = document.getElementById('videoPreview');
   const canvas = document.getElementById('canvasPreview');
 
   if (!cameraStream || !isCameraOpen) {
     startCamera();
+    return;
+  }
+
+  if (!aiReadyToCapture) {
+    showToast('AI live face verify hone ke baad hi photo capture hoga.', true);
     return;
   }
 
@@ -767,6 +1005,12 @@ function capturePhoto() {
 
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0, w, h);
+
+  const aiPhotoCheck = await validateCapturedCanvasAI(canvas);
+  if (!aiPhotoCheck.ok) {
+    showToast(aiPhotoCheck.reason, true);
+    return;
+  }
 
   canvas.toBlob(blob => {
     if (!blob) {
@@ -786,12 +1030,17 @@ function capturePhoto() {
     document.getElementById('registerBtn').style.display = 'inline-flex';
     document.getElementById('cancelCaptureBtn').style.display = 'inline-flex';
     document.getElementById('faceOverlay').style.display = 'none';
-    setCameraStatus('Captured', 'green');
-    showToast('📸 Face captured. Register Face dabao.');
+    setAIChip('aiFaceChip', 'AI Face: Verified', 'ok');
+    setAIChip('aiLiveChip', 'Liveness: OK', 'ok');
+    setAIChip('aiQualityChip', 'Quality: OK', 'ok');
+    setCameraStatus('AI Captured', 'green');
+    showToast('📸 AI verified face captured. Register Face dabao.');
   }, 'image/jpeg', 0.90);
 }
 
 function stopCamera(resetVideo = true) {
+  if (aiScanTimer) clearInterval(aiScanTimer);
+  aiScanTimer = null;
   if (cameraStream) {
     cameraStream.getTracks().forEach(t => t.stop());
   }
@@ -826,6 +1075,13 @@ async function registerFace() {
   }
   if (!capturedBlob) {
     showToast('Please capture face first.', true);
+    return;
+  }
+
+  const canvasForAI = document.getElementById('canvasPreview');
+  const finalAI = await validateCapturedCanvasAI(canvasForAI);
+  if (!finalAI.ok) {
+    showToast(finalAI.reason + '. Dobara capture karo.', true);
     return;
   }
 
