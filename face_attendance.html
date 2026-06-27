@@ -124,10 +124,10 @@ const FACE_MATCH_THRESHOLD = 0.55;
 // AI/LIVENESS CONFIG
 // Client-side liveness photo/video ko kaafi had tak block karega: live camera, single face,
 // blink challenge + head movement + anti-static frames. Strongest security ke liye server-side verification bhi rakho.
-const LIVENESS_SCAN_MS = 4500;
+const LIVENESS_SCAN_MS = 3200; // max live scan time - endless scanning nahi hoga
 const LIVENESS_MIN_BLINKS = 1;
-const LIVENESS_MIN_HEAD_MOVEMENT = 0.035;
-const LIVENESS_MIN_FACE_VARIATION = 0.006;
+const LIVENESS_MIN_HEAD_MOVEMENT = 0.020;
+const LIVENESS_MIN_FACE_VARIATION = 0.003;
 const PRESENT_SHORT_ALLOWANCE_MINUTES = 60; // duty se 30-60 min kam bhi present
 const HALF_DAY_STATUS = 'half_day';
 const ABSENT_STATUS = 'absent';
@@ -243,6 +243,32 @@ async function loadRegisteredFaceDescriptor(){
 }
 
 
+function waitMs(ms){ return new Promise(resolve=>setTimeout(resolve, ms)); }
+function withTimeout(promise, ms, message){
+  let timer;
+  const timeout = new Promise((_, reject)=>{
+    timer = setTimeout(()=>reject(new Error(message || `Timeout ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(()=>clearTimeout(timer));
+}
+async function waitForVideoReady(video, ms=2200){
+  const start = Date.now();
+  while(Date.now() - start < ms){
+    if(video && video.readyState >= 2 && (video.videoWidth || 0) > 0 && (video.videoHeight || 0) > 0) return true;
+    await waitMs(80);
+  }
+  throw new Error('Camera frame ready nahi hua. Camera permission/HTTPS check karo.');
+}
+async function detectFacesFast(input, timeoutMs=1200){
+  return withTimeout(
+    faceapi.detectAllFaces(input, getFaceOptions()).withFaceLandmarks().withFaceDescriptors(),
+    timeoutMs,
+    'Face AI response timeout. Light badhao aur face camera ke center me rakho.'
+  );
+}
+
+
+
 function getEyeAspectRatio(points){
   if(!points || points.length < 6) return 1;
   const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -271,7 +297,8 @@ function descriptorVariation(list){
 }
 async function runLivenessCheck(video){
   await loadFaceApiModels();
-  setCheck('liveCheck','warn','Blink karo / halka face move karo...');
+  await waitForVideoReady(video, 2500);
+  setCheck('liveCheck','warn','Live check: blink karo ya halka face move karo...');
   setScanStatus('👁️ Live AI checking...','scanning');
   setCameraStatus('Live AI Check','yellow');
 
@@ -286,13 +313,23 @@ async function runLivenessCheck(video){
   let minArea=Infinity, maxArea=0;
 
   while(Date.now() < endAt){
-    const detections = await faceapi
-      .detectAllFaces(video, getFaceOptions())
-      .withFaceLandmarks()
-      .withFaceDescriptors();
+    let detections=[];
+    try{
+      detections = await detectFacesFast(video, 900);
+    }catch(e){
+      noFaceFrames++;
+      document.getElementById('scanStatus').textContent = 'Face detect retry...';
+      await waitMs(120);
+      continue;
+    }
 
-    if(detections.length > 1){ multiFaceFound=true; }
-    if(detections.length !== 1){ noFaceFrames++; await new Promise(r=>setTimeout(r,170)); continue; }
+    if(detections.length > 1){ multiFaceFound=true; break; }
+    if(detections.length !== 1){
+      noFaceFrames++;
+      document.getElementById('scanStatus').textContent = 'No face detected';
+      await waitMs(120);
+      continue;
+    }
 
     const d=detections[0];
     validFrames++;
@@ -307,24 +344,28 @@ async function runLivenessCheck(video){
     if(closed && !wasEyeClosed) blinkCount++;
     wasEyeClosed = closed;
 
-    document.getElementById('scanStatus').textContent = `👁️ Live check: blink ${blinkCount}/${LIVENESS_MIN_BLINKS}`;
-    await new Promise(r=>setTimeout(r,170));
+    const currentMove = headSignals.length > 1 ? (Math.max(...headSignals)-Math.min(...headSignals)) : 0;
+    document.getElementById('scanStatus').textContent = `👁️ Live: blink ${blinkCount}/${LIVENESS_MIN_BLINKS} · move ${(currentMove*100).toFixed(1)}%`;
+
+    // Fast pass: enough live evidence milte hi wait nahi karega.
+    if(validFrames >= 6 && (blinkCount >= LIVENESS_MIN_BLINKS || currentMove >= LIVENESS_MIN_HEAD_MOVEMENT)) break;
+    await waitMs(120);
   }
 
   if(multiFaceFound) throw new Error('Multiple faces detected. Attendance reject. Sirf employee ka face camera me rakho.');
-  if(validFrames < 8) throw new Error('Live face clearly detect nahi hua. Camera me apna real face rakho.');
+  if(validFrames < 4) throw new Error('No Face Detected / face clear nahi hai. 3 second me face detect nahi hua.');
 
-  const headMove = Math.max(...headSignals) - Math.min(...headSignals);
+  const headMove = headSignals.length ? (Math.max(...headSignals) - Math.min(...headSignals)) : 0;
   const variation = descriptorVariation(descriptors);
   const areaMove = (Number.isFinite(minArea) && maxArea>0) ? Math.abs(maxArea-minArea)/maxArea : 0;
 
-  // Photo/screen/video replay block: blink challenge + natural motion/variation required.
-  // Recorded video me kabhi pass ho sakta hai; random live blink/head challenge recommended.
+  // User experience fix: 3.2 sec ke andar hamesha pass/fail. Infinite scan nahi.
+  // Photo/screen ke liye blink ya head movement required hai.
   if(blinkCount < LIVENESS_MIN_BLINKS && headMove < LIVENESS_MIN_HEAD_MOVEMENT){
-    throw new Error('Liveness failed: blink/head movement detect nahi hua. Photo/video se attendance reject.');
+    throw new Error('Fake photo/video reject: blink ya head movement detect nahi hua. Live face se scan karo.');
   }
-  if(variation < LIVENESS_MIN_FACE_VARIATION && areaMove < 0.02){
-    throw new Error('Anti-spoof failed: face frame static lag raha hai. Photo/screen/video allowed nahi hai.');
+  if(validFrames >= 6 && variation < LIVENESS_MIN_FACE_VARIATION && areaMove < 0.015 && blinkCount < LIVENESS_MIN_BLINKS){
+    throw new Error('Static face reject: photo/screen/video lag raha hai. Live blink karke retry karo.');
   }
 
   setCheck('liveCheck','ok',`Live face passed<br><small>Blink ${blinkCount}, movement ${(headMove*100).toFixed(1)}%</small>`);
@@ -359,8 +400,8 @@ function minToHourText(min){
 async function verifyCapturedFace(){
   await loadFaceApiModels();
   const canvas = document.getElementById('canvasPreview');
-  const liveDescriptor = await descriptorFromImageElement(canvas);
-  const regDescriptor = await loadRegisteredFaceDescriptor();
+  const liveDescriptor = await withTimeout(descriptorFromImageElement(canvas), 1800, 'Captured face match timeout. Face clear nahi hai.');
+  const regDescriptor = await withTimeout(loadRegisteredFaceDescriptor(), 2200, 'Registered face load timeout. Storage/CORS check karo.');
   const distance = euclideanDistance(liveDescriptor, regDescriptor);
   const score = faceDistanceToPercent(distance);
   const matched = distance <= FACE_MATCH_THRESHOLD;
@@ -1029,39 +1070,52 @@ async function scanFace(){
   if(state.action==='done' || state.action==='blocked'){ showToast('Attendance action allowed nahi hai.', true); return; }
 
   isScanning=true;
-  document.getElementById('scanBtn').disabled=true;
-  document.getElementById('scanBtn').innerHTML='<i class="fas fa-spinner fa-spin"></i> Scanning...';
+  let timer=null;
+  const btn=document.getElementById('scanBtn');
+  btn.disabled=true;
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Scanning...';
   document.getElementById('scanProgress').className='scan-progress active';
   document.getElementById('scanBar').style.width='0%';
-  setScanStatus('🔍 Scanning...','scanning');
+  setScanStatus('🔍 Camera starting...','scanning');
   setCameraStatus('Scanning','yellow');
 
-  const camOk=await startCamera();
-  if(!camOk){ isScanning=false; updateScanButton(); return; }
-  let progress=0;
-  const timer=setInterval(()=>{ progress=Math.min(95,progress+4); document.getElementById('scanBar').style.width=progress+'%'; },120);
   try{
+    const camOk = await withTimeout(startCamera(), 3500, 'Camera start timeout. Camera permission allow karo.');
+    if(!camOk) throw new Error('Camera start nahi hua. HTTPS/live server use karo.');
+
+    let progress=0;
+    timer=setInterval(()=>{
+      progress=Math.min(96,progress+6);
+      document.getElementById('scanBar').style.width=progress+'%';
+    },120);
+
     const video=document.getElementById('videoPreview');
-    await runLivenessCheck(video);
-    await captureFrame();
-    clearInterval(timer); document.getElementById('scanBar').style.width='100%';
-    stopCamera();
+
+    // Full scan max approx 8 sec. Koi step hang hua to direct error response.
+    await withTimeout(runLivenessCheck(video), 5200, 'Scan timeout: 5 second me live face confirm nahi hua. Retry karo.');
+    await withTimeout(captureFrame(), 1600, 'Camera capture timeout. Retry karo.');
     setScanStatus('🧠 Matching face...','scanning');
     setCameraStatus('Face Matching','yellow');
-    await verifyCapturedFace();
-    await saveAttendance(state.action);
+    document.getElementById('scanBar').style.width='98%';
+
+    await withTimeout(verifyCapturedFace(), 4500, 'Face match timeout. Registered image/CORS/model check karo.');
+    await withTimeout(saveAttendance(state.action), 10000, 'Attendance save timeout. Internet/Supabase check karo.');
+
+    document.getElementById('scanBar').style.width='100%';
     document.getElementById('faceOverlay').className='face-overlay success';
     setScanStatus('✅ Verified','success');
     setCameraStatus('Verified','green');
   }catch(e){
-    try{ clearInterval(timer); stopCamera(); }catch(_e){}
-    console.error('saveAttendance error:', e);
+    console.error('Face attendance scan failed:', e);
     document.getElementById('faceOverlay').className='face-overlay failed';
     setScanStatus('❌ Failed','failed');
     setCameraStatus('Failed','red');
-    showResult(false, 'Attendance save failed', e.message || 'Supabase error');
-    showToast(e.message || 'Attendance save failed', true);
+    setCheck('liveCheck','bad', esc(e.message || 'Scan failed'));
+    showResult(false, 'Attendance Rejected', esc(e.message || 'Scan failed'));
+    showToast(e.message || 'Scan failed', true);
   }finally{
+    try{ if(timer) clearInterval(timer); }catch(_e){}
+    try{ stopCamera(); }catch(_e){}
     isScanning=false;
     document.getElementById('scanProgress').className='scan-progress';
     updateScanButton();
