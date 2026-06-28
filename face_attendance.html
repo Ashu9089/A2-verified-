@@ -16,7 +16,7 @@
     .att-header .left{display:flex;align-items:center;gap:12px}.back-btn{background:#f0f8f6;border:none;width:38px;height:38px;border-radius:50%;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;color:#1e3a3a;font-size:.9rem}.back-btn:hover{background:#e0efeb}
     .att-header h2{font-size:1.2rem;font-weight:800;color:#1e3a3a;display:flex;align-items:center;gap:10px}.att-header h2 i{color:#1f6e68}.att-header .sub{font-size:.65rem;color:#5b8a82;margin-top:2px}
     .user-badge{display:flex;align-items:center;gap:8px;padding:.3rem .8rem .3rem .6rem;background:#f0f8f6;border-radius:2rem;border:1px solid #e0efeb}.user-badge .avatar{width:32px;height:32px;border-radius:50%;background:#1f6e68;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.7rem}.user-badge .name{font-size:.78rem;font-weight:600;color:#1e3a3a}.user-badge .role{font-size:.55rem;color:#5b8a82}
-    .date-time-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.6rem 1rem;background:#f6fbfa;border-radius:1.2rem;border:1px solid #e0efeb;margin-bottom:1.2rem}.date-time-bar .date{font-weight:600;color:#1e3a3a;font-size:.85rem;display:flex;align-items:center;gap:6px}.date-time-bar .date i{color:#1f6e68}.date-time-bar .time{font-weight:800;color:#1f6e68;font-size:1.1rem;font-variant-numeric:tabular-nums}.status-pill{font-size:.65rem;font-weight:700;padding:.2rem 1rem;border-radius:999px}.present{background:#e0f2ed;color:#0f7b5c}.halfday{background:#fef3c7;color:#92400e}.absent{background:#fee2e2;color:#991b1b}.late{background:#fef3c7;color:#92400e}.leave{background:#dbeafe;color:#1e40af}.weeklyoff{background:#e8eaf6;color:#283593}.blocked{background:#fee2e2;color:#991b1b}
+    .date-time-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.6rem 1rem;background:#f6fbfa;border-radius:1.2rem;border:1px solid #e0efeb;margin-bottom:1.2rem}.date-time-bar .date{font-weight:600;color:#1e3a3a;font-size:.85rem;display:flex;align-items:center;gap:6px}.date-time-bar .date i{color:#1f6e68}.date-time-bar .time{font-weight:800;color:#1f6e68;font-size:1.1rem;font-variant-numeric:tabular-nums}.status-pill{font-size:.65rem;font-weight:700;padding:.2rem 1rem;border-radius:999px}.present{background:#e0f2ed;color:#0f7b5c}.absent{background:#fee2e2;color:#991b1b}.late{background:#fef3c7;color:#92400e}.leave{background:#dbeafe;color:#1e40af}.weeklyoff{background:#e8eaf6;color:#283593}.blocked{background:#fee2e2;color:#991b1b}
     .camera-box{background:#0f2f2c;border-radius:1.6rem;border:1px solid #e0efeb;overflow:hidden;position:relative;min-height:400px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a3a35,#0a1a18);margin-bottom:1.2rem}
     #videoPreview,#canvasPreview{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:cover;display:none;position:absolute;inset:0;z-index:0}.camera-placeholder{text-align:center;color:rgba(255,255,255,.3);z-index:1;padding:1rem}.camera-placeholder i{font-size:4.5rem;display:block;margin-bottom:.5rem}.camera-placeholder .text{font-size:.9rem;font-weight:500;color:rgba(255,255,255,.6)}.camera-placeholder .sub{font-size:.65rem;opacity:.65;max-width:520px}.scan-status{margin-top:.6rem;padding:.3rem 1.2rem;border-radius:999px;font-size:.7rem;font-weight:700;display:inline-block}.scan-status.scanning{background:rgba(245,158,11,.3);color:#fbbf24;animation:pulse-glow 1s ease-in-out infinite}.scan-status.success{background:rgba(15,123,92,.3);color:#4ade80}.scan-status.failed{background:rgba(185,28,28,.3);color:#f87171}.scan-status.idle{background:rgba(255,255,255,.08);color:rgba(255,255,255,.65)}@keyframes pulse-glow{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.02)}}
     .face-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:240px;border:2px dashed rgba(255,255,255,.15);border-radius:1.2rem;pointer-events:none;animation:pulse-border 2.5s ease-in-out infinite;z-index:1}.face-overlay.scanning{border-color:rgba(245,158,11,.5);animation:pulse-border-scan .8s ease-in-out infinite}.face-overlay.success{border-color:rgba(74,222,128,.6);animation:none;background:rgba(74,222,128,.05)}.face-overlay.failed{border-color:rgba(248,113,113,.6);animation:none;background:rgba(248,113,113,.05)}@keyframes pulse-border{0%,100%{border-color:rgba(255,255,255,.12);box-shadow:0 0 30px rgba(31,110,104,0)}50%{border-color:rgba(31,110,104,.4);box-shadow:0 0 40px rgba(31,110,104,.1)}}@keyframes pulse-border-scan{0%,100%{border-color:rgba(245,158,11,.5);box-shadow:0 0 30px rgba(245,158,11,.1)}50%{border-color:rgba(245,158,11,.8);box-shadow:0 0 50px rgba(245,158,11,.2)}}
@@ -77,7 +77,6 @@
       <div class="check-item warn" id="faceCheck"><strong>Face</strong><span>Checking...</span></div>
       <div class="check-item warn" id="rosterCheck"><strong>Roster</strong><span>Checking...</span></div>
       <div class="check-item warn" id="geoCheck"><strong>Location</strong><span>Checking...</span></div>
-      <div class="check-item warn" id="liveCheck"><strong>Live AI</strong><span>Waiting scan</span></div>
     </div>
 
     <div class="geo-detail-panel">
@@ -121,16 +120,6 @@ const ATTENDANCE_FACE_BUCKET = 'employee-face'; // same bucket, attendance folde
 // face-api.js me Euclidean distance kam hota hai to face match better hota hai.
 // 0.45 strict, 0.55 balanced, 0.60 loose. Hospital attendance ke liye 0.55 safe starting point hai.
 const FACE_MATCH_THRESHOLD = 0.55;
-// AI/LIVENESS CONFIG
-// Client-side liveness photo/video ko kaafi had tak block karega: live camera, single face,
-// blink challenge + head movement + anti-static frames. Strongest security ke liye server-side verification bhi rakho.
-const LIVENESS_SCAN_MS = 3200; // max live scan time - endless scanning nahi hoga
-const LIVENESS_MIN_BLINKS = 1;
-const LIVENESS_MIN_HEAD_MOVEMENT = 0.020;
-const LIVENESS_MIN_FACE_VARIATION = 0.003;
-const PRESENT_SHORT_ALLOWANCE_MINUTES = 60; // duty se 30-60 min kam bhi present
-const HALF_DAY_STATUS = 'half_day';
-const ABSENT_STATUS = 'absent';
 const FACE_MODEL_URLS = [
   'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights',
   'https://justadudewhohacks.github.io/face-api.js/models'
@@ -168,6 +157,24 @@ let isScanning = false;
 let faceModelsLoaded = false;
 let registeredFaceDescriptor = null;
 let lastFaceMatch = null;
+let outsidePunchPermission = { allowed:false, loaded:false, reason:'', mode:'employee' };
+
+function googleMapUrl(lat,lng){
+  if(lat===null || lat===undefined || lng===null || lng===undefined) return '';
+  return `https://www.google.com/maps?q=${encodeURIComponent(lat + ',' + lng)}`;
+}
+function googleStreetViewUrl(lat,lng){
+  if(lat===null || lat===undefined || lng===null || lng===undefined) return '';
+  // API key free Google Maps Street View / panorama open link
+  return `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${encodeURIComponent(lat + ',' + lng)}`;
+}
+function isOutsideAllowed(){
+  return !!(outsidePunchPermission && outsidePunchPermission.allowed === true);
+}
+function outsidePermissionLabel(){
+  if(isOutsideAllowed()) return outsidePunchPermission.reason || 'Admin outside punch permission enabled';
+  return 'Outside punch permission not enabled';
+}
 
 
 async function loadFaceApiModels(){
@@ -242,166 +249,11 @@ async function loadRegisteredFaceDescriptor(){
   return registeredFaceDescriptor;
 }
 
-
-function waitMs(ms){ return new Promise(resolve=>setTimeout(resolve, ms)); }
-function withTimeout(promise, ms, message){
-  let timer;
-  const timeout = new Promise((_, reject)=>{
-    timer = setTimeout(()=>reject(new Error(message || `Timeout ${ms}ms`)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(()=>clearTimeout(timer));
-}
-async function waitForVideoReady(video, ms=2200){
-  const start = Date.now();
-  while(Date.now() - start < ms){
-    if(video && video.readyState >= 2 && (video.videoWidth || 0) > 0 && (video.videoHeight || 0) > 0) return true;
-    await waitMs(80);
-  }
-  throw new Error('Camera frame ready nahi hua. Camera permission/HTTPS check karo.');
-}
-async function detectFacesFast(input, timeoutMs=1200){
-  return withTimeout(
-    faceapi.detectAllFaces(input, getFaceOptions()).withFaceLandmarks().withFaceDescriptors(),
-    timeoutMs,
-    'Face AI response timeout. Light badhao aur face camera ke center me rakho.'
-  );
-}
-
-
-
-function getEyeAspectRatio(points){
-  if(!points || points.length < 6) return 1;
-  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-  const A=dist(points[1],points[5]);
-  const B=dist(points[2],points[4]);
-  const C=dist(points[0],points[3]) || 1;
-  return (A+B)/(2*C);
-}
-function getHeadPoseSignal(landmarks){
-  try{
-    const jaw=landmarks.getJawOutline();
-    const nose=landmarks.getNose();
-    const left=jaw[0], right=jaw[16], noseTip=nose[3] || nose[0];
-    const width=Math.max(1, right.x-left.x);
-    return (noseTip.x-left.x)/width; // around .50 center, side turn changes value
-  }catch(e){ return .5; }
-}
-function faceBoxArea(det){
-  try{ return Number(det.detection.box.width) * Number(det.detection.box.height); }catch(e){ return 0; }
-}
-function descriptorVariation(list){
-  if(!list || list.length < 2) return 0;
-  let total=0, count=0;
-  for(let i=1;i<list.length;i++){ total += euclideanDistance(list[i-1], list[i]); count++; }
-  return count ? total/count : 0;
-}
-async function runLivenessCheck(video){
-  await loadFaceApiModels();
-  await waitForVideoReady(video, 2500);
-  setCheck('liveCheck','warn','Live check: blink karo ya halka face move karo...');
-  setScanStatus('👁️ Live AI checking...','scanning');
-  setCameraStatus('Live AI Check','yellow');
-
-  const endAt = Date.now() + LIVENESS_SCAN_MS;
-  const descriptors=[];
-  const headSignals=[];
-  let blinkCount=0;
-  let wasEyeClosed=false;
-  let validFrames=0;
-  let multiFaceFound=false;
-  let noFaceFrames=0;
-  let minArea=Infinity, maxArea=0;
-
-  while(Date.now() < endAt){
-    let detections=[];
-    try{
-      detections = await detectFacesFast(video, 900);
-    }catch(e){
-      noFaceFrames++;
-      document.getElementById('scanStatus').textContent = 'Face detect retry...';
-      await waitMs(120);
-      continue;
-    }
-
-    if(detections.length > 1){ multiFaceFound=true; break; }
-    if(detections.length !== 1){
-      noFaceFrames++;
-      document.getElementById('scanStatus').textContent = 'No face detected';
-      await waitMs(120);
-      continue;
-    }
-
-    const d=detections[0];
-    validFrames++;
-    descriptors.push(Array.from(d.descriptor));
-    const area=faceBoxArea(d); minArea=Math.min(minArea,area); maxArea=Math.max(maxArea,area);
-    headSignals.push(getHeadPoseSignal(d.landmarks));
-
-    const leftEAR=getEyeAspectRatio(d.landmarks.getLeftEye());
-    const rightEAR=getEyeAspectRatio(d.landmarks.getRightEye());
-    const ear=(leftEAR+rightEAR)/2;
-    const closed = ear < 0.22;
-    if(closed && !wasEyeClosed) blinkCount++;
-    wasEyeClosed = closed;
-
-    const currentMove = headSignals.length > 1 ? (Math.max(...headSignals)-Math.min(...headSignals)) : 0;
-    document.getElementById('scanStatus').textContent = `👁️ Live: blink ${blinkCount}/${LIVENESS_MIN_BLINKS} · move ${(currentMove*100).toFixed(1)}%`;
-
-    // Fast pass: enough live evidence milte hi wait nahi karega.
-    if(validFrames >= 6 && (blinkCount >= LIVENESS_MIN_BLINKS || currentMove >= LIVENESS_MIN_HEAD_MOVEMENT)) break;
-    await waitMs(120);
-  }
-
-  if(multiFaceFound) throw new Error('Multiple faces detected. Attendance reject. Sirf employee ka face camera me rakho.');
-  if(validFrames < 4) throw new Error('No Face Detected / face clear nahi hai. 3 second me face detect nahi hua.');
-
-  const headMove = headSignals.length ? (Math.max(...headSignals) - Math.min(...headSignals)) : 0;
-  const variation = descriptorVariation(descriptors);
-  const areaMove = (Number.isFinite(minArea) && maxArea>0) ? Math.abs(maxArea-minArea)/maxArea : 0;
-
-  // User experience fix: 3.2 sec ke andar hamesha pass/fail. Infinite scan nahi.
-  // Photo/screen ke liye blink ya head movement required hai.
-  if(blinkCount < LIVENESS_MIN_BLINKS && headMove < LIVENESS_MIN_HEAD_MOVEMENT){
-    throw new Error('Fake photo/video reject: blink ya head movement detect nahi hua. Live face se scan karo.');
-  }
-  if(validFrames >= 6 && variation < LIVENESS_MIN_FACE_VARIATION && areaMove < 0.015 && blinkCount < LIVENESS_MIN_BLINKS){
-    throw new Error('Static face reject: photo/screen/video lag raha hai. Live blink karke retry karo.');
-  }
-
-  setCheck('liveCheck','ok',`Live face passed<br><small>Blink ${blinkCount}, movement ${(headMove*100).toFixed(1)}%</small>`);
-  return {blinkCount, headMove:Number(headMove.toFixed(4)), variation:Number(variation.toFixed(4)), areaMove:Number(areaMove.toFixed(4))};
-}
-function getShiftMinutes(){
-  if(!roster || !roster.shift_start || !roster.shift_end) return 0;
-  const start=parseTimeToday(roster.shift_start);
-  const end=parseTimeToday(roster.shift_end);
-  if(!start || !end) return 0;
-  if(end <= start) end.setDate(end.getDate()+1); // night shift support
-  return Math.max(0, Math.round((end-start)/60000));
-}
-function calcFinalDutyStatus(workedMinutes){
-  const dutyMinutes = getShiftMinutes();
-  if(!dutyMinutes) return {status:'present', label:'Present', dutyMinutes:0, requiredPresentMinutes:0, halfMinutes:0};
-  const halfMinutes = Math.ceil(dutyMinutes/2);
-  const requiredPresentMinutes = Math.max(halfMinutes, dutyMinutes - PRESENT_SHORT_ALLOWANCE_MINUTES);
-  let status, label;
-  if(workedMinutes >= requiredPresentMinutes){ status='present'; label='Present'; }
-  else if(workedMinutes >= halfMinutes){ status=HALF_DAY_STATUS; label='Half Day'; }
-  else { status=ABSENT_STATUS; label='Absent'; }
-  return {status,label,dutyMinutes,requiredPresentMinutes,halfMinutes};
-}
-function minToHourText(min){
-  const m=Math.max(0, Number(min)||0), h=Math.floor(m/60), r=Math.round(m%60);
-  if(h && r) return `${h}h ${r}m`;
-  if(h) return `${h}h`;
-  return `${r}m`;
-}
-
 async function verifyCapturedFace(){
   await loadFaceApiModels();
   const canvas = document.getElementById('canvasPreview');
-  const liveDescriptor = await withTimeout(descriptorFromImageElement(canvas), 1800, 'Captured face match timeout. Face clear nahi hai.');
-  const regDescriptor = await withTimeout(loadRegisteredFaceDescriptor(), 2200, 'Registered face load timeout. Storage/CORS check karo.');
+  const liveDescriptor = await descriptorFromImageElement(canvas);
+  const regDescriptor = await loadRegisteredFaceDescriptor();
   const distance = euclideanDistance(liveDescriptor, regDescriptor);
   const score = faceDistanceToPercent(distance);
   const matched = distance <= FACE_MATCH_THRESHOLD;
@@ -462,10 +314,11 @@ function updateGeoDetails(){
   setText('geoSourceValue', `${src}${branchName}`);
 
   if(currentDistance !== null && currentDistance !== undefined){
-    const ok = Number(currentDistance) <= radius;
+    const inside = Number(currentDistance) <= radius;
+    const allowedOutside = !inside && isOutsideAllowed();
     const val = document.getElementById('empDistanceValue');
-    if(val){ val.textContent = `${Math.round(Number(currentDistance))}m`; val.className = 'value ' + (ok ? 'green' : 'red'); }
-    setText('empDistanceSub', ok ? 'Inside allowed radius' : 'Outside allowed radius');
+    if(val){ val.textContent = `${Math.round(Number(currentDistance))}m`; val.className = 'value ' + (inside ? 'green' : allowedOutside ? 'yellow' : 'red'); }
+    setText('empDistanceSub', inside ? 'Inside allowed radius' : allowedOutside ? 'Outside allowed by admin' : 'Outside allowed radius');
   }else{
     const val = document.getElementById('empDistanceValue');
     if(val){ val.textContent='--'; val.className='value'; }
@@ -502,8 +355,11 @@ function geoText(){
 
   const dist = Math.round(Number(currentDistance));
   const acc = Math.round(Number(currentLocation.accuracy)||0);
-  const ok = dist <= radius;
-  return `${ok ? 'Inside' : 'Outside'}: Emp distance ${dist}m / Allowed ${Math.round(radius)}m<br><small>${src}${branchLabel} · GPS accuracy ${acc}m · Branch lat/lng ${Number(geofence.lat).toFixed(6)}, ${Number(geofence.lng).toFixed(6)}</small>`;
+  const inside = dist <= radius;
+  const allowedOutside = !inside && isOutsideAllowed();
+  const modeText = inside ? 'Inside' : allowedOutside ? 'Outside allowed by admin' : 'Outside';
+  const adminText = allowedOutside ? ` · ${outsidePermissionLabel()}` : '';
+  return `${modeText}: Emp distance ${dist}m / Allowed ${Math.round(radius)}m<br><small>${src}${branchLabel} · GPS accuracy ${acc}m · Branch lat/lng ${Number(geofence.lat).toFixed(6)}, ${Number(geofence.lng).toFixed(6)}${adminText}</small>`;
 }
 
 function updateDateTime(){
@@ -742,6 +598,49 @@ async function loadOrganization(){
   console.log('FINAL FACE GEOFENCE:', geofence.source, geofence);
 }
 
+
+async function loadOutsidePunchPermission(){
+  outsidePunchPermission = { allowed:false, loaded:false, reason:'', mode:'employee' };
+  if(!sb || !employee || !employee.id) return outsidePunchPermission;
+
+  // This table is created from outside_punch_supabase_setup.sql:
+  // employee_outside_punch_permissions(org_id, employee_id, outside_punch_allowed, enabled, allow_outside_punch, reason, remarks, active)
+  try{
+    const {data, error} = await sb
+      .from('employee_outside_punch_permissions')
+      .select('*')
+      .eq('org_id', ORG_ID)
+      .eq('employee_id', employee.id)
+      .limit(1);
+
+    if(error){
+      console.warn('outside punch permission table missing/blocked:', error);
+      outsidePunchPermission.loaded = false;
+      return outsidePunchPermission;
+    }
+
+    const row = data && data[0] ? data[0] : null;
+    if(row){
+      const allowed = row.outside_punch_allowed === true || row.allow_outside_punch === true || row.enabled === true || row.active === true || String(row.status||'').toLowerCase()==='allowed';
+      outsidePunchPermission = {
+        allowed,
+        loaded:true,
+        mode:'employee',
+        reason: row.reason || row.remarks || row.note || (allowed ? 'Admin allowed this staff for outside punch' : 'Outside punch blocked by admin'),
+        raw: row
+      };
+      return outsidePunchPermission;
+    }
+  }catch(e){
+    console.warn('outside punch employee permission load failed:', e);
+  }
+
+  // Optional default table/RPC fallback is intentionally avoided for punch safety.
+  // Agar all staff ko allow karna hai to admin screen se har active employee ke liye row create/update karein.
+  outsidePunchPermission.loaded = true;
+  return outsidePunchPermission;
+}
+
 async function loadFaceRegistration(){
   const selects=[
     'id,org_id,employee_id,face_image_url,face_storage_path,face_status,registered,registered_at',
@@ -908,10 +807,11 @@ async function checkLocation(){
     };
     currentDistance=Math.round(haversineMeters(currentLocation.lat,currentLocation.lng,Number(geofence.lat),Number(geofence.lng)));
     const radius = getAllowedRadius();
-    const ok=currentDistance <= radius;
-    setCheck('geoCheck', ok?'ok':'bad', geoText());
+    const inside=currentDistance <= radius;
+    const allowedOutside = !inside && isOutsideAllowed();
+    setCheck('geoCheck', (inside || allowedOutside) ? 'ok' : 'bad', geoText());
     updateGeoDetails();
-    return ok;
+    return inside || allowedOutside;
   }catch(e){
     console.warn('location error:',e);
     currentLocation=null;
@@ -928,11 +828,7 @@ function attendanceState(){
   if(st.includes('leave')) return {status:'leave', label:'Leave', value:'Leave', cls:'blue', action:'blocked'};
   if(st.includes('holiday')) return {status:'weeklyoff', label:'Holiday', value:'Holiday', cls:'blue', action:'blocked'};
   if(todayAttendance.punch_in && !todayAttendance.punch_out) return {status: todayAttendance.is_late?'late':'present', label: todayAttendance.is_late?'Late':'Present', value:'Punch In Done', cls: todayAttendance.is_late?'yellow':'green', action:'punch_out'};
-  if(todayAttendance.punch_in && todayAttendance.punch_out){
-    if(st.includes('half')) return {status:'halfday', label:'Half Day', value:'Half Day', cls:'yellow', action:'done'};
-    if(st.includes('absent')) return {status:'absent', label:'Absent', value:'Absent', cls:'red', action:'done'};
-    return {status:'present', label:'Completed', value:'Completed', cls:'green', action:'done'};
-  }
+  if(todayAttendance.punch_in && todayAttendance.punch_out) return {status:'present', label:'Completed', value:'Completed', cls:'green', action:'done'};
   return {status:st||'absent', label:st||'Not Punched', value:st||'Not Punched', cls:'red', action:'punch_in'};
 }
 
@@ -971,8 +867,10 @@ function updateUI(){
 function checksReady(){
   const faceOk=!!(faceModelsLoaded && registeredFaceDescriptor && faceRegistration && faceRegistration.face_image_url);
   const rosterOk=!!roster;
-  const geoOk=!!(currentLocation && currentDistance!==null && geofence && currentDistance <= getAllowedRadius());
-  return {faceOk,rosterOk,geoOk,all:faceOk&&rosterOk&&geoOk};
+  const insideGeo=!!(currentLocation && currentDistance!==null && geofence && currentDistance <= getAllowedRadius());
+  const outsideAdminOk=!!(currentLocation && currentDistance!==null && geofence && currentDistance > getAllowedRadius() && isOutsideAllowed());
+  const geoOk=insideGeo || outsideAdminOk;
+  return {faceOk,rosterOk,geoOk,insideGeo,outsideAdminOk,all:faceOk&&rosterOk&&geoOk};
 }
 function updateScanButton(){
   const btn=document.getElementById('scanBtn');
@@ -997,6 +895,7 @@ async function initData(){
   try{
     await loadEmployee();
     await loadOrganization();
+    await loadOutsidePunchPermission();
     updateGeoDetails();
     setCheck('geoCheck', geofence?'warn':'bad', geoText());
     await loadFaceRegistration();
@@ -1009,7 +908,8 @@ async function initData(){
     const c=checksReady();
     if(!c.faceOk) setPlaceholder('Face not registered','Admin se pehle face register karwayein.','❌');
     else if(!c.rosterOk) setPlaceholder('Roster not found','Aaj employee ka roster nahi mila. Attendance blocked.','❌');
-    else if(!c.geoOk) setPlaceholder('Out of range',`${geoText().replace(/<[^>]*>/g,' ')}`,'❌');
+    else if(!c.geoOk) setPlaceholder('Out of range',`${geoText().replace(/<[^>]*>/g,' ')} · Admin outside permission required.`,'❌');
+    else if(c.outsideAdminOk) setPlaceholder('Outside punch allowed','Admin permission enabled hai. Face scan karke attendance mark kar sakte hain.','✅');
     else setPlaceholder('Position your face in the center','Roster aur location verified. Scan Face dabao.','');
   }catch(e){
     console.error('initData error:', e);
@@ -1065,57 +965,43 @@ async function uploadAttendanceFace(action){
 async function scanFace(){
   if(isScanning) return;
   const c=checksReady();
-  if(!c.all){ showToast('Face, roster aur location check pass nahi hua.', true); return; }
+  if(!c.all){ showToast('Face, roster aur location check pass nahi hua. Outside punch ke liye admin permission ON honi chahiye.', true); return; }
   const state=attendanceState();
   if(state.action==='done' || state.action==='blocked'){ showToast('Attendance action allowed nahi hai.', true); return; }
 
   isScanning=true;
-  let timer=null;
-  const btn=document.getElementById('scanBtn');
-  btn.disabled=true;
-  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Scanning...';
+  document.getElementById('scanBtn').disabled=true;
+  document.getElementById('scanBtn').innerHTML='<i class="fas fa-spinner fa-spin"></i> Scanning...';
   document.getElementById('scanProgress').className='scan-progress active';
   document.getElementById('scanBar').style.width='0%';
-  setScanStatus('🔍 Camera starting...','scanning');
+  setScanStatus('🔍 Scanning...','scanning');
   setCameraStatus('Scanning','yellow');
 
+  const camOk=await startCamera();
+  if(!camOk){ isScanning=false; updateScanButton(); return; }
+  let progress=0;
+  const timer=setInterval(()=>{ progress=Math.min(100,progress+8); document.getElementById('scanBar').style.width=progress+'%'; },100);
+  await new Promise(r=>setTimeout(r,1600));
+  clearInterval(timer); document.getElementById('scanBar').style.width='100%';
+  await captureFrame();
+  stopCamera();
+
   try{
-    const camOk = await withTimeout(startCamera(), 3500, 'Camera start timeout. Camera permission allow karo.');
-    if(!camOk) throw new Error('Camera start nahi hua. HTTPS/live server use karo.');
-
-    let progress=0;
-    timer=setInterval(()=>{
-      progress=Math.min(96,progress+6);
-      document.getElementById('scanBar').style.width=progress+'%';
-    },120);
-
-    const video=document.getElementById('videoPreview');
-
-    // Full scan max approx 8 sec. Koi step hang hua to direct error response.
-    await withTimeout(runLivenessCheck(video), 5200, 'Scan timeout: 5 second me live face confirm nahi hua. Retry karo.');
-    await withTimeout(captureFrame(), 1600, 'Camera capture timeout. Retry karo.');
     setScanStatus('🧠 Matching face...','scanning');
     setCameraStatus('Face Matching','yellow');
-    document.getElementById('scanBar').style.width='98%';
-
-    await withTimeout(verifyCapturedFace(), 4500, 'Face match timeout. Registered image/CORS/model check karo.');
-    await withTimeout(saveAttendance(state.action), 10000, 'Attendance save timeout. Internet/Supabase check karo.');
-
-    document.getElementById('scanBar').style.width='100%';
+    await verifyCapturedFace();
+    await saveAttendance(state.action);
     document.getElementById('faceOverlay').className='face-overlay success';
     setScanStatus('✅ Verified','success');
     setCameraStatus('Verified','green');
   }catch(e){
-    console.error('Face attendance scan failed:', e);
+    console.error('saveAttendance error:', e);
     document.getElementById('faceOverlay').className='face-overlay failed';
     setScanStatus('❌ Failed','failed');
     setCameraStatus('Failed','red');
-    setCheck('liveCheck','bad', esc(e.message || 'Scan failed'));
-    showResult(false, 'Attendance Rejected', esc(e.message || 'Scan failed'));
-    showToast(e.message || 'Scan failed', true);
+    showResult(false, 'Attendance save failed', e.message || 'Supabase error');
+    showToast(e.message || 'Attendance save failed', true);
   }finally{
-    try{ if(timer) clearInterval(timer); }catch(_e){}
-    try{ stopCamera(); }catch(_e){}
     isScanning=false;
     document.getElementById('scanProgress').className='scan-progress';
     updateScanButton();
@@ -1146,38 +1032,41 @@ async function saveAttendance(action){
       org_code:finalOrgCode, emp_code:finalEmpCode, employee_name:finalEmployeeName, email:employee.email||'', mobile:employee.mobile||'',
       attendance_date:d, punch_in:nowIso, punch_in_time:nowIso,
       punch_in_lat:currentLocation.lat, punch_in_lng:currentLocation.lng, punch_in_distance_meters:currentDistance,
+      punch_in_map_url:googleMapUrl(currentLocation.lat,currentLocation.lng), punch_in_street_view_url:googleStreetViewUrl(currentLocation.lat,currentLocation.lng),
+      outside_punch_allowed:isOutsideAllowed(), outside_punch_reason:isOutsideAllowed()?outsidePermissionLabel():null,
+      outside_punch_type:(currentDistance > getAllowedRadius() && isOutsideAllowed())?'outside_allowed':'inside_radius',
       face_verified:true, face_match_score:lastFaceMatch ? lastFaceMatch.score : null, face_match_distance:lastFaceMatch ? lastFaceMatch.distance : null,
       status:late.isLate?'late':'present', is_late:late.isLate, late_minutes:late.lateMinutes,
       source:'face_attendance', attendance_source:'face_attendance', correction_source:'face_attendance',
-      remarks: faceUrl ? `Face attendance punch in. image=${faceUrl}` : 'Face attendance punch in',
+      remarks: faceUrl ? `Face attendance punch in. image=${faceUrl}. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}` : `Face attendance punch in. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}`,
       department:(employee.dept&&employee.dept!=='—')?employee.dept:null, designation:employee.designation||null,
       created_by:USER_ID||employee.id, updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
       updated_by_name:finalEmployeeName, updated_by_emp_code:finalEmpCode, updated_at:nowIso
     };
     await insertAttendanceWithFallback(payload);
     await loadTodayAttendance();
-    showResult(true, late.isLate?'Late Punch In Marked':'Punch In Marked', `<strong>Punch In:</strong> ${fmtTime(nowIso)}<br><strong>Roster:</strong> ${esc(roster.shift_name||'Shift')} ${esc(String(roster.shift_start||'').slice(0,5))}<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Face Match:</strong> ${lastFaceMatch ? lastFaceMatch.score : '--'}%<br><strong>Status:</strong> ${late.isLate?'Late ('+late.lateMinutes+' min)':'Present'}`);
+    showResult(true, late.isLate?'Late Punch In Marked':'Punch In Marked', `<strong>Punch In:</strong> ${fmtTime(nowIso)}<br><strong>Roster:</strong> ${esc(roster.shift_name||'Shift')} ${esc(String(roster.shift_start||'').slice(0,5))}<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>Outside Permission:</strong> ${currentDistance > getAllowedRadius() ? (isOutsideAllowed() ? 'Allowed by admin' : 'No') : 'Not needed'}<br><strong>Map:</strong> <a target="_blank" href="${googleMapUrl(currentLocation.lat,currentLocation.lng)}">Open Punch In Map</a> · <a target="_blank" href="${googleStreetViewUrl(currentLocation.lat,currentLocation.lng)}">Street View</a><br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Face Match:</strong> ${lastFaceMatch ? lastFaceMatch.score : '--'}%<br><strong>Status:</strong> ${late.isLate?'Late ('+late.lateMinutes+' min)':'Present'}`);
     showToast(`✅ Punch In saved at ${fmtTime(nowIso)}`);
   } else if(action==='punch_out'){
     if(!todayAttendance || !todayAttendance.id) throw new Error('Punch out ke liye pehle punch in record chahiye.');
     const inDate=new Date(todayAttendance.punch_in);
     const workedMinutes=Math.max(0,Math.floor((now-inDate)/60000));
     const workedHours=Number((workedMinutes/60).toFixed(2));
-    const dutyResult = calcFinalDutyStatus(workedMinutes);
-    const finalRemark = `Face attendance punch out. Worked ${minToHourText(workedMinutes)} / Duty ${dutyResult.dutyMinutes ? minToHourText(dutyResult.dutyMinutes) : '--'} => ${dutyResult.label}. ${faceUrl ? 'image='+faceUrl : ''}`;
     const payload={
       punch_out:nowIso, punch_out_time:nowIso,
       punch_out_lat:currentLocation.lat, punch_out_lng:currentLocation.lng, punch_out_distance_meters:currentDistance,
+      punch_out_map_url:googleMapUrl(currentLocation.lat,currentLocation.lng), punch_out_street_view_url:googleStreetViewUrl(currentLocation.lat,currentLocation.lng),
+      outside_punch_allowed:isOutsideAllowed(), outside_punch_reason:isOutsideAllowed()?outsidePermissionLabel():null,
+      outside_punch_type:(currentDistance > getAllowedRadius() && isOutsideAllowed())?'outside_allowed':'inside_radius',
       face_verified:true, face_match_score:lastFaceMatch ? lastFaceMatch.score : null, face_match_distance:lastFaceMatch ? lastFaceMatch.distance : null,
       worked_minutes:workedMinutes, working_hours:workedHours,
-      status:dutyResult.status, is_late:!!todayAttendance.is_late, late_minutes:todayAttendance.late_minutes||0,
-      updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
+      status:todayAttendance.is_late?'late':'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
       updated_by_name:finalEmployeeName, updated_by_emp_code:finalEmpCode, updated_at:nowIso,
-      remarks: finalRemark
+      remarks: faceUrl ? `Face attendance punch out. image=${faceUrl}. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}` : `Face attendance punch out. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}`
     };
     await updateAttendanceWithFallback(todayAttendance.id, payload);
     await loadTodayAttendance();
-    showResult(true, `Punch Out Marked · ${dutyResult.label}`, `<strong>Punch Out:</strong> ${fmtTime(nowIso)}<br><strong>Worked:</strong> ${workedHours} hours (${minToHourText(workedMinutes)})<br><strong>Duty:</strong> ${dutyResult.dutyMinutes ? minToHourText(dutyResult.dutyMinutes) : '--'} · Present if ${dutyResult.requiredPresentMinutes ? minToHourText(dutyResult.requiredPresentMinutes) : '--'}+<br><strong>Final Status:</strong> ${dutyResult.label}<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Face Match:</strong> ${lastFaceMatch ? lastFaceMatch.score : '--'}%`);
+    showResult(true, 'Punch Out Marked', `<strong>Punch Out:</strong> ${fmtTime(nowIso)}<br><strong>Worked:</strong> ${workedHours} hours<br><strong>Emp Distance:</strong> ${currentDistance}m / Allowed ${Math.round(getAllowedRadius())}m<br><strong>Outside Permission:</strong> ${currentDistance > getAllowedRadius() ? (isOutsideAllowed() ? 'Allowed by admin' : 'No') : 'Not needed'}<br><strong>Map:</strong> <a target="_blank" href="${googleMapUrl(currentLocation.lat,currentLocation.lng)}">Open Punch Out Map</a> · <a target="_blank" href="${googleStreetViewUrl(currentLocation.lat,currentLocation.lng)}">Street View</a><br><strong>GPS Accuracy:</strong> ${Math.round(currentLocation.accuracy||0)}m<br><strong>Face Match:</strong> ${lastFaceMatch ? lastFaceMatch.score : '--'}%`);
     showToast(`✅ Punch Out saved at ${fmtTime(nowIso)}`);
   }
   updateUI();
@@ -1185,9 +1074,9 @@ async function saveAttendance(action){
 async function insertAttendanceWithFallback(payload){
   const payloads=[
     payload,
-    strip(payload,['face_verified','face_match_score','face_match_distance','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']),
-    strip(payload,['face_verified','face_match_score','face_match_distance','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']),
-    strip(payload,['face_verified','face_match_score','face_match_distance','punch_in_time','punch_out_time','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])
+    strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']),
+    strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']),
+    strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','punch_in_time','punch_out_time','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])
   ];
   let lastErr=null;
   for(const p of payloads){
@@ -1198,7 +1087,7 @@ async function insertAttendanceWithFallback(payload){
   throw lastErr || new Error('Attendance insert failed');
 }
 async function updateAttendanceWithFallback(id,payload){
-  const payloads=[payload, strip(payload,['face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by']), strip(payload,['face_verified','face_match_score','face_match_distance','punch_out_time','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
+  const payloads=[payload, strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by']), strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','punch_out_time','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
   let lastErr=null;
   for(const p of payloads){
     const {error}=await sb.from('attendance').update(p).eq('id',id);
@@ -1220,7 +1109,6 @@ function showResult(success,title,detail){
   modal.classList.add('show');
 }
 function resetScan(){
-  setCheck('liveCheck','warn','Waiting scan');
   document.getElementById('faceOverlay').className='face-overlay';
   document.getElementById('scanProgress').className='scan-progress';
   setCameraStatus('Ready','green');
