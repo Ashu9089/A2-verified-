@@ -121,7 +121,7 @@ const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
-let state={org:null,adminUser:null,adminEmp:null,developers:[],staff:[],current:null,messages:[],page:1,limit:10,search:'',pendingMedia:null,pendingDeleteMsgId:null,chatChannel:null,globalChannel:null,typingTimer:null,myTypingTimer:null,lastTypingSent:0,isMobileChatOpen:false};
+let state={org:null,adminUser:null,adminEmp:null,developers:[],staff:[],current:null,messages:[],page:1,limit:10,search:'',pendingMedia:null,pendingDeleteMsgId:null,chatChannel:null,globalChannel:null,typingTimer:null,myTypingTimer:null,lastTypingSent:0,isMobileChatOpen:false,loadMessagesRunning:false,loadContactsRunning:false,forceScrollBottom:false,lastLocalMessageId:null,lastMessageErrorAt:0};
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
 function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
@@ -187,6 +187,41 @@ function updateScrollBottomButton(){const btn=$('scrollBottomBtn');if(!btn)retur
 function currentViewerCanBlock(){return true}
 function isDeveloperContact(c){const t=[c?.role_label,c?.role,c?.designation,c?.department,c?.employee_type,c?.full_name].map(v=>String(v||'').toLowerCase()).join(' ');return /developer|devloper|\bdev\b|support/.test(t)}
 async function rpc(fn,args){const {data,error}=await sb.rpc(fn,args||{});if(error)throw error;return data}
+function localMsgId(){return 'local-'+Date.now()+'-'+Math.random().toString(16).slice(2)}
+function messageKey(m){return String(m?.id||m?.client_event_id||'')}
+function mergeMessages(oldList,newList){
+  const map=new Map();
+  (oldList||[]).forEach(m=>{const k=messageKey(m);if(k)map.set(k,m);});
+  (newList||[]).forEach(m=>{
+    const k=messageKey(m);if(!k)return;
+    // Same text/media/time ke local optimistic row ko real DB row se replace karo.
+    for(const [ok,ov] of [...map.entries()]){
+      if(String(ok).startsWith('local-') &&
+         String(ov.sender_employee_id)===String(m.sender_employee_id) &&
+         String(ov.message_text||'')===String(m.message_text||'') &&
+         String(ov.media_type||'')===String(m.media_type||'') &&
+         Math.abs(new Date(ov.created_at||0).getTime()-new Date(m.created_at||0).getTime())<120000){
+        map.delete(ok);
+      }
+    }
+    map.set(k,m);
+  });
+  return [...map.values()].sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0));
+}
+function showSoftError(msg){
+  const now=Date.now();
+  if(now-state.lastMessageErrorAt>3500){
+    state.lastMessageErrorAt=now;
+    toast(msg,true);
+  }
+}
+function getMessageLimit(){return 100}
+function getCurrentConversationId(){return state.current?.conversation_id||null}
+function getMessagesTableNames(){return ['chat_messages','employee_chat_messages']}
+function getPayloadConversationId(payload){
+  const row=payload?.new||payload?.old||{};
+  return row.conversation_id;
+}
 function getSession(){let s={},p={};try{s=JSON.parse(localStorage.getItem('currentSession')||'{}')}catch(e){}try{p=JSON.parse(localStorage.getItem('personalData')||'{}')}catch(e){}return{org_code:String(s.orgCode||s.org_code||localStorage.getItem('orgCode')||localStorage.getItem('org_code')||'HOSP001').toUpperCase(),email:s.email||p.email||'',phone:s.phone||p.phone||s.mobile||p.mobile||'',admin_id:s.adminId||s.userId||s.id||p.id||null,admin_name:p.fullName||p.full_name||s.fullName||s.full_name||s.name||'Admin'}}
 async function init(){
   const ss=getSession();
@@ -338,13 +373,30 @@ async function selectContact(convId){
   renderDevelopers();renderStaff();
 }
 async function loadMessages(forceBottom=false){
-  if(!state.current)return;
+  if(!state.current||!state.adminEmp?.id)return;
+  if(state.loadMessagesRunning)return;
+  const convId=state.current.conversation_id;
   const box=$('messagesArea');
-  const wasNear=forceBottom ? true : isNearBottom();
+  const wasNear=forceBottom || state.forceScrollBottom || isNearBottom();
   const oldTop=box?box.scrollTop:0;
   const oldHeight=box?box.scrollHeight:0;
-  state.messages=await rpc('admin_empchat_get_messages',{p_conversation_id:state.current.conversation_id,p_admin_employee_id:state.adminEmp.id,p_limit:100});
-  renderMessages({stickToBottom:wasNear,oldTop,oldHeight});
+  state.loadMessagesRunning=true;
+  try{
+    const rows=await rpc('admin_empchat_get_messages',{
+      p_conversation_id:convId,
+      p_admin_employee_id:state.adminEmp.id,
+      p_limit:getMessageLimit()
+    });
+    if(getCurrentConversationId()!==convId)return;
+    state.messages=mergeMessages(state.messages, rows||[]);
+    renderMessages({stickToBottom:wasNear,oldTop,oldHeight});
+  }catch(e){
+    console.error('loadMessages failed:',e);
+    showSoftError(e.message||'Messages load error');
+  }finally{
+    state.forceScrollBottom=false;
+    state.loadMessagesRunning=false;
+  }
 }
 function renderMessages(opts={}){
   const box=$('messagesArea');
@@ -353,7 +405,7 @@ function renderMessages(opts={}){
   const oldHeight=opts.oldHeight||0;
   if(!state.messages.length){box.innerHTML='<div class="empty">No messages yet.</div>';updateScrollBottomButton();return}
   box.innerHTML=state.messages.map(m=>{
-    const sent=m.sender_employee_id===state.adminEmp.id;
+    const sent=String(m.sender_employee_id)===String(state.adminEmp.id);
     const src=esc(mediaSrc(m));
     let content='';
     if(m.media_type==='image')content+=`<img src="${src}" class="msg-media" onclick="openImageViewer(this.src)"><div class="media-tools"><a href="${src}" download class="media-link"><span class="material-icons" style="font-size:.95rem">download</span>Download</a></div>`;
@@ -363,7 +415,7 @@ function renderMessages(opts={}){
     const bothAllowed=canDeleteForBoth(m);
     return `<div class="message-wrapper" data-msg-id="${esc(m.id)}">
       <div class="message-bubble ${sent?'sent-msg':'received-msg'}">
-        <div class="bubble">${content||'<i>Media</i>'}<div class="msg-time">${fmtTime(m.created_at)}</div></div>
+        <div class="bubble">${content||'<i>Media</i>'}<div class="msg-time">${fmtTime(m.created_at)}${m._sending?' • sending...':''}</div></div>
       </div>
       <button class="msg-more always" type="button" data-del-open="${esc(m.id)}" title="Delete options"><span class="material-icons" style="font-size:1rem">more_vert</span></button>
       <div class="delete-menu" data-del-menu="${esc(m.id)}">
@@ -401,17 +453,22 @@ function showTyping(name){
 function setupGlobalRealtime(){
   if(!state.org?.id)return;
   try{ if(state.globalChannel) sb.removeChannel(state.globalChannel); }catch(e){}
-  state.globalChannel=sb.channel('admin-contact-list-'+state.org.id+'-'+state.adminEmp.id)
-    .on('postgres_changes',{event:'*',schema:'public',table:'employee_chat_messages'},async()=>{
+  let ch=sb.channel('admin-contact-list-'+state.org.id+'-'+state.adminEmp.id);
+  getMessagesTableNames().forEach(tbl=>{
+    ch=ch.on('postgres_changes',{event:'*',schema:'public',table:tbl},async(payload)=>{
+      const row=payload.new||payload.old||{};
+      // Org filter realtime payload me ho to use karo, nahi to safe refresh.
+      if(row.org_id && String(row.org_id)!==String(state.org.id))return;
       await loadDevelopers().catch(()=>{});
       await loadStaff(state.page).catch(()=>{});
-    })
-    .subscribe(status=>{ if(status==='CHANNEL_ERROR') console.warn('Realtime contact list channel error'); });
+    });
+  });
+  state.globalChannel=ch.subscribe(status=>{ if(status==='CHANNEL_ERROR') console.warn('Realtime contact list channel error'); });
 }
 function setupConversationRealtime(conversationId){
   try{ if(state.chatChannel) sb.removeChannel(state.chatChannel); }catch(e){}
   const channelName='admin-chat-'+conversationId+'-'+state.adminEmp.id;
-  state.chatChannel=sb.channel(channelName,{config:{broadcast:{self:false}}})
+  let ch=sb.channel(channelName,{config:{broadcast:{self:false}}})
     .on('broadcast',{event:'typing'},payload=>{
       const p=payload.payload||{};
       if(String(p.conversation_id)!==String(conversationId))return;
@@ -426,19 +483,19 @@ function setupConversationRealtime(conversationId){
       const fresh=Date.now()-new Date(row.updated_at||0).getTime()<6000;
       if(row.is_typing&&fresh) showTyping(row.sender_name||state.current?.full_name||'User');
       else {$('typingIndicator').classList.remove('show');$('typingIndicator').innerHTML='';}
-    })
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'employee_chat_messages',filter:`conversation_id=eq.${conversationId}`},async()=>{
-      await loadMessages().catch(()=>{});
+    });
+
+  getMessagesTableNames().forEach(tbl=>{
+    ch=ch.on('postgres_changes',{event:'*',schema:'public',table:tbl,filter:`conversation_id=eq.${conversationId}`},async(payload)=>{
+      if(String(getPayloadConversationId(payload))!==String(conversationId))return;
+      state.forceScrollBottom=isNearBottom() || String((payload.new||{}).sender_employee_id)===String(state.adminEmp.id);
+      await loadMessages(state.forceScrollBottom).catch(()=>{});
       await loadDevelopers().catch(()=>{});
       await loadStaff(state.page).catch(()=>{});
-    })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'employee_chat_messages',filter:`conversation_id=eq.${conversationId}`},async()=>{
-      await loadMessages().catch(()=>{});
-    })
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'employee_chat_messages',filter:`conversation_id=eq.${conversationId}`},async()=>{
-      await loadMessages().catch(()=>{});
-    })
-    .subscribe(status=>{ if(status==='CHANNEL_ERROR') console.warn('Realtime chat channel error'); });
+    });
+  });
+
+  state.chatChannel=ch.subscribe(status=>{ if(status==='CHANNEL_ERROR') console.warn('Realtime chat channel error'); });
 }
 async function setMyTyping(isTyping){
   if(!state.current||!state.adminEmp?.id)return;
@@ -464,8 +521,9 @@ function startSmartPolling(){
   setInterval(()=>{
     loadDevelopers().catch(()=>{});
     loadStaff(state.page).catch(()=>{});
-    if(state.current)loadMessages().catch(()=>{});
-  },2500);
+    // Realtime active ho to heavy message polling mat karo. Fallback ke liye 5 sec par safe refresh.
+    if(state.current && !state.loadMessagesRunning) loadMessages(false).catch(()=>{});
+  },5000);
 }
 function setupInputEvents(){
   if($('sendMessageBtn')) $('sendMessageBtn').onclick=sendMessage;
@@ -493,12 +551,53 @@ function handleMediaSelect(e){
 async function sendMessage(){
   if(!state.current)return toast('Select chat first',true);
   if(state.current.is_blocked)return toast('Chat blocked hai. Pehle unblock karo.',true);
-  const text=$('messageInput')?.value.trim()||'';
-  if(!text&&!state.pendingMedia)return toast('Message/image/video/audio required',true);
-  await rpc('admin_empchat_send_message',{p_conversation_id:state.current.conversation_id,p_admin_employee_id:state.adminEmp.id,p_message_text:text||null,p_media_type:state.pendingMedia?.type||null,p_media_data:state.pendingMedia?.data||null});
-  if($('messageInput')) $('messageInput').value='';state.pendingMedia=null;if($('previewArea')) $('previewArea').innerHTML='';
+  const input=$('messageInput');
+  const text=input?.value.trim()||'';
+  const media=state.pendingMedia?{...state.pendingMedia}:null;
+  if(!text&&!media)return toast('Message/image/video/audio required',true);
+
+  const optimisticId=localMsgId();
+  const optimistic={
+    id:optimisticId,
+    conversation_id:state.current.conversation_id,
+    sender_employee_id:state.adminEmp.id,
+    receiver_employee_id:state.current.employee_id||null,
+    message_text:text||null,
+    media_type:media?.type||null,
+    media_data:media?.data||null,
+    media_url:null,
+    created_at:new Date().toISOString(),
+    _sending:true
+  };
+
+  state.messages=mergeMessages(state.messages,[optimistic]);
+  state.lastLocalMessageId=optimisticId;
+  state.forceScrollBottom=true;
+  renderMessages({stickToBottom:true});
+
+  if(input)input.value='';
+  state.pendingMedia=null;
+  if($('previewArea')) $('previewArea').innerHTML='';
   await setMyTyping(false);
-  await loadMessages(true);await loadDevelopers();await loadStaff(state.page);
+
+  try{
+    await rpc('admin_empchat_send_message',{
+      p_conversation_id:state.current.conversation_id,
+      p_admin_employee_id:state.adminEmp.id,
+      p_message_text:text||null,
+      p_media_type:media?.type||null,
+      p_media_data:media?.data||null
+    });
+    await new Promise(r=>setTimeout(r,300));
+    state.forceScrollBottom=true;
+    await loadMessages(true);
+    await loadDevelopers().catch(()=>{});
+    await loadStaff(state.page).catch(()=>{});
+  }catch(e){
+    state.messages=state.messages.map(m=>String(m.id)===String(optimisticId)?{...m,_sending:false,_failed:true,message_text:(m.message_text||text||'')+'  ❌ Failed'}:m);
+    renderMessages({stickToBottom:true});
+    toast(e.message||'Message send failed',true);
+  }
 }
 $('developerList').onclick=e=>{const item=e.target.closest('.contact-item');if(item)selectContact(item.dataset.conv).catch(er=>toast(er.message,true))};
 $('staffList').onclick=e=>{const item=e.target.closest('.contact-item');if(item)selectContact(item.dataset.conv).catch(er=>toast(er.message,true))};
