@@ -147,7 +147,7 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 
-let state={org:null,me:null,contacts:[],current:null,messages:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0};
+let state={org:null,me:null,contacts:[],current:null,messages:[],localEchoes:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0};
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
 function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
@@ -552,6 +552,49 @@ function updateReplyBox(){
 }
 
 
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+async function waitForMessageLoadFree(maxMs=1800){
+  const start=Date.now();
+  while(state.loadMessagesRunning && Date.now()-start<maxMs){
+    await wait(80);
+  }
+}
+function makeLocalEcho(text,media){
+  return {
+    id:'local-'+Date.now()+'-'+Math.random().toString(16).slice(2),
+    conversation_id:state.current?.conversation_id,
+    sender_employee_id:state.me?.id,
+    receiver_employee_id:null,
+    message_text:text||null,
+    media_type:media?.type||null,
+    media_data:media?.data||null,
+    media_url:null,
+    deleted_for_both:false,
+    created_at:new Date().toISOString(),
+    _localEcho:true
+  };
+}
+function normalizeMsgText(v){return String(v||'').trim()}
+function getMessagesForRender(){
+  const server=Array.isArray(state.messages)?state.messages:[];
+  const now=Date.now();
+  state.localEchoes=(state.localEchoes||[]).filter(e=>{
+    if(String(e.conversation_id)!==String(state.current?.conversation_id))return false;
+    const tooOld=now-new Date(e.created_at).getTime()>45000;
+    const matched=server.some(m=>
+      String(m.sender_employee_id)===String(e.sender_employee_id) &&
+      normalizeMsgText(m.message_text)===normalizeMsgText(e.message_text) &&
+      String(m.media_type||'')===String(e.media_type||'') &&
+      Math.abs(new Date(m.created_at).getTime()-new Date(e.created_at).getTime())<45000
+    );
+    return !tooOld && !matched;
+  });
+  return [...server,...state.localEchoes]
+    .filter(m=>String(m.conversation_id||state.current?.conversation_id)===String(state.current?.conversation_id))
+    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+}
+
+
 async function loadMessages(refreshContacts=true){
   if(state.loadMessagesRunning)return;
   const convId=state.current?.conversation_id;
@@ -571,7 +614,7 @@ async function loadMessages(refreshContacts=true){
     state.messages=await rpc('chat_get_messages',{
       p_conversation_id:convId,
       p_employee_id:empId,
-      p_limit:30
+      p_limit:100
     });
   }catch(mainErr){
     console.warn('chat_get_messages RPC failed, trying direct fallback:',mainErr);
@@ -583,7 +626,7 @@ async function loadMessages(refreshContacts=true){
         .eq('conversation_id',convId)
         .eq('deleted_for_both',false)
         .order('created_at',{ascending:false})
-        .limit(30);
+        .limit(100);
 
       if(msgErr) throw msgErr;
 
@@ -626,8 +669,9 @@ function renderMessages(){
   const box=$('messagesArea');
   const shouldStickToBottom = state.forceScrollBottom || isNearMessagesBottom();
   state.forceScrollBottom=false;
-  if(!state.messages.length){box.innerHTML='<div style="text-align:center;padding:2rem">No messages.</div>';updateScrollBottomBtn();return}
-  box.innerHTML=state.messages.map(m=>{
+  const renderList=getMessagesForRender();
+  if(!renderList.length){box.innerHTML='<div style="text-align:center;padding:2rem">No messages.</div>';updateScrollBottomBtn();return}
+  box.innerHTML=renderList.map(m=>{
     const sent=String(m.sender_employee_id)===String(state.me.id);
     const src=mediaSrc(m);
     let content='';
@@ -650,7 +694,7 @@ function renderMessages(){
         </div>`;
     }
     if(m.message_text)content+=`<div>${esc(m.message_text)}</div>`;
-    const hideDelete=isProtectedMessage(m);
+    const hideDelete=m._localEcho || isProtectedMessage(m);
     return `<div class="message-wrapper" data-msg-id="${esc(m.id)}">
       <div class="message-bubble ${sent?'sent-msg':'received-msg'}"><div class="bubble">
         ${content || '<i>Media</i>'}
@@ -683,13 +727,47 @@ function handleMediaSelect(e){
 }
 async function sendMessage(){
   if(!state.current||state.current.status!=='accepted'||state.current.is_blocked)return toast('Accept hone ke baad hi chat allowed hai',true);
-  const text=$('messageInput').value.trim();
-  if(!text&&!state.pendingMedia)return toast('Message/image/video/audio required',true);
+  const input=$('messageInput');
+  const preview=$('previewArea');
+  const text=input.value.trim();
+  const media=state.pendingMedia ? {...state.pendingMedia} : null;
+  if(!text&&!media)return toast('Message/image/video/audio required',true);
+
+  if($('sendMessageBtn')) $('sendMessageBtn').disabled=true;
   await setMyTyping(false);
-  await rpc('chat_send_message',{p_conversation_id:state.current.conversation_id,p_sender_employee_id:state.me.id,p_message_text:text||null,p_media_type:state.pendingMedia?.type||null,p_media_data:state.pendingMedia?.data||null});
-  state.pendingMedia=null;$('messageInput').value='';$('previewArea').innerHTML='';
-  state.forceScrollBottom=true;await loadMessages(false);await loadContacts();toast('Message sent');
+
+  try{
+    await rpc('chat_send_message',{
+      p_conversation_id:state.current.conversation_id,
+      p_sender_employee_id:state.me.id,
+      p_message_text:text||null,
+      p_media_type:media?.type||null,
+      p_media_data:media?.data||null
+    });
+
+    // Long chat fix: message DB me save hote hi apne screen par local echo dikhao.
+    // Agar RPC commit/read delay ho, to bhi sender ko apna sent message visible rahega.
+    state.localEchoes.push(makeLocalEcho(text,media));
+    state.pendingMedia=null;
+    input.value='';
+    if(preview) preview.innerHTML='';
+    state.forceScrollBottom=true;
+    renderMessages();
+
+    // Supabase commit/read race avoid karne ke liye short delay ke baad server se refresh.
+    await waitForMessageLoadFree();
+    await wait(350);
+    state.forceScrollBottom=true;
+    await loadMessages(false);
+    await loadContacts();
+    toast('Message sent');
+  }catch(e){
+    toast(e.message||'Message send failed',true);
+  }finally{
+    if($('sendMessageBtn')) $('sendMessageBtn').disabled=false;
+  }
 }
+
 async function sendRequest(empId){
   await rpc('chat_send_request',{p_org_id:state.org.id,p_from_employee_id:state.me.id,p_to_employee_id:empId});
   toast('Chat request sent');state.searchTerm='';$('searchContact').value='';await loadContacts();
@@ -904,10 +982,12 @@ state.refreshTimer=setInterval(()=>{
 
   loadContacts().catch(()=>{});
 
-  if(state.current?.conversation_id){
+  // Realtime active hai to har 2 second reload karna duplicate race create karta tha.
+  // Fallback polling sirf tab chalega jab realtime channel available/subscribed na ho.
+  if(state.current?.conversation_id && !state.messageChannel){
     loadMessages(false).catch(()=>{});
   }
-},2000);
+},5000);
 </script>
 </body>
 </html>
