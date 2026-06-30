@@ -1036,7 +1036,7 @@ async function saveAttendance(action){
       outside_punch_allowed:isOutsideAllowed(), outside_punch_reason:isOutsideAllowed()?outsidePermissionLabel():null,
       outside_punch_type:(currentDistance > getAllowedRadius() && isOutsideAllowed())?'outside_allowed':'inside_radius',
       face_verified:true, face_match_score:lastFaceMatch ? lastFaceMatch.score : null, face_match_distance:lastFaceMatch ? lastFaceMatch.distance : null,
-      status:late.isLate?'late':'present', is_late:late.isLate, late_minutes:late.lateMinutes,
+      status:'present', is_late:late.isLate, late_minutes:late.lateMinutes,
       source:'face_attendance', attendance_source:'face_attendance', correction_source:'face_attendance',
       remarks: faceUrl ? `Face attendance punch in. image=${faceUrl}. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}` : `Face attendance punch in. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}`,
       department:(employee.dept&&employee.dept!=='—')?employee.dept:null, designation:employee.designation||null,
@@ -1060,7 +1060,7 @@ async function saveAttendance(action){
       outside_punch_type:(currentDistance > getAllowedRadius() && isOutsideAllowed())?'outside_allowed':'inside_radius',
       face_verified:true, face_match_score:lastFaceMatch ? lastFaceMatch.score : null, face_match_distance:lastFaceMatch ? lastFaceMatch.distance : null,
       worked_minutes:workedMinutes, working_hours:workedHours,
-      status:todayAttendance.is_late?'late':'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
+      status:'present', updated_by:USER_ID||employee.id, updated_by_user_id:USER_ID||employee.id,
       updated_by_name:finalEmployeeName, updated_by_emp_code:finalEmpCode, updated_at:nowIso,
       remarks: faceUrl ? `Face attendance punch out. image=${faceUrl}. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}` : `Face attendance punch out. ${currentDistance > getAllowedRadius() && isOutsideAllowed() ? 'Outside punch allowed by admin.' : ''}`
     };
@@ -1071,32 +1071,133 @@ async function saveAttendance(action){
   }
   updateUI();
 }
-async function insertAttendanceWithFallback(payload){
-  const payloads=[
-    payload,
-    strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source']),
-    strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by']),
-    strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','punch_in_time','punch_out_time','email','mobile','department','designation','attendance_source','correction_source','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','source','created_by','updated_by'])
-  ];
+function cleanAttendancePayload(obj){
+  const out={};
+  Object.entries(obj||{}).forEach(([k,v])=>{
+    if(v !== undefined) out[k]=v;
+  });
+  // Supabase generated/default columns ko force update/insert nahi karna.
+  delete out.id;
+  delete out.created_at;
+  delete out.synced_at;
+  delete out.sync_status;
+  // Tumhare attendance table me worked_hours generated/default ho sakta hai.
+  // Isliye face attendance working_hours use karega, worked_hours nahi.
+  delete out.worked_hours;
+  return out;
+}
+function errorColumnName(error){
+  const msg=String(error?.message||error?.details||'');
+  let m=msg.match(/column "([^"]+)" (?:of relation "[^"]+" )?does not exist/i);
+  if(m) return m[1];
+  m=msg.match(/Could not find the '([^']+)' column/i);
+  if(m) return m[1];
+  m=msg.match(/column "([^"]+)" can only be updated to DEFAULT/i);
+  if(m) return m[1];
+  m=msg.match(/record "[^"]+" has no field "([^"]+)"/i);
+  if(m) return m[1];
+  return null;
+}
+function strip(obj,keys){ const o={...obj}; keys.forEach(k=>delete o[k]); return o; }
+async function tryAttendanceInsertAuto(payload){
+  let p=cleanAttendancePayload(payload);
   let lastErr=null;
-  for(const p of payloads){
-    const {error}=await sb.from('attendance').insert(p);
-    if(!error) return;
-    console.warn('attendance insert fallback failed:', error, p); lastErr=error;
+  for(let i=0;i<12;i++){
+    const {data,error}=await sb.from('attendance').insert(p).select('id').limit(1);
+    if(!error){
+      if(data && data[0] && data[0].id) todayAttendance={...(todayAttendance||{}), id:data[0].id, ...p};
+      return data && data[0] ? data[0] : null;
+    }
+    lastErr=error;
+    console.warn('attendance insert auto failed:', error, p);
+    const col=errorColumnName(error);
+    if(col && Object.prototype.hasOwnProperty.call(p,col)){
+      delete p[col];
+      continue;
+    }
+    const msg=String(error.message||'').toLowerCase();
+    if(msg.includes('duplicate key') || error.code==='23505'){
+      await loadTodayAttendance();
+      if(todayAttendance && todayAttendance.id){
+        await updateAttendanceWithFallback(todayAttendance.id, p);
+        return todayAttendance;
+      }
+    }
+    break;
   }
   throw lastErr || new Error('Attendance insert failed');
 }
-async function updateAttendanceWithFallback(id,payload){
-  const payloads=[payload, strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours']), strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by']), strip(payload,['punch_in_map_url','punch_in_street_view_url','punch_out_map_url','punch_out_street_view_url','outside_punch_allowed','outside_punch_reason','outside_punch_type','face_verified','face_match_score','face_match_distance','punch_out_time','updated_by_user_id','updated_by_name','updated_by_emp_code','working_hours','updated_by'])];
+async function tryAttendanceUpdateAuto(id,payload){
+  let p=cleanAttendancePayload(payload);
   let lastErr=null;
-  for(const p of payloads){
-    const {error}=await sb.from('attendance').update(p).eq('id',id);
-    if(!error) return;
-    console.warn('attendance update fallback failed:', error, p); lastErr=error;
+  for(let i=0;i<12;i++){
+    const {data,error}=await sb.from('attendance').update(p).eq('id',id).select('id').limit(1);
+    if(!error){
+      todayAttendance={...(todayAttendance||{}), id, ...p};
+      return data && data[0] ? data[0] : null;
+    }
+    lastErr=error;
+    console.warn('attendance update auto failed:', error, p);
+    const col=errorColumnName(error);
+    if(col && Object.prototype.hasOwnProperty.call(p,col)){
+      delete p[col];
+      continue;
+    }
+    break;
   }
   throw lastErr || new Error('Attendance update failed');
 }
-function strip(obj,keys){ const o={...obj}; keys.forEach(k=>delete o[k]); return o; }
+async function insertAttendanceWithFallback(payload){
+  // 1) Auto-strip unknown/generated columns.
+  try{ return await tryAttendanceInsertAuto(payload); }
+  catch(autoErr){ console.warn('auto insert fallback failed:', autoErr); }
+
+  // 2) Minimal guaranteed payload. Ye present/late save ke liye hai.
+  const minimal={
+    org_id:payload.org_id,
+    branch_id:payload.branch_id || null,
+    employee_id:payload.employee_id,
+    roster_id:payload.roster_id || null,
+    org_code:payload.org_code,
+    emp_code:payload.emp_code,
+    employee_name:payload.employee_name,
+    email:payload.email || '',
+    mobile:payload.mobile || '',
+    attendance_date:payload.attendance_date,
+    punch_in:payload.punch_in,
+    punch_in_time:payload.punch_in_time || payload.punch_in,
+    punch_in_lat:payload.punch_in_lat,
+    punch_in_lng:payload.punch_in_lng,
+    punch_in_distance_meters:payload.punch_in_distance_meters,
+    status:'present',
+    is_late:!!payload.is_late,
+    late_minutes:payload.late_minutes || 0,
+    remarks:payload.remarks || 'Face attendance punch in',
+    source:'face_attendance',
+    updated_at:payload.updated_at || new Date().toISOString()
+  };
+  return await tryAttendanceInsertAuto(minimal);
+}
+async function updateAttendanceWithFallback(id,payload){
+  // 1) Auto-strip unknown/generated columns.
+  try{ return await tryAttendanceUpdateAuto(id,payload); }
+  catch(autoErr){ console.warn('auto update fallback failed:', autoErr); }
+
+  // 2) Minimal guaranteed punch-out payload.
+  const minimal={
+    punch_out:payload.punch_out,
+    punch_out_time:payload.punch_out_time || payload.punch_out,
+    punch_out_lat:payload.punch_out_lat,
+    punch_out_lng:payload.punch_out_lng,
+    punch_out_distance_meters:payload.punch_out_distance_meters,
+    worked_minutes:payload.worked_minutes,
+    working_hours:payload.working_hours,
+    status:'present',
+    remarks:payload.remarks || 'Face attendance punch out',
+    updated_at:payload.updated_at || new Date().toISOString()
+  };
+  return await tryAttendanceUpdateAuto(id,minimal);
+}
 
 function showResult(success,title,detail){
   const modal=document.getElementById('resultModal');
