@@ -99,6 +99,122 @@ function fmtHours(m){return (Number(m||0)/60).toFixed(2)}
 function getLogin(){let cur={};try{cur=JSON.parse(localStorage.getItem('inlist_employee_login_v2')||localStorage.getItem('currentEmployee')||'{}')}catch(e){}return{org_code:String(cur.org_code||cur.orgCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||'HOSP001').toUpperCase(),emp_code:String(cur.emp_code||cur.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||'EMP001').toUpperCase()}}
 function saveLogin(){localStorage.setItem('currentEmployee',JSON.stringify({org_code:state.org?.org_code,org_id:state.org?.id,emp_code:state.emp?.emp_code,employee_id:state.emp?.id,full_name:state.emp?.full_name,email:state.emp?.email,mobile:state.emp?.mobile}))}
 
+function enc(v){return encodeURIComponent(String(v??''))}
+function isMissingFunctionErr(e){
+  const m=String(e?.message||e||'').toLowerCase();
+  return m.includes('could not find the function') || m.includes('pgrst202') || m.includes('function') || m.includes('schema cache') || m.includes('404');
+}
+function toMinutesFromTime(t){
+  if(!t)return null;
+  const m=String(t).match(/(\d{1,2}):(\d{2})/);
+  if(!m)return null;
+  return Number(m[1])*60+Number(m[2]);
+}
+function toDateTimeFor(dateStr,timeStr,baseEndMins=null){
+  if(!dateStr||!timeStr)return null;
+  const mins=toMinutesFromTime(timeStr);
+  if(mins===null)return null;
+  const d=new Date(dateStr+'T00:00:00');
+  d.setMinutes(mins);
+  if(baseEndMins!==null && mins < baseEndMins) d.setDate(d.getDate()+1);
+  return d;
+}
+function diffMinutes(a,b){
+  const aa=new Date(a).getTime(), bb=new Date(b).getTime();
+  if(!Number.isFinite(aa)||!Number.isFinite(bb))return 0;
+  return Math.max(0,Math.floor((aa-bb)/60000));
+}
+function firstVal(row,keys){
+  for(const k of keys){ if(row && row[k]!==undefined && row[k]!==null && row[k]!=='') return row[k]; }
+  return null;
+}
+async function restRows(table,query){
+  return sbFetch(`/rest/v1/${table}?${query}`);
+}
+async function safeInsert(table,payload){
+  let obj={...payload};
+  for(let i=0;i<12;i++){
+    try{
+      return await sbFetch(`/rest/v1/${table}`,{method:'POST',body:JSON.stringify(obj)});
+    }catch(e){
+      const msg=String(e.message||'');
+      const col=(msg.match(/column "([^"]+)"/)||msg.match(/Could not find the '([^']+)' column/)||[])[1];
+      if(col && obj[col]!==undefined){ delete obj[col]; continue; }
+      if(msg.toLowerCase().includes('violates row-level security')) throw new Error('RLS policy block kar rahi hai. RPC app_create_overtime_request ya overtime_requests insert policy check karo.');
+      throw e;
+    }
+  }
+  throw new Error('Overtime save failed: table columns match nahi ho rahe.');
+}
+async function directGetOvertimeDayData(dateValue){
+  let roster=null, att=null;
+
+  const rosterQueries=[
+    `org_id=eq.${enc(state.org.id)}&employee_id=eq.${enc(state.emp.id)}&roster_date=eq.${enc(dateValue)}&select=*&limit=1`,
+    `org_id=eq.${enc(state.org.id)}&emp_code=eq.${enc(state.emp.emp_code)}&roster_date=eq.${enc(dateValue)}&select=*&limit=1`
+  ];
+  for(const q of rosterQueries){
+    try{ const rows=await restRows('rosters',q); if(rows?.[0]){roster=rows[0];break;} }catch(e){console.warn('roster fallback skipped',e.message)}
+  }
+
+  const attQueries=[
+    `org_id=eq.${enc(state.org.id)}&employee_id=eq.${enc(state.emp.id)}&attendance_date=eq.${enc(dateValue)}&select=*&order=created_at.desc&limit=1`,
+    `org_id=eq.${enc(state.org.id)}&emp_code=eq.${enc(state.emp.emp_code)}&attendance_date=eq.${enc(dateValue)}&select=*&order=created_at.desc&limit=1`
+  ];
+  for(const q of attQueries){
+    try{ const rows=await restRows('attendance',q); if(rows?.[0]){att=rows[0];break;} }catch(e){console.warn('attendance fallback skipped',e.message)}
+  }
+
+  if(!roster) throw new Error('Is date ka roster nahi mila.');
+  if(!att || !firstVal(att,['punch_out','punch_out_time'])) throw new Error('Is date ka punch out nahi mila, overtime calculate nahi hoga.');
+
+  const shiftStart=firstVal(roster,['shift_start','start_time','start','roster_start'])||'';
+  const shiftEnd=firstVal(roster,['shift_end','end_time','end','roster_end'])||'';
+  const punchIn=firstVal(att,['punch_in','punch_in_time'])||null;
+  const punchOut=firstVal(att,['punch_out','punch_out_time'])||null;
+
+  let calculated=0;
+  const startM=toMinutesFromTime(shiftStart);
+  const endM=toMinutesFromTime(shiftEnd);
+  if(endM!==null && punchOut){
+    const endDt=toDateTimeFor(dateValue,shiftEnd,startM);
+    calculated=diffMinutes(punchOut,endDt);
+  }
+
+  return {
+    roster_id:roster.id||null,
+    attendance_id:att.id||null,
+    shift_start:shiftStart,
+    shift_end:shiftEnd,
+    punch_in:punchIn,
+    punch_out:punchOut,
+    calculated_minutes:calculated
+  };
+}
+async function directCreateOvertimeRequest(args){
+  const payload={
+    org_id:state.org.id,
+    org_code:state.org.org_code,
+    employee_id:state.emp.id,
+    emp_code:state.emp.emp_code,
+    employee_name:state.emp.full_name||state.emp.emp_code,
+    department:state.emp.department||null,
+    designation:state.emp.designation||null,
+    ot_date:args.p_ot_date,
+    overtime_date:args.p_ot_date,
+    requested_minutes:args.p_requested_minutes,
+    requested_hours:Number((Number(args.p_requested_minutes||0)/60).toFixed(2)),
+    reason:args.p_reason,
+    reporting_user_id:args.p_reporting_user_id||null,
+    reporting_manager_id:args.p_reporting_user_id||null,
+    status:'pending',
+    created_at:new Date().toISOString(),
+    updated_at:new Date().toISOString()
+  };
+  return safeInsert('overtime_requests',payload);
+}
+
+
 async function init(){
   const login=getLogin();
   const orgs=await sbFetch(`/rest/v1/organizations?org_code=eq.${encodeURIComponent(login.org_code)}&active=eq.true&select=*`);
@@ -117,14 +233,26 @@ async function init(){
 }
 
 async function loadReportingManagers(){
-  const data=await sbRpc('app_get_overtime_reporting_managers',{p_org_id:state.org.id});
-  state.reporting=data||[];
   const sel=$('managerSelect');
+  try{
+    const data=await sbRpc('app_get_overtime_reporting_managers',{p_org_id:state.org.id});
+    state.reporting=data||[];
+  }catch(e){
+    console.warn('reporting manager RPC failed, using direct fallback:',e.message);
+    state.reporting=[];
+    try{
+      const rows=await restRows('employees',`org_id=eq.${enc(state.org.id)}&active=eq.true&select=id,full_name,emp_code,role,department,designation,employee_type`);
+      state.reporting=(rows||[]).filter(m=>{
+        const t=[m.role,m.designation,m.department,m.employee_type,m.full_name].map(x=>String(x||'').toLowerCase()).join(' ');
+        return /admin|owner|hr|manager|operation|finance/.test(t) && String(m.id)!==String(state.emp.id);
+      }).map(m=>({id:m.id,full_name:m.full_name||m.emp_code,role:m.role||m.designation||m.department||'Manager',department:m.department||''}));
+    }catch(er){console.warn('manager fallback failed:',er.message)}
+  }
   if(!state.reporting.length){
     sel.innerHTML='<option value="">HR/Admin/Operations/Finance manager nahi mila</option>';
     return;
   }
-  sel.innerHTML='<option value="">Select Manager</option>'+state.reporting.map(m=>`<option value="${esc(m.id)}">${esc(m.full_name)} (${esc(m.role)}${m.department?' - '+esc(m.department):''})</option>`).join('');
+  sel.innerHTML='<option value="">Select Manager</option>'+state.reporting.map(m=>`<option value="${esc(m.id)}">${esc(m.full_name)} (${esc(m.role||'Manager')}${m.department?' - '+esc(m.department):''})</option>`).join('');
 }
 
 function createRow(initialDate=""){
@@ -161,7 +289,13 @@ async function autoFillRow(row,dateValue){
   updateTotalExtra();
 
   try{
-    const d=await sbRpc('app_get_employee_overtime_day_data',{p_org_code:state.org.org_code,p_emp_code:state.emp.emp_code,p_ot_date:dateValue});
+    let d;
+    try{
+      d=await sbRpc('app_get_employee_overtime_day_data',{p_org_code:state.org.org_code,p_emp_code:state.emp.emp_code,p_ot_date:dateValue});
+    }catch(rpcErr){
+      console.warn('day data RPC failed, using direct fallback:',rpcErr.message);
+      d=await directGetOvertimeDayData(dateValue);
+    }
     row.dataset.extraMinutes=String(d.calculated_minutes||0);
     row.dataset.rosterId=d.roster_id||'';
     row.dataset.attendanceId=d.attendance_id||'';
@@ -208,14 +342,20 @@ async function handleSubmit(){
   $('submitOtBtn').disabled=true;
   try{
     for(const e of entries){
-      await sbRpc('app_create_overtime_request',{
+      const args={
         p_org_code:state.org.org_code,
         p_emp_code:state.emp.emp_code,
         p_ot_date:e.date,
         p_requested_minutes:e.requested_minutes,
         p_reason:reason,
         p_reporting_user_id:managerId
-      });
+      };
+      try{
+        await sbRpc('app_create_overtime_request',args);
+      }catch(rpcErr){
+        console.warn('create overtime RPC failed, using direct fallback:',rpcErr.message);
+        await directCreateOvertimeRequest(args);
+      }
     }
     toast(`✅ ${entries.length} overtime request admin/reporting ke paas bhej di.`);
     $('otReason').value='';
@@ -229,8 +369,18 @@ async function handleSubmit(){
 }
 
 async function loadHistory(){
-  const rows=await sbRpc('app_get_my_overtime_history',{p_org_code:getLogin().org_code,p_emp_code:getLogin().emp_code,p_limit:5});
-  state.history=rows||[];
+  try{
+    const rows=await sbRpc('app_get_my_overtime_history',{p_org_code:getLogin().org_code,p_emp_code:getLogin().emp_code,p_limit:5});
+    state.history=rows||[];
+  }catch(e){
+    console.warn('history RPC failed, using direct fallback:',e.message);
+    try{
+      state.history=await restRows('overtime_requests',`org_id=eq.${enc(state.org.id)}&emp_code=eq.${enc(state.emp.emp_code)}&select=*&order=created_at.desc&limit=5`);
+    }catch(er){
+      console.warn('history fallback failed:',er.message);
+      state.history=[];
+    }
+  }
   renderOtHistory();
 }
 function renderOtHistory(){
