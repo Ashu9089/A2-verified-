@@ -149,43 +149,12 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 
-let state={org:null,me:null,contacts:[],current:null,messages:[],localEchoes:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0,clearedChats:{}};
+let state={org:null,me:null,contacts:[],current:null,messages:[],localEchoes:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0};
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
 function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
 function initials(name){return String(name||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?'}
 function formatTime(iso){const d=new Date(iso);const diff=Math.floor((Date.now()-d.getTime())/60000);if(diff<1)return'Just now';if(diff<60)return`${diff} min ago`;if(diff<1440)return`${Math.floor(diff/60)} hours ago`;return d.toLocaleDateString('en-IN')}
-function chatClearStorageKey(){return state.me?.id ? 'chat_deleted_for_me_v2_'+state.me.id : 'chat_deleted_for_me_v2'}
-function loadLocalClearedChats(){
-  try{state.clearedChats=JSON.parse(localStorage.getItem(chatClearStorageKey())||'{}')||{}}catch(e){state.clearedChats={}}
-}
-function saveLocalClearedChats(){
-  try{localStorage.setItem(chatClearStorageKey(),JSON.stringify(state.clearedChats||{}))}catch(e){}
-}
-function markChatCleared(convId,atIso){
-  if(!convId)return;
-  state.clearedChats=state.clearedChats||{};
-  state.clearedChats[String(convId)]=atIso||new Date().toISOString();
-  saveLocalClearedChats();
-}
-function clearedAtFor(convId){return (state.clearedChats||{})[String(convId)]||''}
-function contactLastAt(c){return c?.last_message_at||c?.last_message_created_at||c?.last_message_time||c?.last_message_created||c?.last_message_date||c?.latest_message_at||c?.updated_at||c?.created_at||''}
-function hasNewMessageAfterClear(c){
-  const clearAt=clearedAtFor(c?.conversation_id);
-  if(!clearAt)return true;
-  const lastAt=contactLastAt(c);
-  if(!lastAt)return false;
-  return new Date(lastAt).getTime()>new Date(clearAt).getTime();
-}
-function isContactLocallyCleared(c){return !!c?.conversation_id && !!clearedAtFor(c.conversation_id) && !hasNewMessageAfterClear(c)}
-function messageAfterLocalClear(m){
-  const clearAt=clearedAtFor(m?.conversation_id||state.current?.conversation_id);
-  if(!clearAt)return true;
-  const mt=new Date(m?.created_at||0).getTime();
-  const ct=new Date(clearAt).getTime();
-  return mt>ct;
-}
-
 function getLogin(){let cur={};try{cur=JSON.parse(localStorage.getItem('inlist_employee_login_v2')||localStorage.getItem('currentEmployee')||'{}')}catch(e){}return{org_code:String(cur.org_code||cur.orgCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||'HOSP001').toUpperCase(),emp_code:String(cur.emp_code||cur.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||'EMP001').toUpperCase()}}
 async function rpc(fn,args){
   const {data,error}=await sb.rpc(fn,args||{});
@@ -252,6 +221,27 @@ function isDeveloperProfile(c){
   const t=profileText(c);
   return /\b(developer|dev|support)\b/.test(t);
 }
+
+function myBlocked(c){
+  // New SQL returns my_blocked / blocked_by_me. Old SQL fallback uses is_blocked.
+  if(c?.my_blocked !== undefined) return !!c.my_blocked;
+  if(c?.blocked_by_me !== undefined) return !!c.blocked_by_me;
+  return !!c?.is_blocked;
+}
+function otherBlocked(c){
+  if(c?.other_blocked !== undefined) return !!c.other_blocked;
+  if(c?.blocked_by_other !== undefined) return !!c.blocked_by_other;
+  return false;
+}
+function anyBlocked(c){
+  return myBlocked(c) || otherBlocked(c) || !!c?.is_blocked;
+}
+function blockLabel(c){
+  if(myBlocked(c)) return 'Blocked by you';
+  if(otherBlocked(c)) return 'Other user blocked you';
+  if(c?.is_blocked) return 'Blocked';
+  return '';
+}
 function contactPhone(c){return c?.mobile||c?.phone||c?.contact_mobile||c?.contact_phone||c?.whatsapp||''}
 function contactEmail(c){return c?.email||c?.work_email||c?.contact_email||''}
 function mediaSrc(m){return m?.media_url||m?.media_data||''}
@@ -259,6 +249,208 @@ function mediaDownloadName(m){
   const ext = m?.media_type==='image'?'jpg':m?.media_type==='video'?'mp4':m?.media_type==='audio'?'mp3':'file';
   return `chat-${m?.id||Date.now()}.${ext}`;
 }
+
+
+/* ===== Delete All local visibility guard =====
+   Server RPC agar last_message/unread_count me deleted_for_me ko ignore kare,
+   tab bhi frontend purane message line aur badge ko hide rakhega.
+*/
+function clearedChatStoreKey(){
+  return `chat_cleared_at_${state.me?.id || 'emp'}`;
+}
+function readClearedChats(){
+  try{return JSON.parse(localStorage.getItem(clearedChatStoreKey())||'{}')||{}}catch(e){return{}}
+}
+function saveClearedChats(map){
+  localStorage.setItem(clearedChatStoreKey(), JSON.stringify(map||{}));
+}
+function setConversationClearedAt(convId, iso){
+  if(!convId)return;
+  const map=readClearedChats();
+  map[String(convId)] = iso || new Date().toISOString();
+  saveClearedChats(map);
+}
+function getConversationClearedAt(convId){
+  if(!convId)return 0;
+  const iso=readClearedChats()[String(convId)];
+  const t=iso ? new Date(iso).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+function contactLastMessageTime(c){
+  const v = c?.last_message_at || c?.last_message_created_at || c?.latest_message_at || c?.last_msg_at || c?.message_created_at || c?.updated_at || c?.created_at || '';
+  const t = v ? new Date(v).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+function sanitizeContactAfterDelete(c){
+  if(!c?.conversation_id)return c;
+  const clearedAt=getConversationClearedAt(c.conversation_id);
+  if(!clearedAt)return c;
+
+  const lastTs=contactLastMessageTime(c);
+  // Agar RPC last message ka timestamp nahi bhejta ya last message clear time se purana hai,
+  // to purani one-line preview aur badge hide karo.
+  if(!lastTs || lastTs <= clearedAt){
+    return {
+      ...c,
+      last_message_text:'No messages',
+      last_message_at:null,
+      last_message_created_at:null,
+      unread_count:0
+    };
+  }
+  return c;
+}
+function isMessageAfterMyClear(m){
+  const clearedAt=getConversationClearedAt(m?.conversation_id || state.current?.conversation_id);
+  if(!clearedAt)return true;
+  const mt=new Date(m?.created_at || 0).getTime();
+  if(!Number.isFinite(mt))return false;
+  return mt > clearedAt;
+}
+
+
+/* ===== Read badge fix =====
+   Chat open karte hi conversation read mark hoga. Isse badge refresh ke baad bhi 0 rahega.
+*/
+function readChatStoreKey(){
+  return `chat_read_at_${state.me?.id || 'emp'}`;
+}
+function readReadChats(){
+  try{return JSON.parse(localStorage.getItem(readChatStoreKey())||'{}')||{}}catch(e){return{}}
+}
+function saveReadChats(map){
+  localStorage.setItem(readChatStoreKey(), JSON.stringify(map||{}));
+}
+function setConversationReadAt(convId, iso){
+  if(!convId)return;
+  const map=readReadChats();
+  map[String(convId)] = iso || new Date().toISOString();
+  saveReadChats(map);
+}
+function getConversationReadAt(convId){
+  if(!convId)return 0;
+  const iso=readReadChats()[String(convId)];
+  const t=iso ? new Date(iso).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+function zeroUnreadLocal(convId){
+  if(!convId)return;
+  state.contacts=(state.contacts||[]).map(c=>String(c.conversation_id)===String(convId)?{...c,unread_count:0}:c);
+  if(state.current && String(state.current.conversation_id)===String(convId)){
+    state.current={...state.current,unread_count:0};
+  }
+  renderContacts();
+}
+async function markConversationRead(convId){
+  if(!convId || !state.me?.id)return;
+  const nowIso=new Date().toISOString();
+  setConversationReadAt(convId, nowIso);
+  zeroUnreadLocal(convId);
+
+  // Preferred RPC. SQL patch below creates this function.
+  try{
+    await rpc('chat_mark_conversation_read',{
+      p_conversation_id: convId,
+      p_employee_id: state.me.id
+    });
+    return;
+  }catch(e){
+    console.warn('[CHAT READ FIX] chat_mark_conversation_read RPC skipped:', e.message||e);
+  }
+
+  // Direct fallback if table policy allows.
+  try{
+    const {error}=await sb.from('chat_conversation_reads').upsert({
+      conversation_id: convId,
+      employee_id: state.me.id,
+      read_at: nowIso
+    },{onConflict:'conversation_id,employee_id'});
+    if(error) throw error;
+  }catch(e){
+    console.warn('[CHAT READ FIX] direct read marker skipped:', e.message||e);
+  }
+}
+function sanitizeContactAfterRead(c){
+  if(!c?.conversation_id)return c;
+  const readAt=getConversationReadAt(c.conversation_id);
+  if(!readAt)return c;
+  const lastTs=contactLastMessageTime(c);
+  if(!lastTs || lastTs <= readAt){
+    return {...c, unread_count:0};
+  }
+  return c;
+}
+
+async function refreshClearedConversationBadges(){
+  // Badge final guard:
+  // Server RPC purane read/delete messages count kare tab bhi frontend count ko correct rakhega.
+  if(!state.me?.id || !Array.isArray(state.contacts) || !state.contacts.length)return;
+
+  const clearedMap=readClearedChats();
+  const readMap=readReadChats();
+  const targets=state.contacts
+    .filter(c=>c?.conversation_id && (clearedMap[String(c.conversation_id)] || readMap[String(c.conversation_id)]))
+    .map(c=>{
+      const convId=String(c.conversation_id);
+      const clearIso=clearedMap[convId] || '';
+      const readIso=readMap[convId] || '';
+      const clearTime=clearIso ? new Date(clearIso).getTime() : 0;
+      const readTime=readIso ? new Date(readIso).getTime() : 0;
+      const baseIso = (clearTime > readTime ? clearIso : readIso) || new Date(0).toISOString();
+      return {convId, baseIso, clearIso, readIso};
+    });
+  if(!targets.length)return;
+
+  for(const t of targets){
+    try{
+      const {data,error}=await sb
+        .from('chat_messages')
+        .select('id,message_text,media_type,created_at,sender_employee_id,receiver_employee_id,deleted_for_both')
+        .eq('conversation_id',t.convId)
+        .eq('deleted_for_both',false)
+        .gt('created_at',t.baseIso)
+        .order('created_at',{ascending:false})
+        .limit(100);
+      if(error) throw error;
+
+      let rows=data||[];
+
+      // Delete-for-me rows remove karo.
+      try{
+        const ids=rows.map(x=>x.id).filter(Boolean);
+        if(ids.length){
+          const {data:dels}=await sb
+            .from('chat_message_deletions')
+            .select('message_id')
+            .eq('employee_id',state.me.id)
+            .in('message_id',ids);
+          if(dels?.length){
+            const hidden=new Set(dels.map(d=>String(d.message_id)));
+            rows=rows.filter(m=>!hidden.has(String(m.id)));
+          }
+        }
+      }catch(e){console.warn('[CHAT BADGE FIX] delete-for-me read skipped:',e.message||e);}
+
+      const latest=rows[0]||null;
+      const unread=rows.filter(m=>String(m.receiver_employee_id)===String(state.me.id)).length;
+
+      state.contacts=state.contacts.map(c=>{
+        if(String(c.conversation_id)!==t.convId)return c;
+        return {
+          ...c,
+          last_message_text: latest ? (latest.message_text || (latest.media_type ? `[${latest.media_type}]` : 'Media')) : (getConversationClearedAt(t.convId) ? 'No messages' : (c.last_message_text||'No messages')),
+          last_message_at: latest ? latest.created_at : (getConversationClearedAt(t.convId) ? null : c.last_message_at),
+          last_message_created_at: latest ? latest.created_at : (getConversationClearedAt(t.convId) ? null : c.last_message_created_at),
+          unread_count: unread
+        };
+      });
+    }catch(e){
+      console.warn('[CHAT BADGE FIX] direct refresh skipped:',e.message||e);
+      state.contacts=state.contacts.map(c=>String(c.conversation_id)===t.convId ? sanitizeContactAfterRead(sanitizeContactAfterDelete(c)) : c);
+    }
+  }
+}
+
 function openImageViewer(src){
   if(!src)return;
   $('viewerImg').src=src;
@@ -343,7 +535,6 @@ async function init(){
   const login=getLogin();
   const ctx=await rpc('chat_get_employee_context',{p_org_code:login.org_code,p_emp_code:login.emp_code});
   state.org=ctx.organization;state.me=ctx.employee;
-  loadLocalClearedChats();
   $('meBox').innerHTML=`Me: <strong>${esc(state.me.full_name)}</strong> (${esc(state.me.emp_code)})`;
   try{ await rpc('chat_touch_presence',{p_org_id:state.org.id,p_employee_id:state.me.id}); }catch(e){}
   await loadContacts();
@@ -389,12 +580,8 @@ async function loadContacts(){
     }
   });
 
-  state.contacts = [...map.values()].map(c=>{
-    if(isContactLocallyCleared(c)){
-      return {...c,last_message_text:'',unread_count:0,_locally_cleared:true};
-    }
-    return c;
-  });
+  state.contacts = [...map.values()].map(sanitizeContactAfterDelete).map(sanitizeContactAfterRead);
+  await refreshClearedConversationBadges();
   renderContacts();
   }catch(e){
     console.warn('loadContacts skipped/failed:',e);
@@ -429,7 +616,8 @@ function renderContacts(){
     return;
   }
   let lastGroup='';
-  box.innerHTML=list.map(c=>{
+  box.innerHTML=list.map(rawC=>{
+    const c=sanitizeContactAfterRead(sanitizeContactAfterDelete(rawC));
     let group = '';
     if(c.is_system_contact || ['Admin','Developer','Company'].includes(c.role_label)) group='Company / Admin / Developer';
     else if(c.status==='pending' && c.request_to_employee_id===state.me.id) group='Request Received';
@@ -442,17 +630,15 @@ function renderContacts(){
     lastGroup = group;
 
     const active=state.current?.conversation_id===c.conversation_id?'active':'';
-    const blocked=c.is_blocked?'blocked':'';
+    const blocked=anyBlocked(c)?'blocked':'';
     const pending=c.status==='pending'?'pending':'';
-    const locallyCleared=!!c._locally_cleared || isContactLocallyCleared(c);
-    const last=locallyCleared ? '' : (c.last_message_text||'No messages');
-    const unreadCount=locallyCleared ? 0 : Number(c.unread_count||0);
+    const last=c.last_message_text||'No messages';
     const approvedDot = c.status==='accepted' ? '<span class="online-dot" title="Online/Approved"></span>' : '';
     const requestLabel =
       c.status==='pending' && c.request_to_employee_id===state.me.id ? 'Request Received' :
       c.status==='pending' && c.request_from_employee_id===state.me.id ? 'Request Sent / Pending' :
       c.needs_request ? 'Not Connected' :
-      c.is_blocked ? 'Blocked' :
+      anyBlocked(c) ? blockLabel(c) :
       c.status==='accepted' ? 'Approved / Online' : 'Active';
 
     return `${groupHtml}<div class="contact-item ${active} ${blocked} ${pending}" data-conv="${esc(c.conversation_id||'')}" data-emp="${esc(c.employee_id)}">
@@ -460,9 +646,9 @@ function renderContacts(){
       <div class="contact-info">
         <div class="contact-name">${esc(c.full_name)} ${approvedDot}<span class="section-chip">${esc(c.role_label||c.role||'Employee')}</span></div>
         <div class="contact-role">${esc(c.emp_code||'')} • ${esc(c.department||'-')} • ${esc(requestLabel)}</div>
-        ${last ? `<div class="last-msg">${esc(last)}</div>` : ''}
+        <div class="last-msg">${esc(last)}</div>
       </div>
-      ${unreadCount>0?`<div class="unread-badge">${unreadCount}</div>`:''}
+      ${Number(c.unread_count||0)>0?`<div class="unread-badge">${Number(c.unread_count)}</div>`:''}
       ${c.needs_request?`<button class="mini-btn" data-action="request" data-emp="${esc(c.employee_id)}">Send Request</button>`:''}
       ${c.status==='pending'&&c.request_to_employee_id===state.me.id?`<button class="mini-btn" data-action="accept" data-conv="${esc(c.conversation_id)}">Accept</button><button class="mini-btn mini-danger" data-action="reject" data-conv="${esc(c.conversation_id)}">Reject</button>`:''}
       ${c.status==='pending'&&c.request_from_employee_id===state.me.id?`<span class="mini-btn" style="opacity:.7">Pending</span>`:''}
@@ -474,6 +660,10 @@ async function selectContact(c){
   state.current=c;
   openMobileChat();
   updateChatHeader();
+
+  if(c.conversation_id && c.status === 'accepted'){
+    await markConversationRead(c.conversation_id);
+  }
 
   if(c.status === 'pending'){
     if(c.request_to_employee_id === state.me.id){
@@ -528,10 +718,10 @@ function updateChatHeader(){
          <button class="action-icon" id="devEmailBtn"><span class="material-icons">email</span> Email</button>`
       : '';
     const blockButton=!protectedProfile
-      ? `<button class="action-icon danger-action" id="blockBtn"><span class="material-icons">block</span> ${c.is_blocked?'Unblock':'Block'}</button>`
+      ? `<button class="action-icon danger-action" id="blockBtn"><span class="material-icons">block</span> ${myBlocked(c)?'Unblock':'Block'}</button>`
       : '';
     const menuBlockButton=!protectedProfile
-      ? `<button class="danger-menu" id="blockBtnMenu"><span class="material-icons" style="font-size:1rem">block</span> ${c.is_blocked?'Unblock User':'Block User'}</button>`
+      ? `<button class="danger-menu" id="blockBtnMenu"><span class="material-icons" style="font-size:1rem">block</span> ${myBlocked(c)?'Unblock User':'Block User'}</button>`
       : '';
     const menuDevButtons=devProfile
       ? `<button id="devCallBtnMenu"><span class="material-icons" style="font-size:1rem">call</span> Call</button>
@@ -575,8 +765,9 @@ function updateReplyBox(){
     $('replyArea').innerHTML='<div class="reply-disabled">Chat request accept hone ke baad message kar sakte ho.</div>';
     return;
   }
-  if(c.is_blocked){
-    $('replyArea').innerHTML='<div class="reply-disabled">Chat blocked hai. Text box hidden.</div>';
+  if(anyBlocked(c)){
+    const txt = myBlocked(c) ? 'Aapne is user ko block kiya hai. Message bhejne ke liye Unblock karo.' : 'Dusre user ne aapko block kiya hai. Message send nahi hoga.';
+    $('replyArea').innerHTML='<div class="reply-disabled">'+esc(txt)+'</div>';
     return;
   }
   $('replyArea').innerHTML=`<div class="input-group">
@@ -617,7 +808,7 @@ function makeLocalEcho(text,media){
 }
 function normalizeMsgText(v){return String(v||'').trim()}
 function getMessagesForRender(){
-  const server=Array.isArray(state.messages)?state.messages:[];
+  const server=(Array.isArray(state.messages)?state.messages:[]).filter(isMessageAfterMyClear);
   const now=Date.now();
   state.localEchoes=(state.localEchoes||[]).filter(e=>{
     if(String(e.conversation_id)!==String(state.current?.conversation_id))return false;
@@ -632,7 +823,6 @@ function getMessagesForRender(){
   });
   return [...server,...state.localEchoes]
     .filter(m=>String(m.conversation_id||state.current?.conversation_id)===String(state.current?.conversation_id))
-    .filter(messageAfterLocalClear)
     .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
 }
 
@@ -704,6 +894,9 @@ async function loadMessages(refreshContacts=true){
   }
 
   renderMessages();
+  if(state.current?.conversation_id){
+    await markConversationRead(state.current.conversation_id);
+  }
   if(refreshContacts) await loadContacts();
   state.loadMessagesRunning=false;
 }
@@ -768,7 +961,7 @@ function handleMediaSelect(e){
   reader.readAsDataURL(file);e.target.value='';
 }
 async function sendMessage(){
-  if(!state.current||state.current.status!=='accepted'||state.current.is_blocked)return toast('Accept hone ke baad hi chat allowed hai',true);
+  if(!state.current||state.current.status!=='accepted'||anyBlocked(state.current))return toast('Chat blocked/pending hai. Message allowed nahi hai.',true);
   const input=$('messageInput');
   const preview=$('previewArea');
   const text=input.value.trim();
@@ -837,7 +1030,7 @@ async function toggleBlock(){
     toast('Admin / Owner / Developer / Company profile ko block nahi kar sakte.', true);
     return;
   }
-  const blocked=!state.current.is_blocked;
+  const blocked=!myBlocked(state.current);
   await rpc('chat_set_block',{p_conversation_id:state.current.conversation_id,p_employee_id:state.me.id,p_blocked:blocked});
   toast(blocked?'Chat blocked':'Chat unblocked');
   await loadContacts();
@@ -894,14 +1087,15 @@ async function deleteEntireChat(){
     }
   }
 
-  markChatCleared(convId,new Date().toISOString());
+  setConversationClearedAt(convId, new Date().toISOString());
   state.messages=[];
   state.localEchoes=[];
-  if(state.current) state.current={...state.current,last_message_text:'',unread_count:0,_locally_cleared:true};
+  if(state.current){
+    state.current={...state.current,last_message_text:'No messages',unread_count:0};
+  }
   $('messagesArea').innerHTML='<div style="text-align:center;padding:2rem">No messages.</div>';
   toast('Poora chat aapke side se delete ho gaya');
   state.forceScrollBottom=true;
-  await loadMessages(false);
   await loadContacts();
 }
 
