@@ -82,177 +82,250 @@
 const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
 
+const $=id=>document.getElementById(id);
+let state={org:null,emp:null,history:[],reporting:[],login:{}};
+
+function apiHeaders(extra={}){
+  const h={
+    apikey:SUPABASE_ANON_KEY,
+    Authorization:'Bearer '+SUPABASE_ANON_KEY,
+    'Content-Type':'application/json',
+    Prefer:'return=representation',
+    ...extra
+  };
+  if(state?.org?.id) h['x-org-id']=String(state.org.id);
+  if(state?.org?.org_code) h['x-org-code']=String(state.org.org_code);
+  return h;
+}
+
 function sbFetch(path,opts={}){
-  return fetch(SUPABASE_URL+path,{...opts,headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json',Prefer:'return=representation',...(opts.headers||{})}})
-  .then(async r=>{const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.details||t||r.statusText);return d;});
+  return fetch(SUPABASE_URL+path,{...opts,headers:apiHeaders(opts.headers||{})})
+  .then(async r=>{
+    const t=await r.text();
+    let d=null;
+    try{d=t?JSON.parse(t):null}catch{d=t}
+    if(!r.ok) throw new Error(d?.message||d?.details||d?.hint||t||r.statusText);
+    return d;
+  });
 }
 function sbRpc(fn,args){return sbFetch('/rest/v1/rpc/'+fn,{method:'POST',body:JSON.stringify(args||{})});}
-const $=id=>document.getElementById(id);
-let state={org:null,emp:null,history:[],reporting:[]};
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
-function toast(msg,err=false){let old=document.querySelector('.toast-msg');if(old)old.remove();const t=document.createElement('div');t.className='toast-msg'+(err?' err':'');t.innerText=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
+function toast(msg,err=false){let old=document.querySelector('.toast-msg');if(old)old.remove();const t=document.createElement('div');t.className='toast-msg'+(err?' err':'');t.innerText=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3600)}
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function fmtDate(v){if(!v)return'--';return new Date(String(v).includes('T')?v:v+'T00:00:00').toLocaleDateString('en-IN')}
 function fmtTime(v){if(!v)return'--';if(String(v).includes('T'))return new Date(v).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});return String(v).slice(0,5)}
-function fmtHours(m){return (Number(m||0)/60).toFixed(2)}
-function getLogin(){let cur={};try{cur=JSON.parse(localStorage.getItem('inlist_employee_login_v2')||localStorage.getItem('currentEmployee')||'{}')}catch(e){}return{org_code:String(cur.org_code||cur.orgCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||'HOSP001').toUpperCase(),emp_code:String(cur.emp_code||cur.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||'EMP001').toUpperCase()}}
-function saveLogin(){localStorage.setItem('currentEmployee',JSON.stringify({org_code:state.org?.org_code,org_id:state.org?.id,emp_code:state.emp?.emp_code,employee_id:state.emp?.id,full_name:state.emp?.full_name,email:state.emp?.email,mobile:state.emp?.mobile}))}
+function uuidLike(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||''))}
+function pick(){for(const v of arguments){if(v!==null&&v!==undefined&&String(v).trim()!=='')return String(v).trim()}return''}
+function readObj(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){return{}}}
+function normalizeCode(v){return String(v||'').trim().toUpperCase()}
+function cleanRole(v){return String(v||'').toLowerCase().replace(/[_-]/g,' ')}
 
-function enc(v){return encodeURIComponent(String(v??''))}
-function isMissingFunctionErr(e){
-  const m=String(e?.message||e||'').toLowerCase();
-  return m.includes('could not find the function') || m.includes('pgrst202') || m.includes('function') || m.includes('schema cache') || m.includes('404');
-}
-function toMinutesFromTime(t){
-  if(!t)return null;
-  const m=String(t).match(/(\d{1,2}):(\d{2})/);
-  if(!m)return null;
-  return Number(m[1])*60+Number(m[2]);
-}
-function toDateTimeFor(dateStr,timeStr,baseEndMins=null){
-  if(!dateStr||!timeStr)return null;
-  const mins=toMinutesFromTime(timeStr);
-  if(mins===null)return null;
-  const d=new Date(dateStr+'T00:00:00');
-  d.setMinutes(mins);
-  if(baseEndMins!==null && mins < baseEndMins) d.setDate(d.getDate()+1);
-  return d;
-}
-function diffMinutes(a,b){
-  const aa=new Date(a).getTime(), bb=new Date(b).getTime();
-  if(!Number.isFinite(aa)||!Number.isFinite(bb))return 0;
-  return Math.max(0,Math.floor((aa-bb)/60000));
-}
-function firstVal(row,keys){
-  for(const k of keys){ if(row && row[k]!==undefined && row[k]!==null && row[k]!=='') return row[k]; }
-  return null;
-}
-async function restRows(table,query){
-  return sbFetch(`/rest/v1/${table}?${query}`);
-}
-async function safeInsert(table,payload){
-  let obj={...payload};
-  for(let i=0;i<12;i++){
-    try{
-      return await sbFetch(`/rest/v1/${table}`,{method:'POST',body:JSON.stringify(obj)});
-    }catch(e){
-      const msg=String(e.message||'');
-      const col=(msg.match(/column "([^"]+)"/)||msg.match(/Could not find the '([^']+)' column/)||[])[1];
-      if(col && obj[col]!==undefined){ delete obj[col]; continue; }
-      if(msg.toLowerCase().includes('violates row-level security')) throw new Error('RLS policy block kar rahi hai. RPC app_create_overtime_request ya overtime_requests insert policy check karo.');
-      throw e;
-    }
-  }
-  throw new Error('Overtime save failed: table columns match nahi ho rahe.');
-}
-async function directGetOvertimeDayData(dateValue){
-  let roster=null, att=null;
+function getLogin(){
+  const qs=new URLSearchParams(location.search);
+  const a=readObj('inlist_employee_login_v2');
+  const b=readObj('currentEmployee');
+  const c=readObj('currentSession');
+  const cur={...a,...b,...c};
 
-  const rosterQueries=[
-    `org_id=eq.${enc(state.org.id)}&employee_id=eq.${enc(state.emp.id)}&roster_date=eq.${enc(dateValue)}&select=*&limit=1`,
-    `org_id=eq.${enc(state.org.id)}&emp_code=eq.${enc(state.emp.emp_code)}&roster_date=eq.${enc(dateValue)}&select=*&limit=1`
-  ];
-  for(const q of rosterQueries){
-    try{ const rows=await restRows('rosters',q); if(rows?.[0]){roster=rows[0];break;} }catch(e){console.warn('roster fallback skipped',e.message)}
-  }
-
-  const attQueries=[
-    `org_id=eq.${enc(state.org.id)}&employee_id=eq.${enc(state.emp.id)}&attendance_date=eq.${enc(dateValue)}&select=*&order=created_at.desc&limit=1`,
-    `org_id=eq.${enc(state.org.id)}&emp_code=eq.${enc(state.emp.emp_code)}&attendance_date=eq.${enc(dateValue)}&select=*&order=created_at.desc&limit=1`
-  ];
-  for(const q of attQueries){
-    try{ const rows=await restRows('attendance',q); if(rows?.[0]){att=rows[0];break;} }catch(e){console.warn('attendance fallback skipped',e.message)}
-  }
-
-  if(!roster) throw new Error('Is date ka roster nahi mila.');
-  if(!att || !firstVal(att,['punch_out','punch_out_time'])) throw new Error('Is date ka punch out nahi mila, overtime calculate nahi hoga.');
-
-  const shiftStart=firstVal(roster,['shift_start','start_time','start','roster_start'])||'';
-  const shiftEnd=firstVal(roster,['shift_end','end_time','end','roster_end'])||'';
-  const punchIn=firstVal(att,['punch_in','punch_in_time'])||null;
-  const punchOut=firstVal(att,['punch_out','punch_out_time'])||null;
-
-  let calculated=0;
-  const startM=toMinutesFromTime(shiftStart);
-  const endM=toMinutesFromTime(shiftEnd);
-  if(endM!==null && punchOut){
-    const endDt=toDateTimeFor(dateValue,shiftEnd,startM);
-    calculated=diffMinutes(punchOut,endDt);
-  }
-
-  return {
-    roster_id:roster.id||null,
-    attendance_id:att.id||null,
-    shift_start:shiftStart,
-    shift_end:shiftEnd,
-    punch_in:punchIn,
-    punch_out:punchOut,
-    calculated_minutes:calculated
+  const login={
+    org_id:pick(qs.get('org_id'),qs.get('orgId'),cur.org_id,cur.orgId,localStorage.getItem('org_id'),localStorage.getItem('orgId'),localStorage.getItem('current_org_id')),
+    org_code:normalizeCode(pick(qs.get('org_code'),qs.get('orgCode'),qs.get('org'),cur.org_code,cur.orgCode,localStorage.getItem('org_code'),localStorage.getItem('orgCode'),localStorage.getItem('current_org_code'))),
+    emp_id:pick(qs.get('emp_id'),qs.get('employee_id'),cur.emp_id,cur.employee_id,cur.empId,localStorage.getItem('emp_id'),localStorage.getItem('employee_id'),localStorage.getItem('current_emp_id')),
+    emp_code:normalizeCode(pick(qs.get('emp_code'),qs.get('empCode'),qs.get('emp'),cur.emp_code,cur.empCode,localStorage.getItem('emp_code'),localStorage.getItem('empCode'),localStorage.getItem('current_emp_code'))),
+    full_name:pick(cur.full_name,cur.name,cur.employee_name,localStorage.getItem('employee_name'),localStorage.getItem('full_name')),
+    department:pick(cur.department,localStorage.getItem('department')),
+    email:pick(qs.get('email'),cur.email,localStorage.getItem('email')),
+    mobile:pick(qs.get('mobile'),cur.mobile,localStorage.getItem('mobile'))
   };
-}
-async function directCreateOvertimeRequest(args){
-  const payload={
-    org_id:state.org.id,
-    org_code:state.org.org_code,
-    employee_id:state.emp.id,
-    emp_code:state.emp.emp_code,
-    employee_name:state.emp.full_name||state.emp.emp_code,
-    department:state.emp.department||null,
-    designation:state.emp.designation||null,
-    ot_date:args.p_ot_date,
-    overtime_date:args.p_ot_date,
-    requested_minutes:args.p_requested_minutes,
-    requested_hours:Number((Number(args.p_requested_minutes||0)/60).toFixed(2)),
-    reason:args.p_reason,
-    reporting_user_id:args.p_reporting_user_id||null,
-    reporting_manager_id:args.p_reporting_user_id||null,
-    status:'pending',
-    created_at:new Date().toISOString(),
-    updated_at:new Date().toISOString()
-  };
-  return safeInsert('overtime_requests',payload);
+
+  state.login=login;
+  if(login.org_id) localStorage.setItem('org_id',login.org_id);
+  if(login.org_code) localStorage.setItem('org_code',login.org_code);
+  if(login.emp_id) localStorage.setItem('emp_id',login.emp_id);
+  if(login.emp_code) localStorage.setItem('emp_code',login.emp_code);
+  return login;
 }
 
+function saveLogin(){
+  localStorage.setItem('currentEmployee',JSON.stringify({
+    org_code:state.org?.org_code||state.login.org_code,
+    org_id:state.org?.id||state.login.org_id,
+    emp_code:state.emp?.emp_code||state.login.emp_code,
+    employee_id:state.emp?.id||state.login.emp_id,
+    full_name:state.emp?.full_name||state.login.full_name,
+    email:state.emp?.email||state.login.email,
+    mobile:state.emp?.mobile||state.login.mobile,
+    department:state.emp?.department||state.login.department
+  }));
+}
 
-async function init(){
+function applyContext(org,emp){
+  if(org){
+    state.org={
+      ...(state.org||{}),
+      ...org,
+      id:org.id||state.org?.id||state.login.org_id,
+      org_code:org.org_code||state.org?.org_code||state.login.org_code
+    };
+  }
+  if(emp){
+    state.emp={
+      ...(state.emp||{}),
+      ...emp,
+      id:emp.id||emp.employee_id||state.emp?.id||state.login.emp_id,
+      emp_code:emp.emp_code||emp.employee_code||state.emp?.emp_code||state.login.emp_code,
+      full_name:emp.full_name||emp.employee_name||emp.name||state.emp?.full_name||state.login.full_name,
+      department:emp.department||state.emp?.department||state.login.department
+    };
+  }
+}
+
+async function resolveContext(){
   const login=getLogin();
-  const orgs=await sbFetch(`/rest/v1/organizations?org_code=eq.${encodeURIComponent(login.org_code)}&active=eq.true&select=*`);
-  if(!orgs[0])throw new Error('ORG_NOT_FOUND');
-  state.org=orgs[0];
+  if(!login.org_id && !login.org_code) throw new Error('ORG_MISSING: URL/localStorage me org_id ya org_code nahi mila.');
+  if(!login.emp_id && !login.emp_code && !login.email && !login.mobile) throw new Error('EMPLOYEE_MISSING: URL/localStorage me emp_id ya emp_code nahi mila.');
 
-  const emps=await sbFetch(`/rest/v1/employees?org_id=eq.${state.org.id}&emp_code=eq.${encodeURIComponent(login.emp_code)}&active=eq.true&select=*`);
-  if(!emps[0])throw new Error('EMPLOYEE_NOT_FOUND');
-  state.emp=emps[0];saveLogin();
+  // Important: org_id URL me ho to organizations table lookup mandatory nahi hai.
+  state.org={id:login.org_id||'',org_code:login.org_code||''};
+  state.emp={id:login.emp_id||'',emp_code:login.emp_code||'',full_name:login.full_name||'Employee',department:login.department||''};
 
-  $('empHeaderOT').innerHTML=`<strong>${esc(state.emp.full_name)}</strong> | ID: ${esc(state.emp.emp_code)} | Dept: ${esc(state.emp.department||'-')}`;
+  // 1) Roster screen RPC se employee/org context nikalne ki koshish.
+  try{
+    const res=await sbRpc('app_employee_roster_screen_data',{
+      p_org_id:uuidLike(login.org_id)?login.org_id:null,
+      p_org_code:login.org_code||null,
+      p_emp_id:uuidLike(login.emp_id)?login.emp_id:null,
+      p_emp_code:login.emp_code||null,
+      p_start_date:todayISO(),
+      p_end_date:todayISO()
+    });
+    const out=Array.isArray(res)?(res[0]||{}):(res||{});
+    applyContext(out.org||out.organization,out.employee||out.emp);
+  }catch(e){console.warn('[OT DEBUG] roster context RPC skipped:',e.message||e)}
 
-  await loadReportingManagers();
-  await loadHistory();
-  initDefaultRows();
+  // 2) get_employee_context fallback.
+  if((!state.emp?.id || !state.emp?.emp_code || !state.org?.org_code) && (login.org_code || login.emp_code)){
+    try{
+      const data=await sbRpc('get_employee_context',{
+        p_org_code:login.org_code||null,
+        p_emp_code:login.emp_code||null,
+        p_email:login.email||null,
+        p_mobile:login.mobile||null,
+        p_roster_date:todayISO()
+      });
+      applyContext(data.organization||data.org,data.employee||data.emp);
+    }catch(e){console.warn('[OT DEBUG] get_employee_context skipped:',e.message||e)}
+  }
+
+  // 3) Direct employee fallback. Agar org table RLS block hai tab bhi employees se emp detail aa sakti hai.
+  if(!state.emp?.id || !state.emp?.emp_code || state.emp.full_name==='Employee'){
+    try{
+      let url='/rest/v1/employees?select=id,org_id,org_code,emp_code,full_name,email,mobile,department,designation,role,employee_type,active';
+      if(login.emp_id) url+=`&id=eq.${encodeURIComponent(login.emp_id)}`;
+      else if(login.org_id && login.emp_code) url+=`&org_id=eq.${encodeURIComponent(login.org_id)}&emp_code=eq.${encodeURIComponent(login.emp_code)}`;
+      else if(login.org_code && login.emp_code) url+=`&org_code=eq.${encodeURIComponent(login.org_code)}&emp_code=eq.${encodeURIComponent(login.emp_code)}`;
+      else if(login.email) url+=`&email=eq.${encodeURIComponent(login.email)}`;
+      else if(login.mobile) url+=`&mobile=eq.${encodeURIComponent(login.mobile)}`;
+      url+='&limit=1';
+      const rows=await sbFetch(url);
+      if(rows?.[0]) applyContext({id:rows[0].org_id||state.org.id,org_code:rows[0].org_code||state.org.org_code},rows[0]);
+    }catch(e){console.warn('[OT DEBUG] employee direct skipped:',e.message||e)}
+  }
+
+  // 4) Organization direct only optional. Fail hone par ORG_NOT_FOUND nahi throw hoga.
+  if(!state.org?.org_code || !state.org?.org_name){
+    try{
+      let url='/rest/v1/organizations?select=id,org_name,org_code,owner_user_id,created_by,owner_id';
+      if(state.org?.id) url+=`&id=eq.${encodeURIComponent(state.org.id)}`;
+      else if(state.org?.org_code) url+=`&org_code=eq.${encodeURIComponent(state.org.org_code)}`;
+      url+='&limit=1';
+      const rows=await sbFetch(url);
+      if(rows?.[0]) applyContext(rows[0],null);
+    }catch(e){console.warn('[OT DEBUG] organization optional lookup skipped:',e.message||e)}
+  }
+
+  if(!state.org?.id && !state.org?.org_code) throw new Error('ORG_CONTEXT_MISSING: org_id/org_code nahi mila.');
+  if(!state.emp?.id && !state.emp?.emp_code) throw new Error('EMPLOYEE_CONTEXT_MISSING: emp_id/emp_code nahi mila.');
+
+  saveLogin();
+  $('empHeaderOT').innerHTML=`<strong>${esc(state.emp.full_name||'Employee')}</strong> | ID: ${esc(state.emp.emp_code||state.emp.id||'-')} | Dept: ${esc(state.emp.department||'-')}`;
+}
+
+function managerLabel(m){
+  const name=m.full_name||m.name||m.email||m.mobile||'Approver';
+  const role=m.role||m.owner_role||m.designation||m.employee_type||'Owner/Admin';
+  const dep=m.department?` - ${m.department}`:'';
+  return `${name} (${role}${dep})`;
+}
+function managerId(m){return m.id||m.user_id||m.owner_user_id||m.created_by||m.owner_id||''}
+function dedupeManagers(rows){
+  const out=[];const seen=new Set();
+  (rows||[]).forEach(m=>{
+    const id=managerId(m);
+    if(!id||seen.has(id))return;
+    seen.add(id);out.push({...m,id});
+  });
+  return out;
+}
+function isApprover(m){
+  const s=cleanRole([m.role,m.designation,m.employee_type,m.owner_role,m.full_name,m.email].filter(Boolean).join(' '));
+  return /owner|admin|hr|human resource|operation|manager|finance|supervisor|approver/.test(s);
 }
 
 async function loadReportingManagers(){
   const sel=$('managerSelect');
+  sel.innerHTML='<option value="">Loading reporting list...</option>';
+  let rows=[];
+
+  // RPC first.
   try{
-    const data=await sbRpc('app_get_overtime_reporting_managers',{p_org_id:state.org.id});
-    state.reporting=data||[];
-  }catch(e){
-    console.warn('reporting manager RPC failed, using direct fallback:',e.message);
-    state.reporting=[];
+    const data=await sbRpc('app_get_overtime_reporting_managers',{p_org_id:state.org?.id||null,p_org_code:state.org?.org_code||null});
+    rows=dedupeManagers(data||[]);
+  }catch(e){console.warn('[OT DEBUG] reporting manager RPC skipped:',e.message||e)}
+
+  // employees table fallback: HR/Admin/Manager/Finance/Owner.
+  if(!rows.length && state.org?.id){
     try{
-      const rows=await restRows('employees',`org_id=eq.${enc(state.org.id)}&active=eq.true&select=id,full_name,emp_code,role,department,designation,employee_type`);
-      state.reporting=(rows||[]).filter(m=>{
-        const t=[m.role,m.designation,m.department,m.employee_type,m.full_name].map(x=>String(x||'').toLowerCase()).join(' ');
-        return /admin|owner|hr|manager|operation|finance/.test(t) && String(m.id)!==String(state.emp.id);
-      }).map(m=>({id:m.id,full_name:m.full_name||m.emp_code,role:m.role||m.designation||m.department||'Manager',department:m.department||''}));
-    }catch(er){console.warn('manager fallback failed:',er.message)}
+      const data=await sbFetch(`/rest/v1/employees?org_id=eq.${encodeURIComponent(state.org.id)}&select=id,full_name,emp_code,email,mobile,department,designation,role,employee_type,active&limit=200`);
+      rows=dedupeManagers((data||[]).filter(x=>x.active!==false && String(x.id)!==String(state.emp?.id) && isApprover(x)));
+    }catch(e){console.warn('[OT DEBUG] employee approver fallback skipped:',e.message||e)}
   }
+
+  // org_users fallback: owner/admin/hr.
+  if(!rows.length && state.org?.id){
+    try{
+      const data=await sbFetch(`/rest/v1/org_users?org_id=eq.${encodeURIComponent(state.org.id)}&select=id,email,phone,role,org_id,created_at&limit=200`);
+      rows=dedupeManagers((data||[]).filter(isApprover).map(u=>({id:u.id,full_name:u.email||u.phone||'Org User',role:u.role||'Owner/Admin',department:'Org User'})));
+    }catch(e){console.warn('[OT DEBUG] org_users owner fallback skipped:',e.message||e)}
+  }
+
+  // organizations owner id fallback: owner_user_id / created_by / owner_id.
+  if(!rows.length){
+    const ownerId=state.org?.owner_user_id||state.org?.created_by||state.org?.owner_id||'';
+    if(ownerId){
+      rows=[{id:ownerId,full_name:'Organization Owner',role:'owner',department:'Owner fallback'}];
+    }
+  }
+
+  // Last fallback: if no approver accessible but org_users/organizations RLS blocked, show clear message and disable submit.
+  state.reporting=dedupeManagers(rows);
   if(!state.reporting.length){
-    sel.innerHTML='<option value="">HR/Admin/Operations/Finance manager nahi mila</option>';
+    sel.innerHTML='<option value="">Owner/Admin/HR nahi mila - owner_user_id RPC/table se expose karo</option>';
+    $('submitOtBtn').disabled=true;
+    toast('Reporting owner/admin nahi mila. SQL/RPC me owner fallback add karo.',true);
     return;
   }
-  sel.innerHTML='<option value="">Select Manager</option>'+state.reporting.map(m=>`<option value="${esc(m.id)}">${esc(m.full_name)} (${esc(m.role||'Manager')}${m.department?' - '+esc(m.department):''})</option>`).join('');
+
+  $('submitOtBtn').disabled=false;
+  sel.innerHTML='<option value="">Select Manager / Owner</option>'+state.reporting.map(m=>`<option value="${esc(managerId(m))}">${esc(managerLabel(m))}</option>`).join('');
+}
+
+async function init(){
+  await resolveContext();
+  await loadReportingManagers();
+  await loadHistory();
+  initDefaultRows();
 }
 
 function createRow(initialDate=""){
@@ -278,6 +351,44 @@ function addNewRow(dateVal=""){
   $('otEntriesBody').appendChild(createRow(dateVal));
   updateTotalExtra();
 }
+
+function minutesBetweenEndAndOut(dateValue,shiftEnd,punchOut){
+  if(!shiftEnd||!punchOut)return 0;
+  let end=new Date(`${dateValue}T${String(shiftEnd).slice(0,5)}:00`);
+  let out=String(punchOut).includes('T')?new Date(punchOut):new Date(`${dateValue}T${String(punchOut).slice(0,5)}:00`);
+  if(Number.isNaN(end.getTime())||Number.isNaN(out.getTime()))return 0;
+  if(String(shiftEnd).slice(0,5)<'12:00' && out<end){ end.setDate(end.getDate()+1); }
+  return Math.max(0,Math.round((out-end)/60000));
+}
+
+async function directDayFallback(dateValue){
+  const out={};
+  try{
+    let rosterUrl=`/rest/v1/rosters?roster_date=eq.${encodeURIComponent(dateValue)}&select=id,shift_start,shift_end,shift_name`;
+    if(state.org?.id) rosterUrl+=`&org_id=eq.${encodeURIComponent(state.org.id)}`;
+    if(state.emp?.id) rosterUrl+=`&employee_id=eq.${encodeURIComponent(state.emp.id)}`;
+    rosterUrl+='&limit=1';
+    const r=await sbFetch(rosterUrl);
+    Object.assign(out,r?.[0]||{});
+  }catch(e){console.warn('[OT DEBUG] direct roster day skipped:',e.message||e)}
+
+  try{
+    let attUrl=`/rest/v1/attendance?attendance_date=eq.${encodeURIComponent(dateValue)}&select=id,punch_in,punch_out,punch_in_time,punch_out_time`;
+    if(state.org?.id) attUrl+=`&org_id=eq.${encodeURIComponent(state.org.id)}`;
+    if(state.emp?.id) attUrl+=`&employee_id=eq.${encodeURIComponent(state.emp.id)}`;
+    attUrl+='&limit=1';
+    const a=await sbFetch(attUrl);
+    const att=a?.[0]||{};
+    out.attendance_id=att.id||'';
+    out.punch_in=att.punch_in||att.punch_in_time||'';
+    out.punch_out=att.punch_out||att.punch_out_time||'';
+  }catch(e){console.warn('[OT DEBUG] direct attendance day skipped:',e.message||e)}
+
+  out.roster_id=out.id||'';
+  out.calculated_minutes=minutesBetweenEndAndOut(dateValue,out.shift_end,out.punch_out);
+  return out;
+}
+
 async function autoFillRow(row,dateValue){
   if(!dateValue)return;
   row.dataset.extraMinutes='0';row.dataset.rosterId='';row.dataset.attendanceId='';
@@ -289,22 +400,29 @@ async function autoFillRow(row,dateValue){
   updateTotalExtra();
 
   try{
-    let d;
+    let d=null;
     try{
-      d=await sbRpc('app_get_employee_overtime_day_data',{p_org_code:state.org.org_code,p_emp_code:state.emp.emp_code,p_ot_date:dateValue});
+      d=await sbRpc('app_get_employee_overtime_day_data',{
+        p_org_id:state.org?.id||null,
+        p_org_code:state.org?.org_code||null,
+        p_emp_id:state.emp?.id||null,
+        p_emp_code:state.emp?.emp_code||null,
+        p_ot_date:dateValue
+      });
     }catch(rpcErr){
-      console.warn('day data RPC failed, using direct fallback:',rpcErr.message);
-      d=await directGetOvertimeDayData(dateValue);
+      console.warn('[OT DEBUG] overtime day RPC skipped:',rpcErr.message||rpcErr);
+      d=await directDayFallback(dateValue);
     }
-    row.dataset.extraMinutes=String(d.calculated_minutes||0);
-    row.dataset.rosterId=d.roster_id||'';
-    row.dataset.attendanceId=d.attendance_id||'';
-    row.querySelector('.shift-start').value=String(d.shift_start||'').slice(0,5);
-    row.querySelector('.shift-end').value=String(d.shift_end||'').slice(0,5);
-    row.querySelector('.punch-in').value=d.punch_in?fmtTime(d.punch_in):'--';
-    row.querySelector('.punch-out').value=d.punch_out?fmtTime(d.punch_out):'--';
-    row.querySelector('.extra-hours-value').innerText=(Number(d.calculated_minutes||0)/60).toFixed(2);
-    if(Number(d.calculated_minutes||0)<=0) toast('Is date par overtime nahi mila.',true);
+
+    row.dataset.extraMinutes=String(d?.calculated_minutes||0);
+    row.dataset.rosterId=d?.roster_id||d?.id||'';
+    row.dataset.attendanceId=d?.attendance_id||'';
+    row.querySelector('.shift-start').value=String(d?.shift_start||'').slice(0,5);
+    row.querySelector('.shift-end').value=String(d?.shift_end||'').slice(0,5);
+    row.querySelector('.punch-in').value=d?.punch_in?fmtTime(d.punch_in):'--';
+    row.querySelector('.punch-out').value=d?.punch_out?fmtTime(d.punch_out):'--';
+    row.querySelector('.extra-hours-value').innerText=(Number(d?.calculated_minutes||0)/60).toFixed(2);
+    if(Number(d?.calculated_minutes||0)<=0) toast('Is date par overtime nahi mila.',true);
   }catch(e){
     row.querySelector('.punch-in').value='--';
     row.querySelector('.punch-out').value='--';
@@ -312,6 +430,7 @@ async function autoFillRow(row,dateValue){
   }
   updateTotalExtra();
 }
+
 function updateTotalExtra(){
   let total=0;
   document.querySelectorAll('#otEntriesBody tr').forEach(row=>total+=Number(row.dataset.extraMinutes||0));
@@ -337,25 +456,21 @@ async function handleSubmit(){
   const managerId=$('managerSelect').value;
   if(!entries.length)return toast('Overtime wali kam se kam 1 date select karo.',true);
   if(!reason)return toast('Reason likho.',true);
-  if(!managerId)return toast('Reporting manager select karo.',true);
+  if(!managerId)return toast('Reporting manager/owner select karo.',true);
 
   $('submitOtBtn').disabled=true;
   try{
     for(const e of entries){
-      const args={
-        p_org_code:state.org.org_code,
-        p_emp_code:state.emp.emp_code,
+      await sbRpc('app_create_overtime_request',{
+        p_org_id:state.org?.id||null,
+        p_org_code:state.org?.org_code||null,
+        p_emp_id:state.emp?.id||null,
+        p_emp_code:state.emp?.emp_code||null,
         p_ot_date:e.date,
         p_requested_minutes:e.requested_minutes,
         p_reason:reason,
         p_reporting_user_id:managerId
-      };
-      try{
-        await sbRpc('app_create_overtime_request',args);
-      }catch(rpcErr){
-        console.warn('create overtime RPC failed, using direct fallback:',rpcErr.message);
-        await directCreateOvertimeRequest(args);
-      }
+      });
     }
     toast(`✅ ${entries.length} overtime request admin/reporting ke paas bhej di.`);
     $('otReason').value='';
@@ -370,16 +485,24 @@ async function handleSubmit(){
 
 async function loadHistory(){
   try{
-    const rows=await sbRpc('app_get_my_overtime_history',{p_org_code:getLogin().org_code,p_emp_code:getLogin().emp_code,p_limit:5});
+    const rows=await sbRpc('app_get_my_overtime_history',{
+      p_org_id:state.org?.id||null,
+      p_org_code:state.org?.org_code||null,
+      p_emp_id:state.emp?.id||null,
+      p_emp_code:state.emp?.emp_code||null,
+      p_limit:5
+    });
     state.history=rows||[];
   }catch(e){
-    console.warn('history RPC failed, using direct fallback:',e.message);
+    console.warn('[OT DEBUG] history RPC skipped:',e.message||e);
+    state.history=[];
     try{
-      state.history=await restRows('overtime_requests',`org_id=eq.${enc(state.org.id)}&emp_code=eq.${enc(state.emp.emp_code)}&select=*&order=created_at.desc&limit=5`);
-    }catch(er){
-      console.warn('history fallback failed:',er.message);
-      state.history=[];
-    }
+      let url='/rest/v1/overtime_requests?select=*&order=created_at.desc&limit=5';
+      if(state.org?.id) url+=`&org_id=eq.${encodeURIComponent(state.org.id)}`;
+      if(state.emp?.id) url+=`&employee_id=eq.${encodeURIComponent(state.emp.id)}`;
+      const rows=await sbFetch(url);
+      state.history=rows||[];
+    }catch(err){console.warn('[OT DEBUG] history direct skipped:',err.message||err)}
   }
   renderOtHistory();
 }
@@ -389,12 +512,14 @@ function renderOtHistory(){
   c.innerHTML=state.history.map(r=>{
     const st=String(r.status||'pending').toLowerCase();
     const cls=st==='approved'?'approved':st==='rejected'?'rejected':'pending';
+    const mins=Number(r.requested_minutes||r.overtime_minutes||0);
+    const hrs=Number(r.requested_hours||r.overtime_hours||mins/60||0);
     return `<div class="history-item">
-      <div><strong>📅 ${fmtDate(r.ot_date)}</strong> &nbsp; 🕒 OT: ${Number(r.requested_hours||0).toFixed(2)} hrs</div>
+      <div><strong>📅 ${fmtDate(r.ot_date||r.overtime_date||r.created_at)}</strong> &nbsp; 🕒 OT: ${hrs.toFixed(2)} hrs</div>
       <div>Shift: ${fmtTime(r.shift_start)} - ${fmtTime(r.shift_end)} | Out: ${fmtTime(r.punch_out)}</div>
       <div>📝 ${esc((r.reason||'-').slice(0,90))}</div>
-      <div>👔 Reporting: ${esc(r.reporting_name||'-')} &nbsp; 🏷️ Status: <span class="badge ${cls}">${esc(st.toUpperCase())}</span></div>
-      <div style="font-size:.72rem">🕒 Applied: ${new Date(r.created_at).toLocaleString('en-IN')}</div>
+      <div>👔 Reporting: ${esc(r.reporting_name||r.reporting_user_name||'-')} &nbsp; 🏷️ Status: <span class="badge ${cls}">${esc(st.toUpperCase())}</span></div>
+      <div style="font-size:.72rem">🕒 Applied: ${r.created_at?new Date(r.created_at).toLocaleString('en-IN'):'-'}</div>
     </div>`;
   }).join('');
 }
@@ -406,7 +531,7 @@ function initDefaultRows(){
 $('backOtBtn').onclick=()=>history.length>1?history.back():location.href='emp.html';
 $('addRowBtn').onclick=()=>addNewRow('');
 $('submitOtBtn').onclick=handleSubmit;
-init().catch(e=>{toast(e.message,true);$('empHeaderOT').innerHTML='Error: '+esc(e.message)});
+init().catch(e=>{console.error('[OT DEBUG] init failed:',e);toast(e.message,true);$('empHeaderOT').innerHTML='Error: '+esc(e.message)});
 </script>
 </body>
 </html>
