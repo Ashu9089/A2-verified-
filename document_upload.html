@@ -1130,6 +1130,17 @@
         function openUploadModal(empId, category=null){
             if (!empId) return showToast('Employee select karein.', true);
             if (!isAdminRole() && empId !== currentUser.employeeId) return showToast('Employee apna hi document upload kar sakta hai.', true);
+
+            // RE-UPLOAD LOCK:
+            // Employee ek category me active document dobara upload nahi kar sakta.
+            // Admin jab document delete karega (active=false), tabhi same category me re-upload possible hoga.
+            if (category) {
+                const existing = allDocs.find(d => String(d.employee_id) === String(empId) && d.category === category && d.active !== false);
+                if (existing) {
+                    return showToast('Document already uploaded.', true);
+                }
+            }
+
             uploadTargetEmployee = empId;
             const sel = document.getElementById('uploadCategory');
             sel.innerHTML = CATEGORIES.map(c => `<option value="${c.id}" ${c.id===category?'selected':''}>${esc(c.label)}</option>`).join('');
@@ -1173,6 +1184,24 @@
                 if (!selectedFile) return showToast('File select karein.', true);
                 const empId = uploadTargetEmployee || selectedEmployeeId;
                 const category = document.getElementById('uploadCategory').value;
+
+                // SERVER-SIDE DUPLICATE CHECK BEFORE STORAGE UPLOAD
+                // Same employee + same category ka active document already hai to file storage me upload nahi hoga.
+                const { data: existingDoc, error: chkErr } = await sb
+                    .from('employee_documents')
+                    .select('id,document_name,file_name,status')
+                    .eq('org_id', APP.orgId)
+                    .eq('employee_id', empId)
+                    .eq('category', category)
+                    .eq('active', true)
+                    .maybeSingle();
+
+                if (chkErr) throw chkErr;
+
+                if (existingDoc) {
+                    return showToast('Document already uploaded.', true);
+                }
+
                 const emp = employees.find(e => e.id === empId) || getSelectedEmp();
                 const ext = (selectedFile.name.split('.').pop() || 'bin').toLowerCase();
                 const fileName = `${Date.now()}_${safeName(selectedFile.name)}`;
@@ -1234,7 +1263,17 @@
                 showToast(isAdminRole() ? '✅ Document uploaded & approved.' : '✅ Document uploaded. Admin approval pending.');
                 await loadDocuments();
             }catch(err){
-                console.error(err); showToast(err.message || 'Upload failed', true);
+                console.error(err);
+                const msg = String(err.message || err.details || err.hint || '');
+                if (
+                    msg.includes('ux_employee_documents_one_active_per_category') ||
+                    msg.includes('duplicate key value') ||
+                    msg.includes('employee_documents_one_active_per_category')
+                ) {
+                    showToast('Document already uploaded.', true);
+                } else {
+                    showToast(err.message || 'Upload failed', true);
+                }
             }
         };
 
