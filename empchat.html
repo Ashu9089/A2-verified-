@@ -149,12 +149,43 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 
-let state={org:null,me:null,contacts:[],current:null,messages:[],localEchoes:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,presenceTimer:null,reconnectTimer:null,realtimeStatus:'closed',typingRealtimeStatus:'closed',lastRealtimeReconnectAt:0,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0,lastContactsLoadAt:0,lastMessagesLoadAt:0};
+let state={org:null,me:null,contacts:[],current:null,messages:[],localEchoes:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0,clearedChats:{}};
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
 function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
 function initials(name){return String(name||'?').split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'?'}
 function formatTime(iso){const d=new Date(iso);const diff=Math.floor((Date.now()-d.getTime())/60000);if(diff<1)return'Just now';if(diff<60)return`${diff} min ago`;if(diff<1440)return`${Math.floor(diff/60)} hours ago`;return d.toLocaleDateString('en-IN')}
+function chatClearStorageKey(){return state.me?.id ? 'chat_deleted_for_me_v2_'+state.me.id : 'chat_deleted_for_me_v2'}
+function loadLocalClearedChats(){
+  try{state.clearedChats=JSON.parse(localStorage.getItem(chatClearStorageKey())||'{}')||{}}catch(e){state.clearedChats={}}
+}
+function saveLocalClearedChats(){
+  try{localStorage.setItem(chatClearStorageKey(),JSON.stringify(state.clearedChats||{}))}catch(e){}
+}
+function markChatCleared(convId,atIso){
+  if(!convId)return;
+  state.clearedChats=state.clearedChats||{};
+  state.clearedChats[String(convId)]=atIso||new Date().toISOString();
+  saveLocalClearedChats();
+}
+function clearedAtFor(convId){return (state.clearedChats||{})[String(convId)]||''}
+function contactLastAt(c){return c?.last_message_at||c?.last_message_created_at||c?.last_message_time||c?.last_message_created||c?.last_message_date||c?.latest_message_at||c?.updated_at||c?.created_at||''}
+function hasNewMessageAfterClear(c){
+  const clearAt=clearedAtFor(c?.conversation_id);
+  if(!clearAt)return true;
+  const lastAt=contactLastAt(c);
+  if(!lastAt)return false;
+  return new Date(lastAt).getTime()>new Date(clearAt).getTime();
+}
+function isContactLocallyCleared(c){return !!c?.conversation_id && !!clearedAtFor(c.conversation_id) && !hasNewMessageAfterClear(c)}
+function messageAfterLocalClear(m){
+  const clearAt=clearedAtFor(m?.conversation_id||state.current?.conversation_id);
+  if(!clearAt)return true;
+  const mt=new Date(m?.created_at||0).getTime();
+  const ct=new Date(clearAt).getTime();
+  return mt>ct;
+}
+
 function getLogin(){let cur={};try{cur=JSON.parse(localStorage.getItem('inlist_employee_login_v2')||localStorage.getItem('currentEmployee')||'{}')}catch(e){}return{org_code:String(cur.org_code||cur.orgCode||localStorage.getItem('org_code')||localStorage.getItem('orgCode')||'HOSP001').toUpperCase(),emp_code:String(cur.emp_code||cur.empCode||localStorage.getItem('emp_code')||localStorage.getItem('empCode')||'EMP001').toUpperCase()}}
 async function rpc(fn,args){
   const {data,error}=await sb.rpc(fn,args||{});
@@ -279,107 +310,43 @@ function bindTypingInput(){
   });
   input.addEventListener('blur',()=>setMyTyping(false));
 }
-function safeRemoveChannel(ch){
-  try{ if(ch) sb.removeChannel(ch); }catch(e){ console.warn('remove channel skipped:',e); }
-}
 function unsubscribeRealtime(){
-  safeRemoveChannel(state.messageChannel);state.messageChannel=null;
-  safeRemoveChannel(state.typingChannel);state.typingChannel=null;
-  state.realtimeStatus='closed';
-  state.typingRealtimeStatus='closed';
+  if(state.messageChannel){sb.removeChannel(state.messageChannel);state.messageChannel=null}
+  if(state.typingChannel){sb.removeChannel(state.typingChannel);state.typingChannel=null}
   setTypingText('');
 }
-function scheduleRealtimeReconnect(reason='reconnect'){
+function subscribeRealtime(){
   if(!state.current?.conversation_id)return;
-  clearTimeout(state.reconnectTimer);
-  const now=Date.now();
-  const delay = now-state.lastRealtimeReconnectAt<1500 ? 1500 : 500;
-  state.reconnectTimer=setTimeout(()=>{
-    if(!state.current?.conversation_id)return;
-    state.lastRealtimeReconnectAt=Date.now();
-    console.warn('Realtime reconnect:',reason);
-    subscribeRealtime(true);
-  },delay);
-}
-function subscribeRealtime(isReconnect=false){
-  if(!state.current?.conversation_id)return;
+  unsubscribeRealtime();
   const convId=state.current.conversation_id;
-
-  safeRemoveChannel(state.messageChannel);state.messageChannel=null;
-  safeRemoveChannel(state.typingChannel);state.typingChannel=null;
-  state.realtimeStatus='connecting';
-  state.typingRealtimeStatus='connecting';
-
-  state.messageChannel=sb.channel('emp-chat-messages-'+convId+'-'+Date.now())
+  state.messageChannel=sb.channel('emp-chat-messages-'+convId)
     .on('postgres_changes',{event:'*',schema:'public',table:'chat_messages',filter:`conversation_id=eq.${convId}`},async()=>{
       if(state.current?.conversation_id===convId){
-        state.forceScrollBottom=true;
         await loadMessages(false).catch(()=>{});
-        if(Date.now()-state.lastContactsLoadAt>1200) await loadContacts().catch(()=>{});
+        await loadContacts().catch(()=>{});
       }
     })
-    .on('postgres_changes',{event:'*',schema:'public',table:'chat_message_deletions'},async()=>{
-      if(state.current?.conversation_id===convId){
-        await loadMessages(false).catch(()=>{});
-      }
-    })
-    .subscribe((status)=>{
-      state.realtimeStatus=status;
-      console.log('Message realtime status:',status);
-      if(status==='SUBSCRIBED'){
-        state.lastRealtimeReconnectAt=Date.now();
-        state.forceScrollBottom=true;
-        loadMessages(false).catch(()=>{});
-      }
-      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
-        scheduleRealtimeReconnect(status);
-      }
-    });
-
-  state.typingChannel=sb.channel('emp-chat-typing-'+convId+'-'+Date.now())
+    .subscribe();
+  state.typingChannel=sb.channel('emp-chat-typing-'+convId)
     .on('postgres_changes',{event:'*',schema:'public',table:'chat_typing_status',filter:`conversation_id=eq.${convId}`},payload=>{
       const row=payload.new||payload.old||{};
       if(String(row.conversation_id)!==String(convId))return;
       if(String(row.employee_id)===String(state.me.id))return;
       const fresh=row.updated_at && (Date.now()-new Date(row.updated_at).getTime()<5000);
       setTypingText(row.is_typing&&fresh?'Typing...':'');
-      if(row.is_typing&&fresh){
-        setTimeout(()=>{
-          const el=$('typingIndicator');
-          if(el&&el.textContent==='Typing...')setTypingText('');
-        },5200);
-      }
     })
-    .subscribe((status)=>{
-      state.typingRealtimeStatus=status;
-      console.log('Typing realtime status:',status);
-      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
-        scheduleRealtimeReconnect('typing-'+status);
-      }
-    });
-
-  if(isReconnect){
-    state.forceScrollBottom=true;
-    loadMessages(false).catch(()=>{});
-  }
+    .subscribe();
 }
-function ensureRealtimeHealthy(){
-  if(!state.current?.conversation_id)return;
-  if(!state.messageChannel || !['SUBSCRIBED','connecting'].includes(String(state.realtimeStatus))){
-    scheduleRealtimeReconnect('health-check');
-  }
-}
-
 
 
 async function init(){
   const login=getLogin();
   const ctx=await rpc('chat_get_employee_context',{p_org_code:login.org_code,p_emp_code:login.emp_code});
   state.org=ctx.organization;state.me=ctx.employee;
+  loadLocalClearedChats();
   $('meBox').innerHTML=`Me: <strong>${esc(state.me.full_name)}</strong> (${esc(state.me.emp_code)})`;
   try{ await rpc('chat_touch_presence',{p_org_id:state.org.id,p_employee_id:state.me.id}); }catch(e){}
   await loadContacts();
-  startBackgroundTimers();
 }
 async function loadContacts(){
   if(state.loadContactsRunning)return;
@@ -422,8 +389,12 @@ async function loadContacts(){
     }
   });
 
-  state.contacts = [...map.values()];
-  state.lastContactsLoadAt=Date.now();
+  state.contacts = [...map.values()].map(c=>{
+    if(isContactLocallyCleared(c)){
+      return {...c,last_message_text:'',unread_count:0,_locally_cleared:true};
+    }
+    return c;
+  });
   renderContacts();
   }catch(e){
     console.warn('loadContacts skipped/failed:',e);
@@ -473,7 +444,9 @@ function renderContacts(){
     const active=state.current?.conversation_id===c.conversation_id?'active':'';
     const blocked=c.is_blocked?'blocked':'';
     const pending=c.status==='pending'?'pending':'';
-    const last=c.last_message_text||'No messages';
+    const locallyCleared=!!c._locally_cleared || isContactLocallyCleared(c);
+    const last=locallyCleared ? '' : (c.last_message_text||'No messages');
+    const unreadCount=locallyCleared ? 0 : Number(c.unread_count||0);
     const approvedDot = c.status==='accepted' ? '<span class="online-dot" title="Online/Approved"></span>' : '';
     const requestLabel =
       c.status==='pending' && c.request_to_employee_id===state.me.id ? 'Request Received' :
@@ -487,9 +460,9 @@ function renderContacts(){
       <div class="contact-info">
         <div class="contact-name">${esc(c.full_name)} ${approvedDot}<span class="section-chip">${esc(c.role_label||c.role||'Employee')}</span></div>
         <div class="contact-role">${esc(c.emp_code||'')} • ${esc(c.department||'-')} • ${esc(requestLabel)}</div>
-        <div class="last-msg">${esc(last)}</div>
+        ${last ? `<div class="last-msg">${esc(last)}</div>` : ''}
       </div>
-      ${Number(c.unread_count||0)>0?`<div class="unread-badge">${Number(c.unread_count)}</div>`:''}
+      ${unreadCount>0?`<div class="unread-badge">${unreadCount}</div>`:''}
       ${c.needs_request?`<button class="mini-btn" data-action="request" data-emp="${esc(c.employee_id)}">Send Request</button>`:''}
       ${c.status==='pending'&&c.request_to_employee_id===state.me.id?`<button class="mini-btn" data-action="accept" data-conv="${esc(c.conversation_id)}">Accept</button><button class="mini-btn mini-danger" data-action="reject" data-conv="${esc(c.conversation_id)}">Reject</button>`:''}
       ${c.status==='pending'&&c.request_from_employee_id===state.me.id?`<span class="mini-btn" style="opacity:.7">Pending</span>`:''}
@@ -648,17 +621,18 @@ function getMessagesForRender(){
   const now=Date.now();
   state.localEchoes=(state.localEchoes||[]).filter(e=>{
     if(String(e.conversation_id)!==String(state.current?.conversation_id))return false;
-    const tooOld=now-new Date(e.created_at).getTime()>42000;
+    const tooOld=now-new Date(e.created_at).getTime()>45000;
     const matched=server.some(m=>
       String(m.sender_employee_id)===String(e.sender_employee_id) &&
       normalizeMsgText(m.message_text)===normalizeMsgText(e.message_text) &&
       String(m.media_type||'')===String(e.media_type||'') &&
-      Math.abs(new Date(m.created_at).getTime()-new Date(e.created_at).getTime())<42000
+      Math.abs(new Date(m.created_at).getTime()-new Date(e.created_at).getTime())<45000
     );
     return !tooOld && !matched;
   });
   return [...server,...state.localEchoes]
     .filter(m=>String(m.conversation_id||state.current?.conversation_id)===String(state.current?.conversation_id))
+    .filter(messageAfterLocalClear)
     .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
 }
 
@@ -730,7 +704,6 @@ async function loadMessages(refreshContacts=true){
   }
 
   renderMessages();
-  state.lastMessagesLoadAt=Date.now();
   if(refreshContacts) await loadContacts();
   state.loadMessagesRunning=false;
 }
@@ -825,8 +798,7 @@ async function sendMessage(){
 
     // Supabase commit/read race avoid karne ke liye short delay ke baad server se refresh.
     await waitForMessageLoadFree();
-    subscribeRealtime(true);
-    await wait(80);
+    await wait(350);
     state.forceScrollBottom=true;
     await loadMessages(false);
     await loadContacts();
@@ -922,7 +894,10 @@ async function deleteEntireChat(){
     }
   }
 
+  markChatCleared(convId,new Date().toISOString());
   state.messages=[];
+  state.localEchoes=[];
+  if(state.current) state.current={...state.current,last_message_text:'',unread_count:0,_locally_cleared:true};
   $('messagesArea').innerHTML='<div style="text-align:center;padding:2rem">No messages.</div>';
   toast('Poora chat aapke side se delete ho gaya');
   state.forceScrollBottom=true;
@@ -1041,67 +1016,23 @@ if($('deleteModal')){
   },{passive:false});
 }
 
-function startBackgroundTimers(){
-  if(state.refreshTimer)clearInterval(state.refreshTimer);
-  if(state.presenceTimer)clearInterval(state.presenceTimer);
-
-  // Fast fallback polling: realtime fail/disconnect hone par bhi receiver ko message miss nahi hoga.
-  state.refreshTimer=setInterval(()=>{
-    if(!state.org||!state.me)return;
-
-    ensureRealtimeHealthy();
-
-    if(state.current?.conversation_id){
-      loadMessages(false).catch(()=>{});
-    }
-
-    // Contacts/list count ko messages se thoda slow rakha gaya hai, load kam rahega.
-    if(Date.now()-state.lastContactsLoadAt>5000){
-      loadContacts().catch(()=>{});
-    }
-  },2000);
-
-  // Presence 2 sec par chalane se DB load badhta tha. 12 sec enough hai.
-  state.presenceTimer=setInterval(()=>{
-    if(state.org&&state.me){
-      rpc('chat_touch_presence',{
-        p_org_id:state.org.id,
-        p_employee_id:state.me.id
-      }).catch(()=>{});
-    }
-  },12000);
-}
-
-window.addEventListener('online',()=>{
-  if(state.current?.conversation_id){
-    subscribeRealtime(true);
-    state.forceScrollBottom=true;
-    loadMessages(false).catch(()=>{});
-    loadContacts().catch(()=>{});
-  }
-});
-window.addEventListener('focus',()=>{
-  if(state.current?.conversation_id){
-    ensureRealtimeHealthy();
-    state.forceScrollBottom=true;
-    loadMessages(false).catch(()=>{});
-  }
-});
-document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden && state.current?.conversation_id){
-    subscribeRealtime(true);
-    state.forceScrollBottom=true;
-    loadMessages(false).catch(()=>{});
-    loadContacts().catch(()=>{});
-  }
-});
-window.addEventListener('beforeunload',()=>{
-  try{unsubscribeRealtime()}catch(e){}
-  try{if(state.refreshTimer)clearInterval(state.refreshTimer)}catch(e){}
-  try{if(state.presenceTimer)clearInterval(state.presenceTimer)}catch(e){}
-});
-
 init().catch(e=>{toast(e.message,true);$('contactsList').innerHTML='<div style="padding:2rem;color:#b91c1c">'+esc(e.message)+'</div>'});
+state.refreshTimer=setInterval(()=>{
+  if(state.org&&state.me){
+    rpc('chat_touch_presence',{
+      p_org_id:state.org.id,
+      p_employee_id:state.me.id
+    }).catch(()=>{});
+  }
+
+  loadContacts().catch(()=>{});
+
+  // Realtime active hai to har 2 second reload karna duplicate race create karta tha.
+  // Fallback polling sirf tab chalega jab realtime channel available/subscribed na ho.
+  if(state.current?.conversation_id && !state.messageChannel){
+    loadMessages(false).catch(()=>{});
+  }
+},5000);
 </script>
 </body>
 </html>
