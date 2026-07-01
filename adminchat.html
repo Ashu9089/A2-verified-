@@ -185,6 +185,102 @@ function isNearBottom(){const box=$('messagesArea');if(!box)return true;return (
 function scrollToBottom(){const box=$('messagesArea');if(!box)return;box.scrollTop=box.scrollHeight;updateScrollBottomButton()}
 function updateScrollBottomButton(){const btn=$('scrollBottomBtn');if(!btn)return;btn.classList.toggle('show',!!state.current&&!isNearBottom())}
 function currentViewerCanBlock(){return true}
+function myBlocked(c){
+  // Button label sirf meri taraf ke block status se decide hoga.
+  // Agar dusre ne block kiya hai to mere paas ab bhi "Block" option rahega.
+  return !!(c?.my_is_blocked || c?.blocked_by_me || c?.is_blocked_by_me);
+}
+function otherBlocked(c){
+  return !!(c?.other_is_blocked || c?.blocked_by_other || c?.is_blocked_by_other);
+}
+function effectiveBlocked(c){
+  // Chat band tab rahegi jab meri taraf ya dusri taraf me se kisi ne bhi block kiya ho.
+  return !!(c?.is_blocked || c?.effective_is_blocked || myBlocked(c) || otherBlocked(c));
+}
+function blockLabel(c){
+  return myBlocked(c) ? 'Unblock' : 'Block';
+}
+function blockMenuLabel(c){
+  return myBlocked(c) ? 'Unblock User' : 'Block User';
+}
+function blockChipText(c){
+  if(myBlocked(c) && otherBlocked(c)) return 'Both Blocked';
+  if(myBlocked(c)) return 'Blocked by You';
+  if(otherBlocked(c) || effectiveBlocked(c)) return 'Blocked';
+  return '';
+}
+
+/* ===== Admin read badge guard ===== */
+function adminReadStoreKey(){
+  return `admin_chat_read_at_${state.adminEmp?.id || 'admin'}`;
+}
+function readAdminReadMap(){
+  try{return JSON.parse(localStorage.getItem(adminReadStoreKey())||'{}')||{}}catch(e){return{}}
+}
+function saveAdminReadMap(map){
+  localStorage.setItem(adminReadStoreKey(), JSON.stringify(map||{}));
+}
+function setAdminConversationReadAt(convId, iso){
+  if(!convId)return;
+  const map=readAdminReadMap();
+  map[String(convId)] = iso || new Date().toISOString();
+  saveAdminReadMap(map);
+}
+function getAdminConversationReadAt(convId){
+  if(!convId)return 0;
+  const iso=readAdminReadMap()[String(convId)];
+  const t=iso ? new Date(iso).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+function adminContactLastMessageTime(c){
+  const v=c?.last_message_at || c?.last_message_created_at || c?.latest_message_at || c?.updated_at || c?.created_at || '';
+  const t=v ? new Date(v).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+function sanitizeAdminContactAfterRead(c){
+  if(!c?.conversation_id)return c;
+  const readAt=getAdminConversationReadAt(c.conversation_id);
+  if(!readAt)return c;
+  const lastTs=adminContactLastMessageTime(c);
+  if(!lastTs || lastTs<=readAt){
+    return {...c, unread_count:0};
+  }
+  return c;
+}
+function zeroAdminUnreadLocal(convId){
+  if(!convId)return;
+  state.developers=(state.developers||[]).map(c=>String(c.conversation_id)===String(convId)?{...c,unread_count:0}:c);
+  state.staff=(state.staff||[]).map(c=>String(c.conversation_id)===String(convId)?{...c,unread_count:0}:c);
+  if(state.current && String(state.current.conversation_id)===String(convId)){
+    state.current={...state.current,unread_count:0};
+  }
+  renderDevelopers();
+  renderStaff();
+}
+async function markAdminConversationRead(convId){
+  if(!convId || !state.adminEmp?.id)return;
+  const nowIso=new Date().toISOString();
+  setAdminConversationReadAt(convId, nowIso);
+  zeroAdminUnreadLocal(convId);
+  try{
+    await rpc('chat_mark_conversation_read',{
+      p_conversation_id: convId,
+      p_employee_id: state.adminEmp.id
+    });
+  }catch(e){
+    console.warn('[ADMIN CHAT READ] chat_mark_conversation_read skipped:', e.message||e);
+    try{
+      const {error}=await sb.from('chat_conversation_reads').upsert({
+        conversation_id: convId,
+        employee_id: state.adminEmp.id,
+        read_at: nowIso
+      },{onConflict:'conversation_id,employee_id'});
+      if(error) throw error;
+    }catch(er){
+      console.warn('[ADMIN CHAT READ] direct read marker skipped:', er.message||er);
+    }
+  }
+}
 function isDeveloperContact(c){const t=[c?.role_label,c?.role,c?.designation,c?.department,c?.employee_type,c?.full_name].map(v=>String(v||'').toLowerCase()).join(' ');return /developer|devloper|\bdev\b|support/.test(t)}
 async function rpc(fn,args){const {data,error}=await sb.rpc(fn,args||{});if(error)throw error;return data}
 function localMsgId(){return 'local-'+Date.now()+'-'+Math.random().toString(16).slice(2)}
@@ -235,14 +331,15 @@ async function init(){
   startSmartPolling();
 }
 async function loadDevelopers(){
-  state.developers=await rpc('admin_empchat_get_developers',{p_org_id:state.org.id,p_admin_employee_id:state.adminEmp.id});
+  const rows=await rpc('admin_empchat_get_developers',{p_org_id:state.org.id,p_admin_employee_id:state.adminEmp.id});
+  state.developers=(rows||[]).map(sanitizeAdminContactAfterRead);
   renderDevelopers();
 }
 async function loadStaff(page=state.page){
   state.page=Math.max(1,page);
   const data=await rpc('admin_empchat_get_staff_contacts',{p_org_id:state.org.id,p_admin_employee_id:state.adminEmp.id,p_search:state.search||null,p_limit:state.limit,p_offset:(state.page-1)*state.limit});
   const seen=new Set();
-  state.staff=(data.items||[]).filter(x=>{
+  state.staff=(data.items||[]).map(sanitizeAdminContactAfterRead).filter(x=>{
     const role=String(x.role_label||x.role||x.designation||'').toLowerCase();
     if(role.includes('owner')||role.includes('developer')||role.includes('devloper')||role.includes('admin'))return false;
     if(seen.has(x.employee_id))return false;seen.add(x.employee_id);return true;
@@ -253,13 +350,15 @@ async function loadStaff(page=state.page){
   renderStaff();
 }
 function contactHtml(c,kind){
+  c=sanitizeAdminContactAfterRead(c);
   const active=state.current?.conversation_id===c.conversation_id?'active':'';
   const online=c.online?'online':'';
-  const blocked=c.is_blocked?'blocked':'';
+  const blocked=effectiveBlocked(c)?'blocked':'';
+  const chip=blockChipText(c);
   return `<div class="contact-item ${active} ${blocked}" data-kind="${kind}" data-conv="${esc(c.conversation_id)}">
     <div class="contact-avatar">${esc(initials(c.full_name))}<span class="dot ${online}"></span></div>
     <div class="contact-info">
-      <div class="contact-name">${esc(c.full_name)} <span class="role-chip">${esc(c.role_label||kind)}</span>${c.is_blocked?`<span class="blocked-chip">Blocked</span>`:''}</div>
+      <div class="contact-name">${esc(c.full_name)} <span class="role-chip">${esc(c.role_label||kind)}</span>${chip?`<span class="blocked-chip">${esc(chip)}</span>`:''}</div>
       <div class="contact-role">${esc(c.emp_code||'')} • ${esc(c.department||'-')}</div>
       <div class="last-msg">${esc(c.last_message_text||'No messages')}</div>
     </div>
@@ -287,7 +386,7 @@ function renderChatActions(){
   const protectedUser=isProtectedContact(c);
   let html=`<button class="action-btn" id="refreshBtn"><span class="material-icons">refresh</span>Refresh</button>`;
   if(currentViewerCanBlock() && !protectedUser){
-    html+=`<button class="action-btn danger-action" id="blockBtn"><span class="material-icons">block</span>${c.is_blocked?'Unblock':'Block'}</button>`;
+    html+=`<button class="action-btn danger-action" id="blockBtn"><span class="material-icons">block</span>${blockLabel(c)}</button>`;
   }
   $('chatActions').innerHTML=html;
   $('refreshBtn').onclick=()=>loadMessages();
@@ -309,7 +408,7 @@ function renderChatMenu(){
   const protectedUser=isProtectedContact(c);
   let html=`<button type="button" id="menuRefresh"><span class="material-icons" style="font-size:1rem">refresh</span> Refresh</button>`;
   if(currentViewerCanBlock() && !protectedUser){
-    html+=`<button type="button" id="menuBlock" class="danger-menu"><span class="material-icons" style="font-size:1rem">block</span> ${c.is_blocked?'Unblock User':'Block User'}</button>`;
+    html+=`<button type="button" id="menuBlock" class="danger-menu"><span class="material-icons" style="font-size:1rem">block</span> ${blockMenuLabel(c)}</button>`;
   }else if(protectedUser){
     html+=`<button type="button" class="muted-menu"><span class="material-icons" style="font-size:1rem">lock</span> Developer protected</button>`;
   }
@@ -324,8 +423,8 @@ function updateReplyBox(){
     reply.innerHTML='<div class="reply-disabled">Select chat first</div>';
     return;
   }
-  if(c.is_blocked){
-    reply.innerHTML='<div class="reply-disabled">Ye chat blocked hai. Unblock karne ke baad message bhej sakte ho.</div>';
+  if(effectiveBlocked(c)){
+    reply.innerHTML=`<div class="reply-disabled">Ye chat blocked hai. ${myBlocked(c)?'Unblock karne ke baad message bhej sakte ho.':'Dusre user ne block kiya hai. Aap apni side se bhi Block kar sakte ho.'}</div>`;
     return;
   }
   reply.innerHTML=`<div class="input-group">
@@ -343,13 +442,13 @@ async function toggleBlock(){
     toast('Developer / Support ko block nahi kar sakte. Staff/User block ho sakta hai.',true);
     return;
   }
-  const next=!state.current.is_blocked;
+  const next=!myBlocked(state.current);
   await rpc('chat_set_block',{
     p_conversation_id:state.current.conversation_id,
     p_employee_id:state.adminEmp.id,
     p_blocked:next
   });
-  state.current.is_blocked=next;
+  state.current={...state.current,my_is_blocked:next,blocked_by_me:next,is_blocked: next || otherBlocked(state.current)};
   toast(next?'User blocked':'User unblocked');
   renderChatActions();
   updateReplyBox();
@@ -361,7 +460,7 @@ async function selectContact(convId){
   const all=[...state.developers,...state.staff];
   const c=all.find(x=>String(x.conversation_id)===String(convId));
   if(!c)return;
-  state.current=c;
+  state.current=sanitizeAdminContactAfterRead(c);
   $('chatName').textContent=c.full_name;
   $('chatRole').textContent=`${c.role_label||'Staff'} • ${c.emp_code||''} • ${c.online?'Online':'Offline'}`;
   $('chatAvatar').textContent=initials(c.full_name);
@@ -370,6 +469,7 @@ async function selectContact(convId){
   openMobileChat();
   setupConversationRealtime(c.conversation_id);
   await loadMessages(true);
+  await markAdminConversationRead(c.conversation_id);
   renderDevelopers();renderStaff();
 }
 async function loadMessages(forceBottom=false){
@@ -390,6 +490,7 @@ async function loadMessages(forceBottom=false){
     if(getCurrentConversationId()!==convId)return;
     state.messages=mergeMessages(state.messages, rows||[]);
     renderMessages({stickToBottom:wasNear,oldTop,oldHeight});
+    await markAdminConversationRead(convId);
   }catch(e){
     console.error('loadMessages failed:',e);
     showSoftError(e.message||'Messages load error');
@@ -550,7 +651,7 @@ function handleMediaSelect(e){
 }
 async function sendMessage(){
   if(!state.current)return toast('Select chat first',true);
-  if(state.current.is_blocked)return toast('Chat blocked hai. Pehle unblock karo.',true);
+  if(effectiveBlocked(state.current))return toast(myBlocked(state.current)?'Chat blocked hai. Pehle unblock karo.':'Dusre user ne block kiya hai. Message send nahi hoga.',true);
   const input=$('messageInput');
   const text=input?.value.trim()||'';
   const media=state.pendingMedia?{...state.pendingMedia}:null;
