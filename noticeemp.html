@@ -133,1071 +133,223 @@
 </div>
 
 <script>
-(function () {
-  'use strict';
-
-  const SUPABASE_URL = 'https://tovpcbzztvkiwamimrxt.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
-
-  const params = new URLSearchParams(window.location.search);
-  const $ = id => document.getElementById(id);
-
-  const sb = window.inlistSb || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  window.inlistSb = sb;
-
-  const state = {
-    orgId: pickValue(params.get('org_id'), params.get('orgId'), localStorage.getItem('org_id'), localStorage.getItem('current_org_id')),
-    orgCode: pickValue(params.get('org_code'), params.get('orgCode'), localStorage.getItem('org_code'), localStorage.getItem('orgCode'), localStorage.getItem('current_org_code')),
-    empId: pickValue(params.get('emp_id'), params.get('employee_id'), localStorage.getItem('emp_id'), localStorage.getItem('employee_id'), localStorage.getItem('current_emp_id')),
-    empCode: pickValue(params.get('emp_code'), params.get('empCode'), localStorage.getItem('emp_code'), localStorage.getItem('empCode'), localStorage.getItem('current_emp_code')),
-    email: pickValue(params.get('email'), localStorage.getItem('email'), localStorage.getItem('current_email')),
-    mobile: pickValue(params.get('mobile'), localStorage.getItem('mobile'), localStorage.getItem('current_mobile')),
-    returnPage: pickValue(params.get('return_page'), localStorage.getItem('return_page'), 'emp.html'),
-    employee: null,
-    organization: null,
-    rows: [],
-    total: 0,
-    counts: { pending: 0, approved: 0, rejected: 0, info: 0 },
-    page: 1,
-    limit: 15,
-    loading: false
-  };
-
-  const empHeader = $('empHeaderNotify');
-  const list = $('requestsList');
-  const pagination = $('paginationControls');
-
-  function pickValue() {
-    for (let i = 0; i < arguments.length; i++) {
-      const v = arguments[i];
-      if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
-    }
-    return '';
-  }
-
-  function todayYmd() {
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-
-  function toast(msg, err = false) {
-    const old = document.querySelector('.toast');
-    if (old) old.remove();
-
-    const div = document.createElement('div');
-    div.className = 'toast' + (err ? ' err' : '');
-    div.textContent = msg;
-    document.body.appendChild(div);
-
-    setTimeout(() => div.remove(), 3500);
-  }
-
-  function esc(v) {
-    return String(v ?? '').replace(/[&<>"']/g, s => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    }[s]));
-  }
-
-  function attr(v) {
-    return esc(v);
-  }
-
-  function friendlyError(error) {
-    const msg = String((error && (error.message || error.details || error.hint)) || error || '');
-
-    if (msg.includes('PENDING_LEAVE_EXISTS')) {
-      return 'Pehle wali leave approve, cancel ya reject hone tak dusri leave apply nahi hogi.';
-    }
-    if (msg.includes('DUPLICATE_LEAVE_REQUEST') || msg.includes('ALREADY_APPLIED') || msg.includes('duplicate key value')) {
-      return 'Is date par leave already apply hai. Same date ya applied date range me dobara leave nahi lagegi.';
-    }
-    if (msg.includes('PREVIOUS_DATE_NOT_ALLOWED')) return 'Previous date par leave apply nahi kar sakte.';
-    if (msg.includes('ORG_NOT_FOUND')) return 'Organization nahi mila. URL/session check karein.';
-    if (msg.includes('EMPLOYEE_NOT_FOUND')) return 'Employee nahi mila. URL/session check karein.';
-    if (msg.includes('PGRST202') || msg.includes('Could not find the function')) return 'Supabase RPC missing hai. SQL function create/refresh karein.';
-    if (msg.includes('permission denied') || msg.includes('401') || msg.includes('Unauthorized')) return 'RLS/Auth permission issue hai.';
-    return msg || 'Data load failed.';
-  }
-
-  function fmtDate(v) {
-    if (!v) return '-';
-    return new Date(String(v).includes('T') ? v : v + 'T00:00:00').toLocaleDateString('en-IN');
-  }
-
-  function fmtDateTime(v) {
-    if (!v) return '-';
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return '-';
-    return d.toLocaleString('en-IN');
-  }
-
-  function normalStatus(s) {
-    const v = String(s || 'pending').toLowerCase();
-    if (['handover_pending', 'admin_pending', 'pending', 'pending_partner', 'partner_approved', 'pending_admin', 'pending_handover'].includes(v)) return 'Pending';
-    if (['approved', 'admin_approved', 'completed'].includes(v)) return 'Approved';
-    if (['rejected', 'handover_rejected', 'partner_rejected', 'admin_rejected'].includes(v)) return 'Rejected';
-    if (v === 'cancelled') return 'Cancelled';
-    if (v === 'info') return 'Info';
-    return v.replaceAll('_', ' ').toUpperCase();
-  }
-
-  function statusClass(s) {
-    const v = normalStatus(s).toLowerCase();
-    if (v === 'approved') return 'status-approved';
-    if (v === 'rejected') return 'status-rejected';
-    if (v === 'cancelled') return 'status-cancelled';
-    if (v === 'info') return 'status-info';
-    return 'status-pending';
-  }
-
-  function statusFilterMatch(rowStatus, filterStatus) {
-    const st = String(rowStatus || '').toLowerCase();
-    if (filterStatus === 'all') return true;
-    if (filterStatus === 'pending') return ['pending', 'pending_partner', 'partner_approved', 'pending_admin', 'handover_pending', 'pending_handover', 'admin_pending'].includes(st);
-    if (filterStatus === 'approved') return ['approved', 'admin_approved', 'completed'].includes(st);
-    if (filterStatus === 'rejected') return ['rejected', 'partner_rejected', 'admin_rejected', 'handover_rejected'].includes(st);
-    if (filterStatus === 'cancelled') return st === 'cancelled';
-    if (filterStatus === 'info') return st === 'info';
-    return true;
-  }
-
-  function shortLine(r) {
-    const d = r.details || {};
-
-    if (r.type === 'handover') {
-     return `👤 ${esc(d.employee_name || 'Unknown Employee')} (${esc(d.emp_code || '-')}) ne handover request bheja hai | ${esc(d.leave_type || '-')} | ${fmtDate(d.from_date)} → ${fmtDate(d.to_date)}`;
-    }
-
-    if (r.type === 'leave') {
-      return `📌 ${esc(d.leave_type || '-')} | ${fmtDate(d.from_date)} → ${fmtDate(d.to_date)} | ${Number(d.total_days || 0)} day(s)`;
-    }
-
-    if (r.type === 'overtime') {
-      return `⏱️ ${Number(d.overtime_hours || d.extra_hours || 0)} hrs | ${esc(d.reason || '-')}`;
-    }
-
-    if (r.type === 'misspunch') {
-      return `⏰ Miss Punch | ${fmtDate(d.attendance_date)} | In: ${d.punch_in ? fmtDateTime(d.punch_in) : '--'} | Out: ${d.punch_out ? fmtDateTime(d.punch_out) : '--'}`;
-    }
-
-    if (r.type === 'announcement') {
-      return `📢 ${esc(d.title || 'Company Announcement')} — ${esc(d.message || '-')}`;
-    }
-
-    if (r.type === 'shift_swap') {
-      return `🔄 ${esc(d.requester_name || '-')} (${esc(d.requester_emp_code || '-')}) ↔ ${esc(d.partner_name || '-')} (${esc(d.partner_emp_code || '-')}) | Date: ${fmtDate(d.swap_date)} | ${esc(d.requester_shift_name || '-')} ⇄ ${esc(d.partner_shift_name || '-')}`;
-    }
-
-    return esc(r.type_label || r.type);
-  }
-
-  function detailHtml(r) {
-    const d = r.details || {};
-
-    let html = `
-      <div class="detail-row"><strong>Type:</strong> ${esc(r.type_label || r.type)}</div>
-      <div class="detail-row"><strong>Status:</strong> ${esc(normalStatus(r.status))}</div>
-      <div class="detail-row"><strong>Date:</strong> ${fmtDate(r.request_date)}</div>
-      <div class="detail-row"><strong>Created:</strong> ${fmtDateTime(r.created_at)}</div>
-    `;
-
-    if (r.type === 'handover') {
-      html += `
-        <div class="detail-row"><strong>Employee:</strong> ${esc(d.employee_name || 'Unknown Employee')} (${esc(d.emp_code || '-')})</div>
-        <div class="detail-row"><strong>Leave:</strong> ${esc(d.leave_type || '-')} | ${fmtDate(d.from_date)} → ${fmtDate(d.to_date)}</div>
-        <div class="detail-row"><strong>Total Days:</strong> ${Number(d.total_days || 0)}</div>
-        <div class="detail-row"><strong>Priority:</strong> ${esc(d.priority || 'Normal')}</div>
-        <div class="detail-row"><strong>Reason:</strong> ${esc(d.reason || '-')}</div>
-      `;
-    }
-
-    if (r.type === 'leave') {
-      html += `
-        <div class="detail-row"><strong>Leave Type:</strong> ${esc(d.leave_type || '-')}</div>
-        <div class="detail-row"><strong>From:</strong> ${fmtDate(d.from_date)} <strong>To:</strong> ${fmtDate(d.to_date)}</div>
-        <div class="detail-row"><strong>Total Days:</strong> ${Number(d.total_days || 0)}</div>
-        <div class="detail-row"><strong>Priority:</strong> ${esc(d.priority || 'Normal')}</div>
-        <div class="detail-row"><strong>Reason:</strong> ${esc(d.reason || '-')}</div>
-        <div class="detail-row"><strong>Handover:</strong> ${esc(d.handover_name || '-')}</div>
-      `;
-    }
-
-    if (r.type === 'overtime') {
-      html += `
-        <div class="detail-row"><strong>Overtime:</strong> ${Number(d.overtime_hours || d.extra_hours || 0)} hours</div>
-        <div class="detail-row"><strong>Minutes:</strong> ${Number(d.overtime_minutes || 0)}</div>
-        <div class="detail-row"><strong>Reason:</strong> ${esc(d.reason || '-')}</div>
-        <div class="detail-row"><strong>Approved At:</strong> ${d.approved_at ? fmtDateTime(d.approved_at) : '-'}</div>
-      `;
-    }
-
-    if (r.type === 'misspunch') {
-      html += `
-        <div class="detail-row"><strong>Attendance Date:</strong> ${fmtDate(d.attendance_date)}</div>
-        <div class="detail-row"><strong>Punch In:</strong> ${d.punch_in ? fmtDateTime(d.punch_in) : '--'}</div>
-        <div class="detail-row"><strong>Punch Out:</strong> ${d.punch_out ? fmtDateTime(d.punch_out) : '--'}</div>
-        <div class="detail-row"><strong>Reason:</strong> ${esc(d.reason || '-')}</div>
-        <div class="detail-row"><strong>Admin Note:</strong> ${esc(d.admin_remark || d.admin_note || '-')}</div>
-      `;
-    }
-
-    if (r.type === 'announcement') {
-      html += `
-        <div class="detail-row"><strong>Title:</strong> ${esc(d.title || '-')}</div>
-        <div class="detail-row"><strong>Message:</strong> ${esc(d.message || '-')}</div>
-        <div class="detail-row"><strong>Audience:</strong> ${esc(d.audience || '-')}</div>
-        <div class="detail-row"><strong>Department:</strong> ${esc(d.department || '-')}</div>
-      `;
-    }
-
-    if (r.type === 'shift_swap') {
-      html += `
-        <div class="detail-row"><strong>Swap Date:</strong> ${fmtDate(d.swap_date)}</div>
-        <div class="detail-row"><strong>Requester:</strong> ${esc(d.requester_name || '-')} (${esc(d.requester_emp_code || '-')})</div>
-        <div class="detail-row"><strong>Partner:</strong> ${esc(d.partner_name || '-')} (${esc(d.partner_emp_code || '-')})</div>
-        <div class="detail-row"><strong>Requester Shift:</strong> ${esc(d.requester_shift_name || '-')}</div>
-        <div class="detail-row"><strong>Partner Shift:</strong> ${esc(d.partner_shift_name || '-')}</div>
-        <div class="detail-row"><strong>Reason:</strong> ${esc(d.reason || '-')}</div>
-        <div class="detail-row"><strong>Partner Note:</strong> ${esc(d.partner_decision_note || '-')}</div>
-        <div class="detail-row"><strong>Admin Note:</strong> ${esc(d.admin_decision_note || '-')}</div>
-      `;
-    }
-
-    return html;
-  }
-
-  async function rpcMaybe(name, args) {
-    const res = await sb.rpc(name, args || {});
-    if (res.error) throw res.error;
-    return res.data;
-  }
-
-  async function loadEmployee() {
-    if (!state.orgCode && !state.orgId) {
-      empHeader.innerHTML = '<strong>Error</strong> | org_code missing';
-      list.innerHTML = '<div class="no-data">URL me org_code/org_id missing hai.</div>';
-      return false;
-    }
-
-    if (!state.empCode && !state.empId && !state.email && !state.mobile) {
-      empHeader.innerHTML = '<strong>Error</strong> | emp_code missing';
-      list.innerHTML = '<div class="no-data">URL me emp_code/emp_id missing hai.</div>';
-      return false;
-    }
-
-    try {
-      const data = await rpcMaybe('get_employee_context', {
-        p_org_code: state.orgCode || null,
-        p_emp_code: state.empCode || null,
-        p_email: state.email || null,
-        p_mobile: state.mobile || null,
-        p_roster_date: todayYmd()
-      });
-
-      state.employee = data.employee || data.emp || null;
-      state.organization = data.organization || data.org || null;
-    } catch (error) {
-      console.warn('get_employee_context failed, direct fallback:', error);
-
-      let orgQuery = sb.from('organizations').select('*').limit(1);
-      if (state.orgId) orgQuery = orgQuery.eq('id', state.orgId);
-      else orgQuery = orgQuery.eq('org_code', state.orgCode);
-
-      const orgRes = await orgQuery.maybeSingle();
-      if (orgRes.error || !orgRes.data) {
-        console.error('organization fallback error:', orgRes.error);
-        empHeader.innerHTML = '<strong>Error</strong> | Organization not found';
-        list.innerHTML = `<div class="no-data">${esc(friendlyError(orgRes.error || 'ORG_NOT_FOUND'))}</div>`;
-        return false;
-      }
-
-      state.organization = orgRes.data;
-      state.orgId = state.organization.id;
-      state.orgCode = state.organization.org_code || state.orgCode;
-
-      let empQuery = sb.from('employees').select('*').eq('org_id', state.organization.id).limit(1);
-      if (state.empId) empQuery = empQuery.eq('id', state.empId);
-      else if (state.empCode) empQuery = empQuery.eq('emp_code', state.empCode);
-      else if (state.email) empQuery = empQuery.eq('email', state.email);
-      else empQuery = empQuery.eq('mobile', state.mobile);
-
-      const empRes = await empQuery.maybeSingle();
-      if (empRes.error || !empRes.data) {
-        console.error('employee fallback error:', empRes.error);
-        empHeader.innerHTML = '<strong>Error</strong> | Employee not found';
-        list.innerHTML = `<div class="no-data">${esc(friendlyError(empRes.error || 'EMPLOYEE_NOT_FOUND'))}</div>`;
-        return false;
-      }
-
-      state.employee = empRes.data;
-    }
-
-    if (!state.employee || !state.organization) {
-      empHeader.innerHTML = '<strong>Error</strong> | Employee context missing';
-      list.innerHTML = '<div class="no-data">Employee / organization context nahi mila.</div>';
-      return false;
-    }
-
-    state.empId = state.employee.id || state.empId;
-    state.empCode = state.employee.emp_code || state.empCode;
-    state.orgId = state.organization.id || state.orgId;
-    state.orgCode = state.organization.org_code || state.orgCode;
-
-    localStorage.setItem('org_id', state.orgId || '');
-    localStorage.setItem('org_code', state.orgCode || '');
-    localStorage.setItem('emp_id', state.empId || '');
-    localStorage.setItem('emp_code', state.empCode || '');
-
-    empHeader.innerHTML = `
-      <strong>${esc(state.employee.full_name || state.employee.name || '-')}</strong>
-      | ID: ${esc(state.employee.emp_code || state.empCode || '-')}
-      | Dept: ${esc(state.employee.department || '-')}
-    `;
-
-    return true;
-  }
-
-  function nameFromObject(obj, fallback = '-') {
-    if (!obj) return fallback;
-    return pickValue(obj.full_name, obj.employee_name, obj.name, obj.emp_name, obj.fullName, fallback);
-  }
-
-  function codeFromObject(obj, fallback = '-') {
-    if (!obj) return fallback;
-    return pickValue(obj.emp_code, obj.employee_code, obj.empCode, fallback);
-  }
-
-  async function fetchEmployeeNameMap(employeeIds) {
-    const ids = [...new Set((employeeIds || []).filter(Boolean))];
-    if (!ids.length) return new Map();
-    const map = new Map();
-
-    for (let i = 0; i < ids.length; i += 100) {
-      const chunk = ids.slice(i, i + 100);
-      const { data, error } = await sb
-        .from('employees')
-        .select('id,full_name,emp_code')
-        .in('id', chunk);
-
-      if (error) {
-        console.warn('employee name map fetch skipped:', error.message);
-        continue;
-      }
-
-      (data || []).forEach(e => {
-        map.set(e.id, {
-          full_name: nameFromObject(e, '-'),
-          emp_code: codeFromObject(e, '-')
-        });
-      });
-    }
-    return map;
-  }
-
-  function mapLeaveRows(rows, employeeNameMap = new Map()) {
-    const empId = state.employee?.id;
-    return (rows || []).flatMap(l => {
-      const requesterFromMap = employeeNameMap.get(l.employee_id) || {};
-      const handoverFromMap = employeeNameMap.get(l.handover_employee_id) || {};
-
-      const requesterName = pickValue(
-        l.employee_name,
-        l.requester_name,
-        l.requester_full_name,
-        l.emp_name,
-        l.full_name,
-        l.employee_full_name,
-        l.employee?.full_name,
-        l.employee?.employee_name,
-        l.employee?.name,
-        l.employee?.emp_name,
-        requesterFromMap.full_name,
-        l.created_by_name,
-        l.updated_by_name,
-        'Unknown Employee'
-      );
-
-      const requesterCode = pickValue(
-        l.emp_code,
-        l.employee_code,
-        l.employee_emp_code,
-        l.requester_emp_code,
-        l.employee?.emp_code,
-        l.employee?.employee_code,
-        requesterFromMap.emp_code,
-        '-'
-      );
-
-      const handoverName = pickValue(
-        l.handover_name,
-        l.handover_full_name,
-        l.handover_employee_name,
-        l.handover?.full_name,
-        l.handover?.employee_name,
-        l.handover?.name,
-        handoverFromMap.full_name,
-        '-'
-      );
-
-      const handoverCode = pickValue(
-        l.handover_emp_code,
-        l.handover_employee_code,
-        l.handover?.emp_code,
-        l.handover?.employee_code,
-        handoverFromMap.emp_code,
-        '-'
-      );
-
-      const base = {
-        id: l.id,
-        status: l.status || 'pending',
-        request_date: l.from_date || l.created_at,
-        created_at: l.created_at || l.updated_at || new Date().toISOString(),
-        details: {
-          leave_type: l.leave_type,
-          from_date: l.from_date,
-          to_date: l.to_date,
-          total_days: l.total_days,
-          priority: l.priority || 'Normal',
-          reason: l.reason || l.employee_note || '-',
-          handover_name: handoverName,
-          handover_emp_code: handoverCode,
-          emp_code: requesterCode,
-          employee_name: requesterName,
-          approval_pdf_ready: String(l.status || '').toLowerCase() === 'approved'
-        }
-      };
-
-      const out = [];
-      if (l.employee_id === empId) {
-        out.push({ ...base, type: 'leave', type_label: 'My Leave Request' });
-      }
-
-      if (l.handover_employee_id === empId && ['handover_pending', 'pending_handover'].includes(String(l.status || '').toLowerCase())) {
-        out.push({ ...base, type: 'handover', type_label: 'Handover Approval Needed' });
-      }
-      return out;
-    });
-  }
-
-  function mapShiftRows(rows) {
-    const empId = state.employee?.id;
-    return (rows || []).map(s => ({
-      id: s.id,
-      type: 'shift_swap',
-      type_label: (s.partner_employee_id === empId && s.status === 'pending_partner') ? 'Shift Swap Approval Needed' : 'Shift Swap',
-      status: s.status,
-      request_date: s.swap_date,
-      created_at: s.created_at || new Date().toISOString(),
-      details: {
-        swap_date: s.swap_date,
-        requester_employee_id: s.requester_employee_id,
-        partner_employee_id: s.partner_employee_id,
-        requester_name: s.requester?.full_name || '-',
-        requester_emp_code: s.requester?.emp_code || '-',
-        partner_name: s.partner?.full_name || '-',
-        partner_emp_code: s.partner?.emp_code || '-',
-        requester_shift_name: s.requester_shift_name || '-',
-        partner_shift_name: s.partner_shift_name || '-',
-        reason: s.reason || '-',
-        partner_decision_note: s.partner_decision_note || '-',
-        admin_decision_note: s.admin_decision_note || '-',
-        can_partner_action: (s.partner_employee_id === empId && s.status === 'pending_partner'),
-        is_requester: (s.requester_employee_id === empId),
-        is_partner: (s.partner_employee_id === empId)
-      }
-    }));
-  }
-
-  async function loadLeaveDirect() {
-    if (!state.employee || !state.organization) return [];
-
-    const empId = state.employee.id;
-    const orgId = state.organization.id;
-
-    let data = [];
-    let error = null;
-
-    const joinedRes = await sb
-      .from('leave_requests')
-      .select(`
-        *,
-        employee:employee_id(full_name,emp_code),
-        handover:handover_employee_id(full_name,emp_code)
-      `)
-      .eq('org_id', orgId)
-      .or(`employee_id.eq.${empId},handover_employee_id.eq.${empId}`)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (joinedRes.error) {
-      console.warn('leave_requests joined fetch failed, trying plain fetch:', joinedRes.error.message);
-      const plainRes = await sb
-        .from('leave_requests')
-        .select('*')
-        .eq('org_id', orgId)
-        .or(`employee_id.eq.${empId},handover_employee_id.eq.${empId}`)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      data = plainRes.data || [];
-      error = plainRes.error;
-    } else {
-      data = joinedRes.data || [];
-    }
-
-    if (error) {
-      console.warn('leave_requests direct fetch skipped:', error.message);
-      return [];
-    }
-
-    const ids = [];
-    (data || []).forEach(l => {
-      if (l.employee_id) ids.push(l.employee_id);
-      if (l.handover_employee_id) ids.push(l.handover_employee_id);
-    });
-    const employeeNameMap = await fetchEmployeeNameMap(ids);
-
-    return mapLeaveRows(data || [], employeeNameMap);
-  }
-
-  async function loadMissPunchDirect() {
-    if (!state.employee || !state.organization) return [];
-
-    const empId = state.employee.id;
-    const orgId = state.organization.id;
-
-    const { data, error } = await sb
-      .from('miss_punch_requests')
-      .select('*')
-      .eq('org_id', orgId)
-      .eq('employee_id', empId)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) {
-      console.warn('miss_punch_requests direct fetch skipped:', error.message);
-      return [];
-    }
-
-    return (data || []).map(m => ({
-      id: m.id,
-      type: 'misspunch',
-      type_label: 'Miss Punch',
-      status: m.status || 'pending',
-      request_date: m.attendance_date || m.created_at,
-      created_at: m.created_at || m.updated_at,
-      details: {
-        attendance_date: m.attendance_date,
-        punch_in: m.punch_in || m.requested_punch_in,
-        punch_out: m.punch_out || m.requested_punch_out,
-        reason: m.reason,
-        admin_remark: m.admin_remark
-      }
-    }));
-  }
-
-  async function loadOvertimeDirect() {
-    if (!state.employee || !state.organization) return [];
-
-    const empId = state.employee.id;
-    const orgId = state.organization.id;
-
-    const { data, error } = await sb
-      .from('overtime_requests')
-      .select('*')
-      .eq('org_id', orgId)
-      .eq('employee_id', empId)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) {
-      console.warn('overtime_requests direct fetch skipped:', error.message);
-      return [];
-    }
-
-    return (data || []).map(o => ({
-      id: o.id,
-      type: 'overtime',
-      type_label: 'Overtime',
-      status: o.status || 'pending',
-      request_date: o.ot_date || o.overtime_date || o.created_at,
-      created_at: o.created_at || o.updated_at,
-      details: {
-        overtime_hours: o.overtime_hours || o.extra_hours,
-        overtime_minutes: o.overtime_minutes || o.extra_minutes,
-        reason: o.reason,
-        approved_at: o.approved_at
-      }
-    }));
-  }
-
-  async function loadAnnouncementsDirect() {
-    if (!state.employee || !state.organization) return [];
-
-    const orgId = state.organization.id;
-
-    const tryTables = ['announcements', 'org_announcements', 'notices'];
-    for (const table of tryTables) {
-      const { data, error } = await sb
-        .from(table)
-        .select('*')
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (!error) {
-        return (data || []).map(a => ({
-          id: a.id,
-          type: 'announcement',
-          type_label: 'Announcement',
-          status: 'info',
-          request_date: a.notice_date || a.announcement_date || a.created_at,
-          created_at: a.created_at,
-          details: {
-            title: a.title || a.subject || 'Company Announcement',
-            message: a.message || a.description || a.body || '-',
-            audience: a.audience || 'all',
-            department: a.department || '-'
-          }
-        }));
-      }
-    }
-
-    return [];
-  }
-
-  async function loadShiftSwapDirect() {
-    if (!state.employee || !state.organization) return [];
-
-    const empId = state.employee.id;
-    const orgId = state.organization.id;
-
-    const { data, error } = await sb
-      .from('shift_swap_requests')
-      .select(`
-        *,
-        requester:requester_employee_id(full_name,emp_code),
-        partner:partner_employee_id(full_name,emp_code)
-      `)
-      .eq('org_id', orgId)
-      .or(`requester_employee_id.eq.${empId},partner_employee_id.eq.${empId}`)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) {
-      console.warn('shift_swap_requests direct fetch skipped:', error.message);
-      return [];
-    }
-
-    return mapShiftRows(data || []);
-  }
-
-  function mergeRows() {
-    const map = new Map();
-
-    Array.from(arguments).flat().forEach(r => {
-      if (!r || !r.id || !r.type) return;
-      map.set(`${r.type}:${r.id}`, r);
-    });
-
-    return [...map.values()].sort((a, b) => new Date(b.created_at || b.request_date) - new Date(a.created_at || a.request_date));
-  }
-
-  function applyClientFilters(rows) {
-    const type = $('filterType').value || 'all';
-    const status = $('filterStatus').value || 'all';
-    const from = $('filterDateFrom').value || '';
-    const to = $('filterDateTo').value || '';
-
-    return (rows || []).filter(r => {
-      const rd = String(r.request_date || '').slice(0, 10);
-      if (type !== 'all' && r.type !== type) return false;
-      if (from && rd < from) return false;
-      if (to && rd > to) return false;
-      if (!statusFilterMatch(r.status, status)) return false;
-      return true;
-    });
-  }
-
-  function countRows(rows) {
-    const counts = { pending: 0, approved: 0, rejected: 0, info: 0 };
-
-    (rows || []).forEach(r => {
-      const n = normalStatus(r.status).toLowerCase();
-      if (n === 'pending') counts.pending++;
-      else if (n === 'approved') counts.approved++;
-      else if (n === 'rejected') counts.rejected++;
-      else if (n === 'info') counts.info++;
-    });
-
-    return counts;
-  }
-
-  async function loadFeed() {
-    if (state.loading) return;
-    state.loading = true;
-
-    list.innerHTML = '<div class="no-data">Loading...</div>';
-    pagination.innerHTML = '';
-
-    try {
-      const offset = (state.page - 1) * state.limit;
-      let rpcRows = [];
-      let rpcTotal = 0;
-      let rpcCounts = null;
-
-      try {
-        const data = await rpcMaybe('app_get_employee_notification_feed', {
-          p_org_code: state.orgCode,
-          p_emp_code: state.empCode,
-          p_type: $('filterType').value || 'all',
-          p_status: $('filterStatus').value || 'all',
-          p_from_date: $('filterDateFrom').value || null,
-          p_to_date: $('filterDateTo').value || null,
-          p_limit: state.limit,
-          p_offset: offset
-        });
-
-        rpcRows = data?.items || [];
-        rpcTotal = Number(data?.total || 0);
-        rpcCounts = data?.counts || null;
-      } catch (rpcError) {
-        console.warn('app_get_employee_notification_feed failed, direct fallback:', rpcError);
-      }
-
-      const [leaveRows, shiftRows, missRows, otRows, announcementRows] = await Promise.all([
-        loadLeaveDirect(),
-        loadShiftSwapDirect(),
-        loadMissPunchDirect(),
-        loadOvertimeDirect(),
-        loadAnnouncementsDirect()
-      ]);
-
-      const merged = applyClientFilters(mergeRows(rpcRows, leaveRows, shiftRows, missRows, otRows, announcementRows));
-
-      state.total = Math.max(rpcTotal, merged.length);
-      state.rows = merged.slice(offset, offset + state.limit);
-      state.counts = rpcCounts || countRows(merged);
-
-      renderSummary();
-      renderRequests();
-      renderPagination();
-    } catch (error) {
-      console.error('loadFeed final error:', error);
-      list.innerHTML = `<div class="no-data">${esc(friendlyError(error))}</div>`;
-      pagination.innerHTML = '';
-    } finally {
-      state.loading = false;
+(function(){
+'use strict';
+
+const SUPABASE_URL='https://tovpcbzztvkiwamimrxt.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdnBjYnp6dHZraXdhbWltcnh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTYwMzAsImV4cCI6MjA5NDA3MjAzMH0.utU3KsVOdSzl2Q6ay6-HlB_7RgzEGUMvasFfWclW4XE';
+
+const params=new URLSearchParams(location.search);
+const $=id=>document.getElementById(id);
+
+function safeJson(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){return {}}}
+function pickValue(){for(let i=0;i<arguments.length;i++){const v=arguments[i];if(v!==null&&v!==undefined&&String(v).trim()!=='')return String(v).trim()}return ''}
+function uuidLike(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||''))}
+function normCode(v){return String(v||'').trim().toUpperCase()}
+function todayYmd(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
+function attr(v){return esc(v)}
+function fmtDate(v){if(!v)return '-';const s=String(v);const d=new Date(s.includes('T')?s:s+'T00:00:00');return Number.isNaN(d.getTime())?'-':d.toLocaleDateString('en-IN')}
+function fmtDateTime(v){if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleString('en-IN')}
+function toast(msg,err=false){const old=document.querySelector('.toast');if(old)old.remove();const div=document.createElement('div');div.className='toast'+(err?' err':'');div.textContent=msg;document.body.appendChild(div);setTimeout(()=>div.remove(),3800)}
+
+const s1=safeJson('inlist_employee_login_v2');
+const s2=safeJson('currentEmployee');
+const s3=safeJson('currentSession');
+const state={
+  orgId:pickValue(params.get('org_id'),params.get('orgId'),s1.org_id,s1.orgId,s2.org_id,s2.orgId,s3.org_id,s3.orgId,localStorage.getItem('org_id'),localStorage.getItem('orgId'),localStorage.getItem('current_org_id')),
+  orgCode:normCode(pickValue(params.get('org_code'),params.get('orgCode'),s1.org_code,s1.orgCode,s2.org_code,s2.orgCode,s3.org_code,s3.orgCode,localStorage.getItem('org_code'),localStorage.getItem('orgCode'),localStorage.getItem('current_org_code'))),
+  empId:pickValue(params.get('emp_id'),params.get('employee_id'),params.get('empId'),s1.emp_id,s1.employee_id,s1.empId,s2.emp_id,s2.employee_id,s2.empId,s3.emp_id,s3.employee_id,s3.empId,localStorage.getItem('emp_id'),localStorage.getItem('employee_id'),localStorage.getItem('empId'),localStorage.getItem('current_emp_id')),
+  empCode:normCode(pickValue(params.get('emp_code'),params.get('empCode'),params.get('emp'),s1.emp_code,s1.empCode,s2.emp_code,s2.empCode,s3.emp_code,s3.empCode,localStorage.getItem('emp_code'),localStorage.getItem('empCode'),localStorage.getItem('current_emp_code'))),
+  email:pickValue(params.get('email'),s1.email,s2.email,s3.email,localStorage.getItem('email'),localStorage.getItem('current_email')),
+  mobile:pickValue(params.get('mobile'),s1.mobile,s2.mobile,s3.mobile,localStorage.getItem('mobile'),localStorage.getItem('current_mobile')),
+  returnPage:pickValue(params.get('return_page'),localStorage.getItem('return_page'),'emp.html'),
+  employee:null, organization:null, rows:[], total:0, counts:{pending:0,approved:0,rejected:0,info:0}, page:1, limit:15, loading:false, debug:[]
+};
+
+function makeClient(){
+  const headers={};
+  if(state.orgId) headers['x-org-id']=state.orgId;
+  if(state.orgCode) headers['x-org-code']=state.orgCode;
+  return window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers}});
+}
+let sb=makeClient();
+
+const empHeader=$('empHeaderNotify');
+const list=$('requestsList');
+const pagination=$('paginationControls');
+
+function addDebug(label,obj){
+  const item={label,detail:obj?.message||obj?.details||obj?.hint||obj||''};
+  state.debug.push(item);
+  console.log('[NOTIFY DEBUG]',label,obj||'');
+}
+
+function friendlyError(error){
+  const msg=String((error&&(error.message||error.details||error.hint))||error||'');
+  if(msg.includes('PGRST202')||msg.includes('Could not find the function'))return 'Supabase RPC missing hai. Direct fallback try hua.';
+  if(msg.includes('permission denied')||msg.includes('401')||msg.includes('Unauthorized'))return 'RLS/Auth permission issue hai.';
+  if(msg.includes('ORG_NOT_FOUND'))return 'Organization nahi mila. URL/session check karein.';
+  if(msg.includes('EMPLOYEE_NOT_FOUND'))return 'Employee nahi mila. URL/session check karein.';
+  return msg||'Data load failed.';
+}
+
+function normalStatus(s){const v=String(s||'pending').toLowerCase();if(['handover_pending','admin_pending','pending','pending_partner','partner_approved','pending_admin','pending_handover'].includes(v))return 'Pending';if(['approved','admin_approved','completed'].includes(v))return 'Approved';if(['rejected','handover_rejected','partner_rejected','admin_rejected'].includes(v))return 'Rejected';if(v==='cancelled')return 'Cancelled';if(v==='info')return 'Info';return v.replaceAll('_',' ').toUpperCase()}
+function statusClass(s){const v=normalStatus(s).toLowerCase();if(v==='approved')return'status-approved';if(v==='rejected')return'status-rejected';if(v==='cancelled')return'status-cancelled';if(v==='info')return'status-info';return'status-pending'}
+function statusFilterMatch(rowStatus,filterStatus){const st=String(rowStatus||'').toLowerCase();if(filterStatus==='all')return true;if(filterStatus==='pending')return ['pending','pending_partner','partner_approved','pending_admin','handover_pending','pending_handover','admin_pending'].includes(st);if(filterStatus==='approved')return ['approved','admin_approved','completed'].includes(st);if(filterStatus==='rejected')return ['rejected','partner_rejected','admin_rejected','handover_rejected'].includes(st);if(filterStatus==='cancelled')return st==='cancelled';if(filterStatus==='info')return st==='info';return true}
+
+async function rpcMaybe(name,args){const res=await sb.rpc(name,args||{});if(res.error)throw res.error;return res.data}
+async function selectMaybe(table,select='*'){
+  let q=sb.from(table).select(select);
+  return q;
+}
+
+async function loadEmployee(){
+  if(!state.orgId&&!state.orgCode){empHeader.innerHTML='<strong>Error</strong> | org missing';list.innerHTML='<div class="no-data">URL/localStorage me org_id/org_code missing hai.</div>';return false}
+  if(!state.empId&&!state.empCode&&!state.email&&!state.mobile){empHeader.innerHTML='<strong>Error</strong> | employee missing';list.innerHTML='<div class="no-data">URL/localStorage me emp_id/emp_code missing hai.</div>';return false}
+
+  // 1) Best: app/get_employee_context RPC. Some DBs only accept org_code/emp_code.
+  try{
+    const data=await rpcMaybe('get_employee_context',{p_org_code:state.orgCode||null,p_emp_code:state.empCode||null,p_email:state.email||null,p_mobile:state.mobile||null,p_roster_date:todayYmd()});
+    state.employee=data?.employee||data?.emp||null;
+    state.organization=data?.organization||data?.org||null;
+    addDebug('get_employee_context ok',data);
+  }catch(e){addDebug('get_employee_context failed',e)}
+
+  // 2) If org row not visible due RLS but org_id exists, do not fail. Build org stub.
+  if(!state.organization){
+    if(state.orgId){state.organization={id:state.orgId,org_code:state.orgCode||''};addDebug('organization stub from URL/localStorage',state.organization)}
+    else{
+      try{const {data,error}=await sb.from('organizations').select('id,org_code,org_name').eq('org_code',state.orgCode).maybeSingle();if(error)throw error;state.organization=data;state.orgId=data?.id||state.orgId;addDebug('organization direct ok',data)}catch(e){addDebug('organization direct failed',e)}
     }
   }
 
-  function renderSummary() {
-    $('sumTotal').textContent = state.total;
-    $('sumPending').textContent = Number(state.counts.pending || 0);
-    $('sumApproved').textContent = Number(state.counts.approved || 0);
-    $('sumRejected').textContent = Number(state.counts.rejected || 0);
-    $('sumInfo').textContent = Number(state.counts.info || 0);
+  // 3) Employee direct lookup, first by emp_id. Do not force org join if RLS blocks organization.
+  if(!state.employee){
+    try{
+      let q=sb.from('employees').select('*').limit(1);
+      if(state.empId&&uuidLike(state.empId)) q=q.eq('id',state.empId);
+      else if(state.orgId&&state.empCode) q=q.eq('org_id',state.orgId).eq('emp_code',state.empCode);
+      else if(state.empCode) q=q.eq('emp_code',state.empCode);
+      else if(state.email) q=q.eq('email',state.email);
+      else q=q.eq('mobile',state.mobile);
+      const {data,error}=await q.maybeSingle();
+      if(error)throw error;
+      state.employee=data;
+      addDebug('employee direct ok',data);
+    }catch(e){addDebug('employee direct failed',e)}
   }
 
-  function renderRequests() {
-    if (!state.rows.length) {
-      list.innerHTML = '<div class="no-data">📭 No data found.</div>';
-      return;
-    }
-
-    list.innerHTML = state.rows.map(r => {
-      const status = normalStatus(r.status);
-      const rawStatus = String(r.status || '').toLowerCase();
-
-      const handoverBtns =
-        r.type === 'handover' &&
-        ['handover_pending', 'pending_handover'].includes(rawStatus)
-          ? `
-            <button class="action-btn" data-action="accept" data-id="${attr(r.id)}">✅ Accept</button>
-            <button class="action-btn danger" data-action="reject" data-id="${attr(r.id)}">❌ Reject</button>
-          `
-          : '';
-
-      const pdfBtn =
-        r.type === 'leave' &&
-        ['approved', 'admin_approved'].includes(rawStatus) &&
-        r.details?.approval_pdf_ready === true
-          ? `<button class="action-btn" data-action="pdf" data-id="${attr(r.id)}">📄 Download PDF</button>`
-          : '';
-
-      const shiftSwapBtns =
-        r.type === 'shift_swap' &&
-        rawStatus === 'pending_partner' &&
-        r.details?.can_partner_action === true
-          ? `
-            <button class="action-btn" data-action="shift_accept" data-id="${attr(r.id)}">✅ Approve Swap</button>
-            <button class="action-btn danger" data-action="shift_reject" data-id="${attr(r.id)}">❌ Reject Swap</button>
-          `
-          : '';
-
-      return `
-        <div class="request-card" data-open="${attr(r.type)}:${attr(r.id)}">
-          <div class="req-header">
-            <span class="req-type">${esc(r.type_label || r.type)}</span>
-            <span class="req-status ${statusClass(r.status)}">${esc(status)}</span>
-          </div>
-          <div class="req-details">
-            <span>📅 ${fmtDate(r.request_date)}</span>
-            <span>🕒 ${fmtDateTime(r.created_at)}</span>
-          </div>
-          <div class="req-details">${shortLine(r)}</div>
-          <div class="req-date">Click card for full details</div>
-          ${handoverBtns}
-          ${shiftSwapBtns}
-          ${pdfBtn}
-        </div>
-      `;
-    }).join('');
+  // 4) If employee row is hidden but URL has emp_id, create a minimal context so notifications can still query by ID.
+  if(!state.employee&&state.empId){
+    state.employee={id:state.empId,emp_code:state.empCode||'',full_name:'Employee',department:'-'};
+    addDebug('employee stub from URL/localStorage',state.employee);
   }
 
-  function renderPagination() {
-    const totalPages = Math.ceil(state.total / state.limit);
-
-    if (totalPages <= 1) {
-      pagination.innerHTML = '';
-      return;
-    }
-
-    let html = `<button class="page-btn" data-page="prev" ${state.page === 1 ? 'disabled' : ''}>‹ Prev</button>`;
-
-    const start = Math.max(1, state.page - 2);
-    const end = Math.min(totalPages, state.page + 2);
-
-    if (start > 1) {
-      html += `<button class="page-btn" data-page="1">1</button><span>...</span>`;
-    }
-
-    for (let i = start; i <= end; i++) {
-      html += `<button class="page-btn ${i === state.page ? 'active' : ''}" data-page="${i}">${i}</button>`;
-    }
-
-    if (end < totalPages) {
-      html += `<span>...</span><button class="page-btn" data-page="${totalPages}">${totalPages}</button>`;
-    }
-
-    html += `<button class="page-btn" data-page="next" ${state.page === totalPages ? 'disabled' : ''}>Next ›</button>`;
-    pagination.innerHTML = html;
+  if(!state.employee||!state.organization){
+    empHeader.innerHTML='<strong>Error</strong> | Employee context missing';
+    list.innerHTML=`<div class="no-data">Employee / organization context nahi mila.<br><br>Debug: ${esc(JSON.stringify({orgId:state.orgId,orgCode:state.orgCode,empId:state.empId,empCode:state.empCode}))}</div>`;
+    return false;
   }
 
-  function openModal(r) {
-    $('modalDetailContent').innerHTML = detailHtml(r);
+  state.empId=state.employee.id||state.empId;
+  state.empCode=normCode(state.employee.emp_code||state.empCode);
+  state.orgId=state.organization.id||state.orgId;
+  state.orgCode=normCode(state.organization.org_code||state.orgCode);
+  sb=makeClient();
 
-    if (r.type === 'leave' && ['approved', 'admin_approved'].includes(String(r.status || '').toLowerCase()) && r.details?.approval_pdf_ready === true) {
-      $('modalDownloadBtn').innerHTML = `<button class="action-btn" id="modalPdfBtn">📄 Download PDF Certificate</button>`;
-      $('modalPdfBtn').onclick = () => downloadLeavePdf(r.id);
-    } else {
-      $('modalDownloadBtn').innerHTML = '';
-    }
+  localStorage.setItem('org_id',state.orgId||'');localStorage.setItem('org_code',state.orgCode||'');localStorage.setItem('emp_id',state.empId||'');localStorage.setItem('emp_code',state.empCode||'');
+  empHeader.innerHTML=`<strong>${esc(state.employee.full_name||state.employee.name||'Employee')}</strong> | ID: ${esc(state.empCode||'-')} | Dept: ${esc(state.employee.department||'-')}`;
+  return true;
+}
 
-    $('detailModal').style.display = 'flex';
-  }
+function nameFromObject(obj,fallback='-'){if(!obj)return fallback;return pickValue(obj.full_name,obj.employee_name,obj.name,obj.emp_name,obj.fullName,fallback)}
+function codeFromObject(obj,fallback='-'){if(!obj)return fallback;return pickValue(obj.emp_code,obj.employee_code,obj.empCode,fallback)}
+async function fetchEmployeeNameMap(ids){ids=[...new Set((ids||[]).filter(Boolean))];const map=new Map();if(!ids.length)return map;for(let i=0;i<ids.length;i+=80){try{const {data,error}=await sb.from('employees').select('id,full_name,emp_code').in('id',ids.slice(i,i+80));if(error)throw error;(data||[]).forEach(e=>map.set(e.id,{full_name:nameFromObject(e),emp_code:codeFromObject(e)}))}catch(e){addDebug('employee name map failed',e)}}return map}
 
-  async function handoverDecision(id, accept) {
-    const note = accept
-      ? 'Accepted from notification center'
-      : (prompt('Reject reason likhiye:') || 'Rejected from notification center');
-
-    try {
-      await rpcMaybe('app_update_handover_leave_status', {
-        p_org_code: state.orgCode,
-        p_emp_code: state.empCode,
-        p_leave_id: id,
-        p_accept: accept,
-        p_handover_note: note
-      });
-
-      toast(accept ? 'Handover accepted. Admin approval pending.' : 'Handover rejected.');
-      await loadFeed();
-    } catch (error) {
-      console.error('app_update_handover_leave_status error:', error);
-      toast(friendlyError(error), true);
-    }
-  }
-
-  async function shiftSwapDecision(id, accept) {
-    const note = accept
-      ? 'Shift swap approved from notification center'
-      : (prompt('Reject reason likhiye:') || 'Rejected from notification center');
-
-    try {
-      await rpcMaybe('app_partner_respond_shift_swap', {
-        p_request_id: id,
-        p_partner_employee_id: state.employee.id,
-        p_approve: accept,
-        p_note: note
-      });
-
-      toast(accept ? 'Shift swap approved. Admin approval pending.' : 'Shift swap rejected.');
-      await loadFeed();
-    } catch (error) {
-      console.error('app_partner_respond_shift_swap error:', error);
-      toast(friendlyError(error), true);
-    }
-  }
-
-  async function downloadLeavePdf(leaveId) {
-    try {
-      const data = await rpcMaybe('app_get_leave_pdf_data', {
-        p_org_code: state.orgCode,
-        p_emp_code: state.empCode,
-        p_leave_id: leaveId
-      });
-
-      generateLeavePdf(data);
-    } catch (error) {
-      console.error('app_get_leave_pdf_data error:', error);
-      toast(friendlyError(error), true);
-    }
-  }
-
-  function generateLeavePdf(d) {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      toast('PDF library load nahi hui.', true);
-      return;
-    }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    let y = 18;
-
-    doc.setFontSize(18);
-    doc.text(String(d.company_name || 'Company'), 20, y);
-    y += 10;
-
-    doc.setFontSize(14);
-    doc.text('Leave Approval Certificate', 20, y);
-    y += 10;
-
-    doc.setFontSize(10);
-    doc.line(20, y, 190, y);
-    y += 10;
-
-    const rows = [
-      ['Employee Name', d.employee_name],
-      ['Employee ID', d.emp_id || d.emp_code],
-      ['Leave Type', d.leave_type],
-      ['From Date', fmtDate(d.from_date)],
-      ['To Date', fmtDate(d.to_date)],
-      ['Total Days', String(d.total_days || 0)],
-      ['Reason', d.reason || '-'],
-      ['Handover Taken By', `${d.handover_taken_by || '-'} ${d.handover_emp_code ? '(' + d.handover_emp_code + ')' : ''}`],
-      ['Approved By', d.approved_by || '-'],
-      ['Approved At', d.approved_at ? fmtDateTime(d.approved_at) : '-'],
-      ['Admin Note', d.admin_note || '-']
-    ];
-
-    rows.forEach(([k, v]) => {
-      doc.setFont(undefined, 'bold');
-      doc.text(`${k}:`, 20, y);
-      doc.setFont(undefined, 'normal');
-      doc.text(String(v || '-').slice(0, 80), 70, y);
-      y += 8;
-    });
-
-    y += 18;
-    doc.setFontSize(16);
-    doc.text(String(d.digital_sign || 'Admin'), 135, y);
-    y += 7;
-    doc.setFontSize(10);
-    doc.line(125, y, 190, y);
-    y += 6;
-    doc.text('Admin Digital Signature', 135, y);
-
-    doc.save(`Leave_Approval_${d.emp_id || d.emp_code || 'employee'}.pdf`);
-  }
-
-  function resetAndLoad() {
-    state.page = 1;
-    loadFeed();
-  }
-
-  $('filterType').addEventListener('change', resetAndLoad);
-  $('filterStatus').addEventListener('change', resetAndLoad);
-  $('filterDateFrom').addEventListener('change', resetAndLoad);
-  $('filterDateTo').addEventListener('change', resetAndLoad);
-  $('refreshBtn').addEventListener('click', loadFeed);
-
-  $('resetFiltersBtn').addEventListener('click', () => {
-    $('filterType').value = 'all';
-    $('filterStatus').value = 'all';
-    $('filterDateFrom').value = '';
-    $('filterDateTo').value = '';
-    resetAndLoad();
+function mapLeaveRows(rows,employeeNameMap=new Map()){
+  const empId=state.employee?.id;
+  return (rows||[]).flatMap(l=>{
+    const requesterFromMap=employeeNameMap.get(l.employee_id)||{};
+    const handoverFromMap=employeeNameMap.get(l.handover_employee_id)||{};
+    const requesterName=pickValue(l.employee_name,l.requester_name,l.requester_full_name,l.emp_name,l.full_name,l.employee_full_name,l.employee?.full_name,l.employee?.employee_name,l.employee?.name,requesterFromMap.full_name,l.created_by_name,l.updated_by_name,'Unknown Employee');
+    const requesterCode=pickValue(l.emp_code,l.employee_code,l.employee_emp_code,l.requester_emp_code,l.employee?.emp_code,requesterFromMap.emp_code,'-');
+    const handoverName=pickValue(l.handover_name,l.handover_full_name,l.handover_employee_name,l.handover?.full_name,l.handover?.employee_name,handoverFromMap.full_name,'-');
+    const handoverCode=pickValue(l.handover_emp_code,l.handover_employee_code,l.handover?.emp_code,handoverFromMap.emp_code,'-');
+    const base={id:l.id,status:l.status||'pending',request_date:l.from_date||l.created_at,created_at:l.created_at||l.updated_at||new Date().toISOString(),details:{leave_type:l.leave_type,from_date:l.from_date,to_date:l.to_date,total_days:l.total_days,priority:l.priority||'Normal',reason:l.reason||l.employee_note||'-',handover_name:handoverName,handover_emp_code:handoverCode,emp_code:requesterCode,employee_name:requesterName,approval_pdf_ready:['approved','admin_approved'].includes(String(l.status||'').toLowerCase())}};
+    const out=[];
+    if(!empId||l.employee_id===empId) out.push({...base,type:'leave',type_label:'My Leave Request'});
+    if(l.handover_employee_id===empId&&['handover_pending','pending_handover','pending'].includes(String(l.status||'').toLowerCase())) out.push({...base,type:'handover',type_label:'Handover Approval Needed'});
+    return out;
   });
+}
 
-  pagination.addEventListener('click', e => {
-    const btn = e.target.closest('.page-btn');
-    if (!btn || btn.disabled) return;
+function mapShiftRows(rows){const empId=state.employee?.id;return (rows||[]).map(s=>({id:s.id,type:'shift_swap',type_label:(s.partner_employee_id===empId&&String(s.status||'')==='pending_partner')?'Shift Swap Approval Needed':'Shift Swap',status:s.status||'pending',request_date:s.swap_date||s.roster_date||s.created_at,created_at:s.created_at||s.updated_at||new Date().toISOString(),details:{swap_date:s.swap_date||s.roster_date,requester_employee_id:s.requester_employee_id,partner_employee_id:s.partner_employee_id,requester_name:s.requester?.full_name||s.requester_name||'-',requester_emp_code:s.requester?.emp_code||s.requester_emp_code||'-',partner_name:s.partner?.full_name||s.partner_name||'-',partner_emp_code:s.partner?.emp_code||s.partner_emp_code||'-',requester_shift_name:s.requester_shift_name||s.from_shift_name||'-',partner_shift_name:s.partner_shift_name||s.to_shift_name||'-',reason:s.reason||'-',partner_decision_note:s.partner_decision_note||'-',admin_decision_note:s.admin_decision_note||'-',can_partner_action:(s.partner_employee_id===empId&&String(s.status||'')==='pending_partner'),is_requester:(s.requester_employee_id===empId),is_partner:(s.partner_employee_id===empId)}}))}
 
-    const page = btn.dataset.page;
-    const totalPages = Math.ceil(state.total / state.limit);
+async function loadLeaveDirect(){
+  const empId=state.employee?.id, orgId=state.organization?.id; if(!empId||!orgId)return [];
+  let data=[];
+  try{let res=await sb.from('leave_requests').select('*,employee:employee_id(full_name,emp_code),handover:handover_employee_id(full_name,emp_code)').eq('org_id',orgId).or(`employee_id.eq.${empId},handover_employee_id.eq.${empId}`).order('created_at',{ascending:false}).limit(150);if(res.error)throw res.error;data=res.data||[];addDebug('leave joined rows',data.length)}catch(e1){addDebug('leave joined failed',e1);try{let res=await sb.from('leave_requests').select('*').eq('org_id',orgId).or(`employee_id.eq.${empId},handover_employee_id.eq.${empId}`).order('created_at',{ascending:false}).limit(150);if(res.error)throw res.error;data=res.data||[];addDebug('leave plain rows',data.length)}catch(e2){addDebug('leave plain failed',e2);return []}}
+  const ids=[];(data||[]).forEach(l=>{if(l.employee_id)ids.push(l.employee_id);if(l.handover_employee_id)ids.push(l.handover_employee_id)});return mapLeaveRows(data,await fetchEmployeeNameMap(ids));
+}
+async function loadMissPunchDirect(){const empId=state.employee?.id,orgId=state.organization?.id;if(!empId||!orgId)return [];try{const {data,error}=await sb.from('miss_punch_requests').select('*').eq('org_id',orgId).eq('employee_id',empId).order('created_at',{ascending:false}).limit(80);if(error)throw error;addDebug('miss punch rows',(data||[]).length);return (data||[]).map(m=>({id:m.id,type:'misspunch',type_label:'Miss Punch',status:m.status||'pending',request_date:m.attendance_date||m.created_at,created_at:m.created_at||m.updated_at,details:{attendance_date:m.attendance_date,punch_in:m.punch_in||m.requested_punch_in,punch_out:m.punch_out||m.requested_punch_out,reason:m.reason,admin_remark:m.admin_remark||m.admin_note}}))}catch(e){addDebug('miss punch failed',e);return []}}
+async function loadOvertimeDirect(){const empId=state.employee?.id,orgId=state.organization?.id;if(!empId||!orgId)return [];try{const {data,error}=await sb.from('overtime_requests').select('*').eq('org_id',orgId).eq('employee_id',empId).order('created_at',{ascending:false}).limit(80);if(error)throw error;addDebug('overtime rows',(data||[]).length);return (data||[]).map(o=>({id:o.id,type:'overtime',type_label:'Overtime',status:o.status||'pending',request_date:o.ot_date||o.overtime_date||o.created_at,created_at:o.created_at||o.updated_at,details:{overtime_hours:o.overtime_hours||o.extra_hours,overtime_minutes:o.overtime_minutes||o.extra_minutes,reason:o.reason,approved_at:o.approved_at}}))}catch(e){addDebug('overtime failed',e);return []}}
+async function loadAnnouncementsDirect(){const orgId=state.organization?.id;if(!orgId)return [];for(const table of ['announcements','org_announcements','notices']){try{const {data,error}=await sb.from(table).select('*').eq('org_id',orgId).order('created_at',{ascending:false}).limit(80);if(error)throw error;addDebug(table+' rows',(data||[]).length);return (data||[]).map(a=>({id:a.id,type:'announcement',type_label:'Announcement',status:'info',request_date:a.notice_date||a.announcement_date||a.created_at,created_at:a.created_at,details:{title:a.title||a.subject||'Company Announcement',message:a.message||a.description||a.body||'-',audience:a.audience||'all',department:a.department||'-'}}))}catch(e){addDebug(table+' failed',e)}}return []}
+async function loadShiftSwapDirect(){const empId=state.employee?.id,orgId=state.organization?.id;if(!empId||!orgId)return [];let data=[];try{const {data:d,error}=await sb.from('shift_swap_requests').select('*,requester:requester_employee_id(full_name,emp_code),partner:partner_employee_id(full_name,emp_code)').eq('org_id',orgId).or(`requester_employee_id.eq.${empId},partner_employee_id.eq.${empId}`).order('created_at',{ascending:false}).limit(80);if(error)throw error;data=d||[];addDebug('shift swap joined rows',data.length)}catch(e1){addDebug('shift swap joined failed',e1);try{const {data:d,error}=await sb.from('shift_swap_requests').select('*').eq('org_id',orgId).or(`requester_employee_id.eq.${empId},partner_employee_id.eq.${empId}`).order('created_at',{ascending:false}).limit(80);if(error)throw error;data=d||[];addDebug('shift swap plain rows',data.length)}catch(e2){addDebug('shift swap plain failed',e2);return []}}return mapShiftRows(data)}
 
-    if (page === 'prev' && state.page > 1) state.page--;
-    else if (page === 'next' && state.page < totalPages) state.page++;
-    else if (!isNaN(Number(page))) state.page = Number(page);
-
-    loadFeed();
+function normalizeRpcRows(items){
+  return (items||[]).map(r=>{
+    if(r.type&&r.details)return r;
+    const type=r.type||r.request_type||r.notification_type||'info';
+    return {id:r.id||r.request_id||crypto.randomUUID(),type,type_label:r.type_label||r.title||type,status:r.status||'pending',request_date:r.request_date||r.date||r.created_at,created_at:r.created_at||r.updated_at||new Date().toISOString(),details:r.details||r};
   });
+}
+function mergeRows(){const map=new Map();Array.from(arguments).flat().forEach(r=>{if(!r||!r.id||!r.type)return;map.set(`${r.type}:${r.id}`,r)});return [...map.values()].sort((a,b)=>new Date(b.created_at||b.request_date)-new Date(a.created_at||a.request_date))}
+function applyClientFilters(rows){const type=$('filterType').value||'all',status=$('filterStatus').value||'all',from=$('filterDateFrom').value||'',to=$('filterDateTo').value||'';return (rows||[]).filter(r=>{const rd=String(r.request_date||'').slice(0,10);if(type!=='all'&&r.type!==type)return false;if(from&&rd<from)return false;if(to&&rd>to)return false;if(!statusFilterMatch(r.status,status))return false;return true})}
+function countRows(rows){const counts={pending:0,approved:0,rejected:0,info:0};(rows||[]).forEach(r=>{const n=normalStatus(r.status).toLowerCase();if(n==='pending')counts.pending++;else if(n==='approved')counts.approved++;else if(n==='rejected')counts.rejected++;else if(n==='info')counts.info++});return counts}
 
-  list.addEventListener('click', e => {
-    const actionBtn = e.target.closest('[data-action]');
+async function loadRpcFeed(offset){
+  const variants=[
+    {p_org_id:state.orgId||null,p_employee_id:state.empId||null,p_org_code:state.orgCode||null,p_emp_code:state.empCode||null,p_type:$('filterType').value||'all',p_status:$('filterStatus').value||'all',p_from_date:$('filterDateFrom').value||null,p_to_date:$('filterDateTo').value||null,p_limit:state.limit,p_offset:offset},
+    {p_org_code:state.orgCode||null,p_emp_code:state.empCode||null,p_type:$('filterType').value||'all',p_status:$('filterStatus').value||'all',p_from_date:$('filterDateFrom').value||null,p_to_date:$('filterDateTo').value||null,p_limit:state.limit,p_offset:offset},
+    {p_org_id:state.orgId||null,p_employee_id:state.empId||null,p_type:$('filterType').value||'all',p_status:$('filterStatus').value||'all',p_from_date:$('filterDateFrom').value||null,p_to_date:$('filterDateTo').value||null,p_limit:state.limit,p_offset:offset}
+  ];
+  for(const args of variants){try{const data=await rpcMaybe('app_get_employee_notification_feed',args);addDebug('notification RPC ok',data);return {rows:normalizeRpcRows(data?.items||data?.rows||data||[]),total:Number(data?.total||0),counts:data?.counts||null}}catch(e){addDebug('notification RPC failed',e)}}
+  return {rows:[],total:0,counts:null};
+}
 
-    if (actionBtn) {
-      e.stopPropagation();
+async function loadFeed(){
+  if(state.loading)return;state.loading=true;state.debug=[];list.innerHTML='<div class="no-data">Loading...</div>';pagination.innerHTML='';
+  try{
+    const offset=(state.page-1)*state.limit;
+    const rpc=await loadRpcFeed(offset);
+    const [leaveRows,shiftRows,missRows,otRows,announcementRows]=await Promise.all([loadLeaveDirect(),loadShiftSwapDirect(),loadMissPunchDirect(),loadOvertimeDirect(),loadAnnouncementsDirect()]);
+    const merged=applyClientFilters(mergeRows(rpc.rows,leaveRows,shiftRows,missRows,otRows,announcementRows));
+    state.total=Math.max(Number(rpc.total||0),merged.length);
+    state.rows=merged.slice(offset,offset+state.limit);
+    state.counts=rpc.counts||countRows(merged);
+    renderSummary();renderRequests();renderPagination();
+    if(!merged.length){console.table(state.debug);}
+  }catch(error){console.error('loadFeed final error:',error);list.innerHTML=`<div class="no-data">${esc(friendlyError(error))}</div>`;pagination.innerHTML=''}finally{state.loading=false}
+}
 
-      const id = actionBtn.dataset.id;
-      const action = actionBtn.dataset.action;
-
-      if (action === 'accept') return handoverDecision(id, true);
-      if (action === 'reject') return handoverDecision(id, false);
-      if (action === 'shift_accept') return shiftSwapDecision(id, true);
-      if (action === 'shift_reject') return shiftSwapDecision(id, false);
-      if (action === 'pdf') return downloadLeavePdf(id);
-    }
-
-    const card = e.target.closest('[data-open]');
-    if (!card) return;
-
-    const key = card.dataset.open;
-    const row = state.rows.find(x => `${x.type}:${x.id}` === key);
-    if (row) openModal(row);
-  });
-
-  document.querySelectorAll('.close-modal').forEach(el => {
-    el.addEventListener('click', () => {
-      $(el.getAttribute('data-modal')).style.display = 'none';
-    });
-  });
-
-  window.addEventListener('click', e => {
-    if (e.target.classList.contains('modal')) {
-      e.target.style.display = 'none';
-    }
-  });
-
-  $('backNotifyBtn').addEventListener('click', () => {
-    if (history.length > 1) history.back();
-    else location.href = state.returnPage || 'emp.html';
-  });
-
-  async function init() {
-    const ok = await loadEmployee();
-    if (ok) await loadFeed();
-  }
-
-  init();
+function shortLine(r){const d=r.details||{};if(r.type==='handover')return `👤 ${esc(d.employee_name||'Unknown Employee')} (${esc(d.emp_code||'-')}) ne handover request bheja hai | ${esc(d.leave_type||'-')} | ${fmtDate(d.from_date)} → ${fmtDate(d.to_date)}`;if(r.type==='leave')return `📌 ${esc(d.leave_type||'-')} | ${fmtDate(d.from_date)} → ${fmtDate(d.to_date)} | ${Number(d.total_days||0)} day(s)`;if(r.type==='overtime')return `⏱️ ${Number(d.overtime_hours||d.extra_hours||0)} hrs | ${esc(d.reason||'-')}`;if(r.type==='misspunch')return `⏰ Miss Punch | ${fmtDate(d.attendance_date)} | In: ${d.punch_in?fmtDateTime(d.punch_in):'--'} | Out: ${d.punch_out?fmtDateTime(d.punch_out):'--'}`;if(r.type==='announcement')return `📢 ${esc(d.title||'Company Announcement')} — ${esc(d.message||'-')}`;if(r.type==='shift_swap')return `🔄 ${esc(d.requester_name||'-')} (${esc(d.requester_emp_code||'-')}) ↔ ${esc(d.partner_name||'-')} (${esc(d.partner_emp_code||'-')}) | Date: ${fmtDate(d.swap_date)} | ${esc(d.requester_shift_name||'-')} ⇄ ${esc(d.partner_shift_name||'-')}`;return esc(r.type_label||r.type)}
+function detailHtml(r){const d=r.details||{};let html=`<div class="detail-row"><strong>Type:</strong> ${esc(r.type_label||r.type)}</div><div class="detail-row"><strong>Status:</strong> ${esc(normalStatus(r.status))}</div><div class="detail-row"><strong>Date:</strong> ${fmtDate(r.request_date)}</div><div class="detail-row"><strong>Created:</strong> ${fmtDateTime(r.created_at)}</div>`;if(r.type==='handover')html+=`<div class="detail-row"><strong>Employee:</strong> ${esc(d.employee_name||'Unknown Employee')} (${esc(d.emp_code||'-')})</div><div class="detail-row"><strong>Leave:</strong> ${esc(d.leave_type||'-')} | ${fmtDate(d.from_date)} → ${fmtDate(d.to_date)}</div><div class="detail-row"><strong>Total Days:</strong> ${Number(d.total_days||0)}</div><div class="detail-row"><strong>Reason:</strong> ${esc(d.reason||'-')}</div>`;if(r.type==='leave')html+=`<div class="detail-row"><strong>Leave Type:</strong> ${esc(d.leave_type||'-')}</div><div class="detail-row"><strong>From:</strong> ${fmtDate(d.from_date)} <strong>To:</strong> ${fmtDate(d.to_date)}</div><div class="detail-row"><strong>Total Days:</strong> ${Number(d.total_days||0)}</div><div class="detail-row"><strong>Reason:</strong> ${esc(d.reason||'-')}</div><div class="detail-row"><strong>Handover:</strong> ${esc(d.handover_name||'-')}</div>`;if(r.type==='overtime')html+=`<div class="detail-row"><strong>Overtime:</strong> ${Number(d.overtime_hours||d.extra_hours||0)} hours</div><div class="detail-row"><strong>Minutes:</strong> ${Number(d.overtime_minutes||0)}</div><div class="detail-row"><strong>Reason:</strong> ${esc(d.reason||'-')}</div><div class="detail-row"><strong>Approved At:</strong> ${d.approved_at?fmtDateTime(d.approved_at):'-'}</div>`;if(r.type==='misspunch')html+=`<div class="detail-row"><strong>Attendance Date:</strong> ${fmtDate(d.attendance_date)}</div><div class="detail-row"><strong>Punch In:</strong> ${d.punch_in?fmtDateTime(d.punch_in):'--'}</div><div class="detail-row"><strong>Punch Out:</strong> ${d.punch_out?fmtDateTime(d.punch_out):'--'}</div><div class="detail-row"><strong>Reason:</strong> ${esc(d.reason||'-')}</div><div class="detail-row"><strong>Admin Note:</strong> ${esc(d.admin_remark||d.admin_note||'-')}</div>`;if(r.type==='announcement')html+=`<div class="detail-row"><strong>Title:</strong> ${esc(d.title||'-')}</div><div class="detail-row"><strong>Message:</strong> ${esc(d.message||'-')}</div><div class="detail-row"><strong>Audience:</strong> ${esc(d.audience||'-')}</div><div class="detail-row"><strong>Department:</strong> ${esc(d.department||'-')}</div>`;if(r.type==='shift_swap')html+=`<div class="detail-row"><strong>Swap Date:</strong> ${fmtDate(d.swap_date)}</div><div class="detail-row"><strong>Requester:</strong> ${esc(d.requester_name||'-')} (${esc(d.requester_emp_code||'-')})</div><div class="detail-row"><strong>Partner:</strong> ${esc(d.partner_name||'-')} (${esc(d.partner_emp_code||'-')})</div><div class="detail-row"><strong>Requester Shift:</strong> ${esc(d.requester_shift_name||'-')}</div><div class="detail-row"><strong>Partner Shift:</strong> ${esc(d.partner_shift_name||'-')}</div><div class="detail-row"><strong>Reason:</strong> ${esc(d.reason||'-')}</div><div class="detail-row"><strong>Partner Note:</strong> ${esc(d.partner_decision_note||'-')}</div><div class="detail-row"><strong>Admin Note:</strong> ${esc(d.admin_decision_note||'-')}</div>`;return html}
+function renderSummary(){$('sumTotal').textContent=state.total;$('sumPending').textContent=Number(state.counts.pending||0);$('sumApproved').textContent=Number(state.counts.approved||0);$('sumRejected').textContent=Number(state.counts.rejected||0);$('sumInfo').textContent=Number(state.counts.info||0)}
+function renderRequests(){if(!state.rows.length){list.innerHTML='<div class="no-data">📭 No data found.<br><br><small>Console me [NOTIFY DEBUG] check karo. Agar tables RLS se block hain to SECURITY DEFINER RPC create/update karna hoga.</small></div>';return}list.innerHTML=state.rows.map(r=>{const status=normalStatus(r.status),rawStatus=String(r.status||'').toLowerCase();const handoverBtns=r.type==='handover'&&['handover_pending','pending_handover','pending'].includes(rawStatus)?`<button class="action-btn" data-action="accept" data-id="${attr(r.id)}">✅ Accept</button><button class="action-btn danger" data-action="reject" data-id="${attr(r.id)}">❌ Reject</button>`:'';const pdfBtn=r.type==='leave'&&['approved','admin_approved'].includes(rawStatus)&&r.details?.approval_pdf_ready===true?`<button class="action-btn" data-action="pdf" data-id="${attr(r.id)}">📄 Download PDF</button>`:'';const shiftSwapBtns=r.type==='shift_swap'&&rawStatus==='pending_partner'&&r.details?.can_partner_action===true?`<button class="action-btn" data-action="shift_accept" data-id="${attr(r.id)}">✅ Approve Swap</button><button class="action-btn danger" data-action="shift_reject" data-id="${attr(r.id)}">❌ Reject Swap</button>`:'';return `<div class="request-card" data-open="${attr(r.type)}:${attr(r.id)}"><div class="req-header"><span class="req-type">${esc(r.type_label||r.type)}</span><span class="req-status ${statusClass(r.status)}">${esc(status)}</span></div><div class="req-details"><span>📅 ${fmtDate(r.request_date)}</span><span>🕒 ${fmtDateTime(r.created_at)}</span></div><div class="req-details">${shortLine(r)}</div><div class="req-date">Click card for full details</div>${handoverBtns}${shiftSwapBtns}${pdfBtn}</div>`}).join('')}
+function renderPagination(){const totalPages=Math.ceil(state.total/state.limit);if(totalPages<=1){pagination.innerHTML='';return}let html=`<button class="page-btn" data-page="prev" ${state.page===1?'disabled':''}>‹ Prev</button>`;const start=Math.max(1,state.page-2),end=Math.min(totalPages,state.page+2);if(start>1)html+=`<button class="page-btn" data-page="1">1</button><span>...</span>`;for(let i=start;i<=end;i++)html+=`<button class="page-btn ${i===state.page?'active':''}" data-page="${i}">${i}</button>`;if(end<totalPages)html+=`<span>...</span><button class="page-btn" data-page="${totalPages}">${totalPages}</button>`;html+=`<button class="page-btn" data-page="next" ${state.page===totalPages?'disabled':''}>Next ›</button>`;pagination.innerHTML=html}
+function openModal(r){$('modalDetailContent').innerHTML=detailHtml(r);if(r.type==='leave'&&['approved','admin_approved'].includes(String(r.status||'').toLowerCase())&&r.details?.approval_pdf_ready===true){$('modalDownloadBtn').innerHTML=`<button class="action-btn" id="modalPdfBtn">📄 Download PDF Certificate</button>`;$('modalPdfBtn').onclick=()=>downloadLeavePdf(r.id)}else $('modalDownloadBtn').innerHTML='';$('detailModal').style.display='flex'}
+async function handoverDecision(id,accept){const note=accept?'Accepted from notification center':(prompt('Reject reason likhiye:')||'Rejected from notification center');try{await rpcMaybe('app_update_handover_leave_status',{p_org_code:state.orgCode,p_emp_code:state.empCode,p_leave_id:id,p_accept:accept,p_handover_note:note});toast(accept?'Handover accepted. Admin approval pending.':'Handover rejected.');await loadFeed()}catch(error){console.error('app_update_handover_leave_status error:',error);toast(friendlyError(error),true)}}
+async function shiftSwapDecision(id,accept){const note=accept?'Shift swap approved from notification center':(prompt('Reject reason likhiye:')||'Rejected from notification center');try{await rpcMaybe('app_partner_respond_shift_swap',{p_request_id:id,p_partner_employee_id:state.employee.id,p_approve:accept,p_note:note});toast(accept?'Shift swap approved. Admin approval pending.':'Shift swap rejected.');await loadFeed()}catch(error){console.error('app_partner_respond_shift_swap error:',error);toast(friendlyError(error),true)}}
+async function downloadLeavePdf(leaveId){try{const data=await rpcMaybe('app_get_leave_pdf_data',{p_org_code:state.orgCode,p_emp_code:state.empCode,p_leave_id:leaveId});generateLeavePdf(data)}catch(error){console.error('app_get_leave_pdf_data error:',error);toast(friendlyError(error),true)}}
+function generateLeavePdf(d){if(!window.jspdf||!window.jspdf.jsPDF){toast('PDF library load nahi hui.',true);return}const{jsPDF}=window.jspdf;const doc=new jsPDF();let y=18;doc.setFontSize(18);doc.text(String(d.company_name||'Company'),20,y);y+=10;doc.setFontSize(14);doc.text('Leave Approval Certificate',20,y);y+=10;doc.setFontSize(10);doc.line(20,y,190,y);y+=10;[['Employee Name',d.employee_name],['Employee ID',d.emp_id||d.emp_code],['Leave Type',d.leave_type],['From Date',fmtDate(d.from_date)],['To Date',fmtDate(d.to_date)],['Total Days',String(d.total_days||0)],['Reason',d.reason||'-'],['Handover Taken By',`${d.handover_taken_by||'-'} ${d.handover_emp_code?'('+d.handover_emp_code+')':''}`],['Approved By',d.approved_by||'-'],['Approved At',d.approved_at?fmtDateTime(d.approved_at):'-'],['Admin Note',d.admin_note||'-']].forEach(([k,v])=>{doc.setFont(undefined,'bold');doc.text(`${k}:`,20,y);doc.setFont(undefined,'normal');doc.text(String(v||'-').slice(0,80),70,y);y+=8});y+=18;doc.setFontSize(16);doc.text(String(d.digital_sign||'Admin'),135,y);y+=7;doc.setFontSize(10);doc.line(125,y,190,y);y+=6;doc.text('Admin Digital Signature',135,y);doc.save(`Leave_Approval_${d.emp_id||d.emp_code||'employee'}.pdf`)}
+function resetAndLoad(){state.page=1;loadFeed()}
+$('filterType').addEventListener('change',resetAndLoad);$('filterStatus').addEventListener('change',resetAndLoad);$('filterDateFrom').addEventListener('change',resetAndLoad);$('filterDateTo').addEventListener('change',resetAndLoad);$('refreshBtn').addEventListener('click',loadFeed);$('resetFiltersBtn').addEventListener('click',()=>{$('filterType').value='all';$('filterStatus').value='all';$('filterDateFrom').value='';$('filterDateTo').value='';resetAndLoad()});
+pagination.addEventListener('click',e=>{const btn=e.target.closest('.page-btn');if(!btn||btn.disabled)return;const page=btn.dataset.page,totalPages=Math.ceil(state.total/state.limit);if(page==='prev'&&state.page>1)state.page--;else if(page==='next'&&state.page<totalPages)state.page++;else if(!isNaN(Number(page)))state.page=Number(page);loadFeed()});
+list.addEventListener('click',e=>{const actionBtn=e.target.closest('[data-action]');if(actionBtn){e.stopPropagation();const id=actionBtn.dataset.id,action=actionBtn.dataset.action;if(action==='accept')return handoverDecision(id,true);if(action==='reject')return handoverDecision(id,false);if(action==='shift_accept')return shiftSwapDecision(id,true);if(action==='shift_reject')return shiftSwapDecision(id,false);if(action==='pdf')return downloadLeavePdf(id)}const card=e.target.closest('[data-open]');if(!card)return;const key=card.dataset.open;const row=state.rows.find(x=>`${x.type}:${x.id}`===key);if(row)openModal(row)});
+document.querySelectorAll('.close-modal').forEach(el=>el.addEventListener('click',()=>{$(el.getAttribute('data-modal')).style.display='none'}));window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))e.target.style.display='none'});$('backNotifyBtn').addEventListener('click',()=>{if(history.length>1)history.back();else location.href=state.returnPage||'emp.html'});
+(async function init(){const ok=await loadEmployee();if(ok)await loadFeed()})();
 })();
 </script>
-
 </body>
 </html>
