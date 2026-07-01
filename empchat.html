@@ -301,7 +301,7 @@ function subscribeRealtime(){
       const row=payload.new||payload.old||{};
       if(String(row.conversation_id)!==String(convId))return;
       if(String(row.employee_id)===String(state.me.id))return;
-      const fresh=row.updated_at && (Date.now()-new Date(row.updated_at).getTime()<5000);
+      const fresh=row.updated_at && (Date.now()-new Date(row.updated_at).getTime()<2000);
       setTypingText(row.is_typing&&fresh?'Typing...':'');
     })
     .subscribe();
@@ -582,12 +582,12 @@ function getMessagesForRender(){
   const now=Date.now();
   state.localEchoes=(state.localEchoes||[]).filter(e=>{
     if(String(e.conversation_id)!==String(state.current?.conversation_id))return false;
-    const tooOld=now-new Date(e.created_at).getTime()>45000;
+    const tooOld=now-new Date(e.created_at).getTime()>42000;
     const matched=server.some(m=>
       String(m.sender_employee_id)===String(e.sender_employee_id) &&
       normalizeMsgText(m.message_text)===normalizeMsgText(e.message_text) &&
       String(m.media_type||'')===String(e.media_type||'') &&
-      Math.abs(new Date(m.created_at).getTime()-new Date(e.created_at).getTime())<45000
+      Math.abs(new Date(m.created_at).getTime()-new Date(e.created_at).getTime())<42000
     );
     return !tooOld && !matched;
   });
