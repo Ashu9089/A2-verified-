@@ -149,7 +149,7 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 
-let state={org:null,me:null,contacts:[],current:null,messages:[],localEchoes:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0};
+let state={org:null,me:null,contacts:[],current:null,messages:[],localEchoes:[],pendingMedia:null,pendingDeleteMsgId:null,searchTerm:'',messageChannel:null,typingChannel:null,typingTimer:null,refreshTimer:null,presenceTimer:null,reconnectTimer:null,realtimeStatus:'closed',typingRealtimeStatus:'closed',lastRealtimeReconnectAt:0,forceScrollBottom:false,lastMessageErrorAt:0,loadMessagesRunning:false,loadContactsRunning:false,lastContactsErrorAt:0,lastContactsLoadAt:0,lastMessagesLoadAt:0};
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]))}
 function toast(msg,err=false){let old=document.querySelector('.toast');if(old)old.remove();const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
@@ -279,33 +279,97 @@ function bindTypingInput(){
   });
   input.addEventListener('blur',()=>setMyTyping(false));
 }
+function safeRemoveChannel(ch){
+  try{ if(ch) sb.removeChannel(ch); }catch(e){ console.warn('remove channel skipped:',e); }
+}
 function unsubscribeRealtime(){
-  if(state.messageChannel){sb.removeChannel(state.messageChannel);state.messageChannel=null}
-  if(state.typingChannel){sb.removeChannel(state.typingChannel);state.typingChannel=null}
+  safeRemoveChannel(state.messageChannel);state.messageChannel=null;
+  safeRemoveChannel(state.typingChannel);state.typingChannel=null;
+  state.realtimeStatus='closed';
+  state.typingRealtimeStatus='closed';
   setTypingText('');
 }
-function subscribeRealtime(){
+function scheduleRealtimeReconnect(reason='reconnect'){
   if(!state.current?.conversation_id)return;
-  unsubscribeRealtime();
+  clearTimeout(state.reconnectTimer);
+  const now=Date.now();
+  const delay = now-state.lastRealtimeReconnectAt<1500 ? 1500 : 500;
+  state.reconnectTimer=setTimeout(()=>{
+    if(!state.current?.conversation_id)return;
+    state.lastRealtimeReconnectAt=Date.now();
+    console.warn('Realtime reconnect:',reason);
+    subscribeRealtime(true);
+  },delay);
+}
+function subscribeRealtime(isReconnect=false){
+  if(!state.current?.conversation_id)return;
   const convId=state.current.conversation_id;
-  state.messageChannel=sb.channel('emp-chat-messages-'+convId)
+
+  safeRemoveChannel(state.messageChannel);state.messageChannel=null;
+  safeRemoveChannel(state.typingChannel);state.typingChannel=null;
+  state.realtimeStatus='connecting';
+  state.typingRealtimeStatus='connecting';
+
+  state.messageChannel=sb.channel('emp-chat-messages-'+convId+'-'+Date.now())
     .on('postgres_changes',{event:'*',schema:'public',table:'chat_messages',filter:`conversation_id=eq.${convId}`},async()=>{
       if(state.current?.conversation_id===convId){
+        state.forceScrollBottom=true;
         await loadMessages(false).catch(()=>{});
-        await loadContacts().catch(()=>{});
+        if(Date.now()-state.lastContactsLoadAt>1200) await loadContacts().catch(()=>{});
       }
     })
-    .subscribe();
-  state.typingChannel=sb.channel('emp-chat-typing-'+convId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'chat_message_deletions'},async()=>{
+      if(state.current?.conversation_id===convId){
+        await loadMessages(false).catch(()=>{});
+      }
+    })
+    .subscribe((status)=>{
+      state.realtimeStatus=status;
+      console.log('Message realtime status:',status);
+      if(status==='SUBSCRIBED'){
+        state.lastRealtimeReconnectAt=Date.now();
+        state.forceScrollBottom=true;
+        loadMessages(false).catch(()=>{});
+      }
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        scheduleRealtimeReconnect(status);
+      }
+    });
+
+  state.typingChannel=sb.channel('emp-chat-typing-'+convId+'-'+Date.now())
     .on('postgres_changes',{event:'*',schema:'public',table:'chat_typing_status',filter:`conversation_id=eq.${convId}`},payload=>{
       const row=payload.new||payload.old||{};
       if(String(row.conversation_id)!==String(convId))return;
       if(String(row.employee_id)===String(state.me.id))return;
-      const fresh=row.updated_at && (Date.now()-new Date(row.updated_at).getTime()<2000);
+      const fresh=row.updated_at && (Date.now()-new Date(row.updated_at).getTime()<5000);
       setTypingText(row.is_typing&&fresh?'Typing...':'');
+      if(row.is_typing&&fresh){
+        setTimeout(()=>{
+          const el=$('typingIndicator');
+          if(el&&el.textContent==='Typing...')setTypingText('');
+        },5200);
+      }
     })
-    .subscribe();
+    .subscribe((status)=>{
+      state.typingRealtimeStatus=status;
+      console.log('Typing realtime status:',status);
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        scheduleRealtimeReconnect('typing-'+status);
+      }
+    });
+
+  if(isReconnect){
+    state.forceScrollBottom=true;
+    loadMessages(false).catch(()=>{});
+  }
 }
+function ensureRealtimeHealthy(){
+  if(!state.current?.conversation_id)return;
+  if(!state.messageChannel || !['SUBSCRIBED','connecting'].includes(String(state.realtimeStatus))){
+    scheduleRealtimeReconnect('health-check');
+  }
+}
+
 
 
 async function init(){
@@ -315,6 +379,7 @@ async function init(){
   $('meBox').innerHTML=`Me: <strong>${esc(state.me.full_name)}</strong> (${esc(state.me.emp_code)})`;
   try{ await rpc('chat_touch_presence',{p_org_id:state.org.id,p_employee_id:state.me.id}); }catch(e){}
   await loadContacts();
+  startBackgroundTimers();
 }
 async function loadContacts(){
   if(state.loadContactsRunning)return;
@@ -358,6 +423,7 @@ async function loadContacts(){
   });
 
   state.contacts = [...map.values()];
+  state.lastContactsLoadAt=Date.now();
   renderContacts();
   }catch(e){
     console.warn('loadContacts skipped/failed:',e);
@@ -664,6 +730,7 @@ async function loadMessages(refreshContacts=true){
   }
 
   renderMessages();
+  state.lastMessagesLoadAt=Date.now();
   if(refreshContacts) await loadContacts();
   state.loadMessagesRunning=false;
 }
@@ -758,7 +825,8 @@ async function sendMessage(){
 
     // Supabase commit/read race avoid karne ke liye short delay ke baad server se refresh.
     await waitForMessageLoadFree();
-    await wait(350);
+    subscribeRealtime(true);
+    await wait(80);
     state.forceScrollBottom=true;
     await loadMessages(false);
     await loadContacts();
@@ -973,23 +1041,67 @@ if($('deleteModal')){
   },{passive:false});
 }
 
-init().catch(e=>{toast(e.message,true);$('contactsList').innerHTML='<div style="padding:2rem;color:#b91c1c">'+esc(e.message)+'</div>'});
-state.refreshTimer=setInterval(()=>{
-  if(state.org&&state.me){
-    rpc('chat_touch_presence',{
-      p_org_id:state.org.id,
-      p_employee_id:state.me.id
-    }).catch(()=>{});
+function startBackgroundTimers(){
+  if(state.refreshTimer)clearInterval(state.refreshTimer);
+  if(state.presenceTimer)clearInterval(state.presenceTimer);
+
+  // Fast fallback polling: realtime fail/disconnect hone par bhi receiver ko message miss nahi hoga.
+  state.refreshTimer=setInterval(()=>{
+    if(!state.org||!state.me)return;
+
+    ensureRealtimeHealthy();
+
+    if(state.current?.conversation_id){
+      loadMessages(false).catch(()=>{});
+    }
+
+    // Contacts/list count ko messages se thoda slow rakha gaya hai, load kam rahega.
+    if(Date.now()-state.lastContactsLoadAt>5000){
+      loadContacts().catch(()=>{});
+    }
+  },2000);
+
+  // Presence 2 sec par chalane se DB load badhta tha. 12 sec enough hai.
+  state.presenceTimer=setInterval(()=>{
+    if(state.org&&state.me){
+      rpc('chat_touch_presence',{
+        p_org_id:state.org.id,
+        p_employee_id:state.me.id
+      }).catch(()=>{});
+    }
+  },12000);
+}
+
+window.addEventListener('online',()=>{
+  if(state.current?.conversation_id){
+    subscribeRealtime(true);
+    state.forceScrollBottom=true;
+    loadMessages(false).catch(()=>{});
+    loadContacts().catch(()=>{});
   }
-
-  loadContacts().catch(()=>{});
-
-  // Realtime active hai to har 2 second reload karna duplicate race create karta tha.
-  // Fallback polling sirf tab chalega jab realtime channel available/subscribed na ho.
-  if(state.current?.conversation_id && !state.messageChannel){
+});
+window.addEventListener('focus',()=>{
+  if(state.current?.conversation_id){
+    ensureRealtimeHealthy();
+    state.forceScrollBottom=true;
     loadMessages(false).catch(()=>{});
   }
-},2000);
+});
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && state.current?.conversation_id){
+    subscribeRealtime(true);
+    state.forceScrollBottom=true;
+    loadMessages(false).catch(()=>{});
+    loadContacts().catch(()=>{});
+  }
+});
+window.addEventListener('beforeunload',()=>{
+  try{unsubscribeRealtime()}catch(e){}
+  try{if(state.refreshTimer)clearInterval(state.refreshTimer)}catch(e){}
+  try{if(state.presenceTimer)clearInterval(state.presenceTimer)}catch(e){}
+});
+
+init().catch(e=>{toast(e.message,true);$('contactsList').innerHTML='<div style="padding:2rem;color:#b91c1c">'+esc(e.message)+'</div>'});
 </script>
 </body>
 </html>
